@@ -9,7 +9,8 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import "./LPHedgingLib.sol";
+
+import "../interfaces/hedgil/IHedgilV1.sol";
 import "../interfaces/uni/IUniswapV2Router02.sol";
 import "../interfaces/uni/IUniswapV2Factory.sol";
 import "../interfaces/uni/IUniswapV2Pair.sol";
@@ -18,6 +19,14 @@ import "../interfaces/IMasterChef.sol";
 import {UniswapV2Library} from "./libraries/UniswapV2Library.sol";
 
 import {VaultAPI} from "@yearnvaults/contracts/BaseStrategy.sol";
+
+interface IERC20Extended is IERC20 {
+    function decimals() external view returns (uint8);
+
+    function name() external view returns (string memory);
+
+    function symbol() external view returns (string memory);
+}
 
 interface ProviderStrategy {
     function vault() external view returns (VaultAPI);
@@ -55,12 +64,14 @@ abstract contract Joint {
     uint256 private investedA;
     uint256 private investedB;
 
-    uint256 private activeCallID;
-    uint256 private activePutID;
+    IHedgilV1 public hedgil;
+
+    uint256 public activeHedgeID;
+    uint256 public hedgeBudget = 50; // 0.5%
 
     uint256 private h = 1_000; // 10%
-    uint256 private period = 10 days;
-    
+    uint256 private period = 7 days; // weekly epochs
+
     modifier onlyGovernance {
         require(
             msg.sender == providerA.vault().governance() ||
@@ -93,7 +104,8 @@ abstract contract Joint {
         address _weth,
         address _masterchef,
         address _reward,
-        uint256 _pid
+        uint256 _pid,
+        address _hedgil
     ) public {
         _initialize(
             _providerA,
@@ -102,7 +114,8 @@ abstract contract Joint {
             _weth,
             _masterchef,
             _reward,
-            _pid
+            _pid,
+            _hedgil
         );
     }
 
@@ -113,7 +126,8 @@ abstract contract Joint {
         address _weth,
         address _masterchef,
         address _reward,
-        uint256 _pid
+        uint256 _pid,
+        address _hedgil
     ) external {
         _initialize(
             _providerA,
@@ -122,7 +136,8 @@ abstract contract Joint {
             _weth,
             _masterchef,
             _reward,
-            _pid
+            _pid,
+            _hedgil
         );
     }
 
@@ -133,7 +148,8 @@ abstract contract Joint {
         address _weth,
         address _masterchef,
         address _reward,
-        uint256 _pid
+        uint256 _pid,
+        address _hedgil
     ) internal {
         require(address(providerA) == address(0), "Joint already initialized");
         providerA = ProviderStrategy(_providerA);
@@ -149,11 +165,21 @@ abstract contract Joint {
 
         pair = IUniswapV2Pair(getPair());
 
-        IERC20(address(pair)).approve(address(masterchef), type(uint256).max);
         IERC20(tokenA).approve(address(router), type(uint256).max);
         IERC20(tokenB).approve(address(router), type(uint256).max);
         IERC20(reward).approve(address(router), type(uint256).max);
         IERC20(address(pair)).approve(address(router), type(uint256).max);
+        IERC20(address(pair)).approve(address(masterchef), type(uint256).max);
+
+        // HEDGIL
+        // NOTE: tokenB will always be used as quoteToken (to pay hedges)
+        hedgil = IHedgilV1(_hedgil);
+        require(tokenB == address(hedgil.quoteToken()), "!hedgil setup");
+        IERC20(tokenB).approve(address(hedgil), type(uint256).max);
+
+        hedgeBudget = 100; // 0.5%
+        h = 1_500; // 15%
+        period = 7 days; // weekly epochs
     }
 
     event Cloned(address indexed clone);
@@ -165,7 +191,8 @@ abstract contract Joint {
         address _weth,
         address _masterchef,
         address _reward,
-        uint256 _pid
+        uint256 _pid,
+        address _hedgil
     ) external returns (address newJoint) {
         bytes20 addressBytes = bytes20(address(this));
 
@@ -191,10 +218,25 @@ abstract contract Joint {
             _weth,
             _masterchef,
             _reward,
-            _pid
+            _pid,
+            _hedgil
         );
 
         emit Cloned(newJoint);
+    }
+
+    function setHedgeBudget(uint256 _hedgeBudget) external onlyAuthorized {
+        require(_hedgeBudget < RATIO_PRECISION);
+        hedgeBudget = _hedgeBudget;
+    }
+
+    function setHedgingPeriod(uint256 _period) external onlyAuthorized {
+        period = _period;
+    }
+
+    function setProtectionRange(uint256 _h) external onlyAuthorized {
+        require(_h < RATIO_PRECISION);
+        h = _h;
     }
 
     function name() external view virtual returns (string memory) {}
@@ -273,7 +315,10 @@ abstract contract Joint {
         ); // don't create LP if we are already invested
 
         (investedA, investedB, ) = createLP();
-        hedgeLP();
+        if (hedgeBudget > 0) {
+            // NOTE: if not enough hedgeBudget, call will revert
+            hedgeLP();
+        }
         depositLP();
 
         if (balanceOfStake() != 0 || balanceOfPair() != 0) {
@@ -292,6 +337,10 @@ abstract contract Joint {
 
         _aBalance = _aBalance.add(balanceOfA());
         _bBalance = _bBalance.add(balanceOfB());
+
+        uint256 hedgePayout = hedgil.getCurrentPayout(activeHedgeID);
+        // hedge payout is sent in quoteToken (i.e. tokenB)
+        _bBalance = _bBalance.add(hedgePayout);
 
         if (reward == tokenA) {
             _aBalance = _aBalance.add(rewardsPending);
@@ -341,13 +390,28 @@ abstract contract Joint {
         }
     }
 
+    event Number(string name, uint256 number);
+
     function hedgeLP() internal {
-        IERC20 _pair = IERC20(getPair();
-        // TODO: sell options if they are active
-        require(activeCallID == 0 && activePutID == 0);
-        (activeCallID, activePutID) = LPHedgingLib.hedgeLPToken(address(_pair), _pair.balanceOf(address(this)), h, period);
+        IERC20 _pair = IERC20(getPair());
+        require(activeHedgeID == 0);
+        emit Number("usdcBalance", IERC20(tokenB).balanceOf(address(this)));
+        emit Number(
+            "cost",
+            hedgil.getHedgilQuote(7919999999261642241378, h, period)
+        );
+        (activeHedgeID) = hedgil.openHedgil(
+            _pair.balanceOf(address(this)),
+            h,
+            period,
+            address(this)
+        );
+        emit Number("usdcBalance", IERC20(tokenB).balanceOf(address(this)));
     }
 
+    function getHedgePayout() public view returns (uint256) {
+        return hedgil.getCurrentPayout(activeHedgeID);
+    }
 
     function calculateSellToBalance(
         uint256 currentA,
@@ -458,7 +522,9 @@ abstract contract Joint {
                 tokenA,
                 tokenB,
                 balanceOfA(),
-                balanceOfB(),
+                balanceOfB().mul(RATIO_PRECISION.sub(hedgeBudget)).div(
+                    RATIO_PRECISION
+                ), // keep hedge budget to pay for hedge
                 0,
                 0,
                 address(this),
@@ -539,25 +605,30 @@ abstract contract Joint {
     function _liquidatePosition() internal returns (uint256, uint256) {
         if (balanceOfStake() != 0) {
             masterchef.withdraw(pid, balanceOfStake());
-            LPHedgingLib.closeHedge(activeCallID, activePutID);
-            activeCallID = 0;
-            activePutID = 0;
         }
+
+        if (activeHedgeID != 0) {
+            hedgil.closeHedgil(activeHedgeID);
+            activeHedgeID = 0;
+        }
+
+        emit Number("balancePreRemoveA", balanceOfA());
+        emit Number("balancePreRemoveB", balanceOfB());
 
         if (balanceOfPair() == 0) {
             return (0, 0);
         }
         // **WARNING**: This call is sandwichable, care should be taken
         //              to always execute with a private relay
-            IUniswapV2Router02(router).removeLiquidity(
-                tokenA,
-                tokenB,
-                balanceOfPair(),
-                0,
-                0,
-                address(this),
-                now
-            );
+        IUniswapV2Router02(router).removeLiquidity(
+            tokenA,
+            tokenB,
+            balanceOfPair(),
+            0,
+            0,
+            address(this),
+            now
+        );
         return (balanceOfA(), balanceOfB());
     }
 

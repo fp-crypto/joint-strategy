@@ -19,7 +19,8 @@ contract SushiJoint is Joint {
         address _weth,
         address _masterchef,
         address _reward,
-        uint256 _pid
+        uint256 _pid,
+        address _hedgil
     )
         public
         Joint(
@@ -29,7 +30,8 @@ contract SushiJoint is Joint {
             _weth,
             _masterchef,
             _reward,
-            _pid
+            _pid,
+            _hedgil
         )
     {}
 
