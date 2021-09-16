@@ -136,8 +136,11 @@ def mc_pid():
     yield 2
 
 @pytest.fixture
-def hedgil():
-    yield interface.IHedgilV1("0xe21aDE67381D17F7c049C04494CE11667a92EEF5")
+def hedgil(tokenB_whale, tokenB):
+    h = interface.IHedgilV1("0x2E81D4acd71b42ee771cab0836A92a3e3799ddFD")
+    tokenB.approve(h, 2 ** 256 - 1, {'from': tokenB_whale})
+    h.provideLiquidity(1000 * 1e6, 0, tokenB_whale, {'from': tokenB_whale})
+    yield h
 
 
 @pytest.fixture

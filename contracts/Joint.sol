@@ -65,12 +65,13 @@ abstract contract Joint {
     uint256 private investedB;
 
     IHedgilV1 public hedgil;
+    bool public hedgingEnabled;
 
     uint256 public activeHedgeID;
-    uint256 public hedgeBudget = 50; // 0.5%
+    uint256 public hedgeBudget = 35; // 0.35%
 
-    uint256 private h = 1_000; // 10%
-    uint256 private period = 7 days; // weekly epochs
+    uint256 public h = 1_500; // 15%
+    uint256 public period = 7 days; // weekly epochs
 
     modifier onlyGovernance {
         require(
@@ -173,13 +174,16 @@ abstract contract Joint {
 
         // HEDGIL
         // NOTE: tokenB will always be used as quoteToken (to pay hedges)
-        hedgil = IHedgilV1(_hedgil);
-        require(tokenB == address(hedgil.quoteToken()), "!hedgil setup");
-        IERC20(tokenB).approve(address(hedgil), type(uint256).max);
+        if (_hedgil != address(0)) {
+            hedgil = IHedgilV1(_hedgil);
+            require(tokenB == address(hedgil.quoteToken()), "!hedgil setup");
+            IERC20(tokenB).approve(address(hedgil), type(uint256).max);
 
-        hedgeBudget = 100; // 0.5%
-        h = 1_500; // 15%
-        period = 7 days; // weekly epochs
+            hedgeBudget = 35; // 0.35%
+            h = 1_500; // 15%
+            period = 7 days; // weekly epochs
+            hedgingEnabled = true;
+        }
     }
 
     event Cloned(address indexed clone);
@@ -223,6 +227,16 @@ abstract contract Joint {
         );
 
         emit Cloned(newJoint);
+    }
+
+    function setHedgingEnabled(bool _enabled, bool force)
+        external
+        onlyAuthorized
+    {
+        // if there is an active hedge, we need to force the disabling
+        if (force || activeHedgeID == 0) {
+            hedgingEnabled = _enabled;
+        }
     }
 
     function setHedgeBudget(uint256 _hedgeBudget) external onlyAuthorized {
@@ -315,7 +329,7 @@ abstract contract Joint {
         ); // don't create LP if we are already invested
 
         (investedA, investedB, ) = createLP();
-        if (hedgeBudget > 0) {
+        if (hedgeBudget > 0 && hedgingEnabled) {
             // NOTE: if not enough hedgeBudget, call will revert
             hedgeLP();
         }
@@ -390,23 +404,22 @@ abstract contract Joint {
         }
     }
 
-    event Number(string name, uint256 number);
-
     function hedgeLP() internal {
         IERC20 _pair = IERC20(getPair());
         require(activeHedgeID == 0);
-        emit Number("usdcBalance", IERC20(tokenB).balanceOf(address(this)));
-        emit Number(
-            "cost",
-            hedgil.getHedgilQuote(7919999999261642241378, h, period)
-        );
         (activeHedgeID) = hedgil.openHedgil(
             _pair.balanceOf(address(this)),
             h,
             period,
             address(this)
         );
-        emit Number("usdcBalance", IERC20(tokenB).balanceOf(address(this)));
+    }
+
+    function manualCloseHedgil(uint256 id) external onlyAuthorized {
+        if (id == 0) {
+            id = activeHedgeID;
+        }
+        hedgil.closeHedgil(id);
     }
 
     function getHedgePayout() public view returns (uint256) {
@@ -607,13 +620,10 @@ abstract contract Joint {
             masterchef.withdraw(pid, balanceOfStake());
         }
 
-        if (activeHedgeID != 0) {
+        if (activeHedgeID != 0 && hedgingEnabled) {
             hedgil.closeHedgil(activeHedgeID);
             activeHedgeID = 0;
         }
-
-        emit Number("balancePreRemoveA", balanceOfA());
-        emit Number("balancePreRemoveB", balanceOfB());
 
         if (balanceOfPair() == 0) {
             return (0, 0);

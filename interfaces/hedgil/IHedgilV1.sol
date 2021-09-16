@@ -3,7 +3,31 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IHedgilV1 {
+interface IHedgilPool is IERC20 {
+    event Provide(address indexed account, uint256 amount, uint256 shares);
+
+    event Withdraw(address indexed account, uint256 amount, uint256 shares);
+
+    function provideLiquidity(
+        uint256 amount,
+        uint256 minMint,
+        address onBehalfOf
+    ) external returns (uint256 shares);
+
+    function shareOf(address account) external view returns (uint256);
+
+    function withdrawAllLiquidity() external returns (uint256 amount);
+
+    function withdrawUnderlying(uint256 amount, uint256 maxBurn)
+        external
+        returns (uint256 shares);
+
+    function withdrawShares(uint256 shares, uint256 minAmount)
+        external
+        returns (uint256 amount);
+}
+
+interface IHedgilV1 is IHedgilPool {
     event OpenHedgil(
         address indexed owner,
         uint256 indexed id,
