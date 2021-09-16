@@ -46,6 +46,7 @@ def attacker(accounts):
 def band_oracle():
     yield interface.IStdReference("0x56E2898E0ceFF0D1222827759B56B28Ad812f92F")
 
+
 @pytest.fixture
 def tokenA():
     # WFTM
@@ -57,10 +58,12 @@ def tokenB():
     # USDC
     yield interface.IERC20Extended("0x04068DA6C83AFCFA0e13ba15A6696662335D5B75")
 
+
 # @pytest.fixture
 # def registry():
 #     a = Contract.from_explorer("0x58ECFA9cFffC09E2e5e1fc75606cb46c00c923Da")
 #     yield Contract.from_abi("registry", "0x41679043846d1B16b44FBf6E7FE531390e5bf092", a.abi)
+
 
 @pytest.fixture
 def vaultA(pm, gov, rewards, guardian, management, tokenA):
@@ -73,6 +76,7 @@ def vaultA(pm, gov, rewards, guardian, management, tokenA):
     vault.setPerformanceFee(0, {"from": gov})
     yield vault
 
+
 @pytest.fixture
 def vaultB(pm, gov, rewards, guardian, management, tokenB):
     Vault = pm(config["dependencies"][0]).Vault
@@ -83,6 +87,7 @@ def vaultB(pm, gov, rewards, guardian, management, tokenB):
     vault.setManagementFee(0, {"from": gov})
     vault.setPerformanceFee(0, {"from": gov})
     yield vault
+
 
 @pytest.fixture
 def tokenA_whale(accounts):
@@ -95,7 +100,7 @@ def tokenB_whale(accounts):
 
 
 @pytest.fixture
-def sushi_whale(accounts):## BOO
+def sushi_whale(accounts):  ## BOO
     yield accounts.at("0x841fad6eae12c286d1fd18d1d525dffa75c7effe", force=True)
 
 
@@ -107,7 +112,9 @@ def amountA(tokenA):
 @pytest.fixture
 def amountB(tokenB, joint):
     reserve0, reserve1, a = interface.IUniswapV2Pair(joint.pair()).getReserves()
-    yield int(7000 * reserve0/reserve1 * 1e12 * 10 ** tokenB.decimals())  # price A/B times amountA
+    yield int(
+        7000 * reserve0 / reserve1 * 1e12 * 10 ** tokenB.decimals()
+    )  # price A/B times amountA
 
 
 @pytest.fixture
@@ -135,11 +142,12 @@ def boo():
 def mc_pid():
     yield 2
 
+
 @pytest.fixture
 def hedgil(tokenB_whale, tokenB):
     h = interface.IHedgilV1("0x2E81D4acd71b42ee771cab0836A92a3e3799ddFD")
-    tokenB.approve(h, 2 ** 256 - 1, {'from': tokenB_whale})
-    h.provideLiquidity(1000 * 1e6, 0, tokenB_whale, {'from': tokenB_whale})
+    tokenB.approve(h, 2 ** 256 - 1, {"from": tokenB_whale})
+    h.provideLiquidity(1000 * 1e6, 0, tokenB_whale, {"from": tokenB_whale})
     yield h
 
 
