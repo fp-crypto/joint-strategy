@@ -2,6 +2,7 @@ import brownie
 import pytest
 from brownie import Contract, Wei, chain, interface
 from operator import xor
+import math
 
 
 def print_hedge_status(joint, hedgil):
@@ -49,10 +50,11 @@ def test_operation_swap_a4b_hedged_light(
     hedgil,
 ):
     sync_price(joint)
+    p0 = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
     print(
-        f"Price according to Pair is {band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18}"
+        f"Price according to Pair is {p0}"
     )
-
+    
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -101,8 +103,9 @@ def test_operation_swap_a4b_hedged_light(
 
     # update oracle's price according to sushiswap
     sync_price(joint)
+    pt = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
     print(
-        f"Price according to Pair is {band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18}"
+        f"Price according to Pair is {pt}"
     )
 
     hedgePayout = joint.getHedgePayout()
@@ -120,6 +123,10 @@ def test_operation_swap_a4b_hedged_light(
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
+    q = hedgil.hedgils(joint.activeHedgeID())[2]
+    
+    calc_il = (pt + p0 - 2 * p0 * math.sqrt(pt/p0)) * q / 1e18
+    print(f"IL calculation: {calc_il:,.4f}")
 
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
@@ -187,13 +194,13 @@ def test_operation_swap_a4b_hedged_heavy(
     strategist,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    LPHedgingLibrary,
-    oracle,
+    band_oracle,
+    hedgil,
 ):
 
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    p0 = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(f"Price according to Pair is {p0}")
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -226,10 +233,8 @@ def test_operation_swap_a4b_hedged_heavy(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
-    callCost, putCost = print_hedge_status(joint, tokenA, tokenB)
-
-    investedA -= callCost
-    investedB -= putCost
+    cost = print_hedge_status(joint, hedgil)
+    investedB -= cost
 
     tokenA.approve(router, 2 ** 256 - 1, {"from": tokenA_whale})
     print(
@@ -245,12 +250,16 @@ def test_operation_swap_a4b_hedged_heavy(
     )
 
     # update oracle's price according to sushiswap
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    pt = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(
+        f"Price according to Pair is {pt}"
+    )
 
-    (callPayout, putPayout) = joint.getOptionsProfit()
-    print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
-    print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
+    hedgePayout = joint.getHedgePayout()
+    print(f"Payout from Hedge: {hedgePayout/1e6} {tokenB.symbol()}")
+    #print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
+    #print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
@@ -258,11 +267,16 @@ def test_operation_swap_a4b_hedged_heavy(
 
     # Wait plz
     chain.sleep(3600 * 24 * 7 - 15 * 60)
-    chain.mine(int(3600 / 13) * 24 * 7 - int(60 * 15 / 13))
+    chain.mine()
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
+    
+    q = hedgil.hedgils(joint.activeHedgeID())[2]
+    
+    calc_il = (pt + p0 - 2 * p0 * math.sqrt(pt/p0)) * q / 1e18
+    print(f"IL calculation: {calc_il:,.4f}")
 
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
@@ -271,8 +285,7 @@ def test_operation_swap_a4b_hedged_heavy(
         f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
     )
 
-    callID = joint.activeCallID()
-    putID = joint.activePutID()
+    hedgeId = joint.activeHedgeID()    
 
     # If there is any profit it should go to the providers
     assert joint.pendingReward() > 0
@@ -285,14 +298,10 @@ def test_operation_swap_a4b_hedged_heavy(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
-    putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
+    hedgilInfo = hedgil.hedgils(hedgeId)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
-        (callPayout == 0) & (callInfo[0] == 1)
-    )
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
-        (putPayout == 0) & (putInfo[0] == 1)
+    assert ((hedgePayout == 0) & (hedgilInfo[5] != 0)) | (
+        (hedgePayout > 0) & (hedgilInfo[5] == 0)
     )
 
     assert providerA.balanceOfWant() > 0
@@ -330,12 +339,12 @@ def test_operation_swap_b4a_hedged_light(
     strategist,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    LPHedgingLibrary,
-    oracle,
+    band_oracle,
+    hedgil,
 ):
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    p0 = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(f"Price according to Pair is {p0}")
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -367,10 +376,8 @@ def test_operation_swap_b4a_hedged_light(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
-    callCost, putCost = print_hedge_status(joint, tokenA, tokenB)
-
-    investedA -= callCost
-    investedB -= putCost
+    cost = print_hedge_status(joint, hedgil)
+    investedB -= cost
 
     tokenB.approve(router, 2 ** 256 - 1, {"from": tokenB_whale})
     dump_amountB = 10_000_000 * 1e6
@@ -386,12 +393,14 @@ def test_operation_swap_b4a_hedged_light(
     )
 
     # update oracle's price according to sushiswap
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    pt = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(
+        f"Price according to Pair is {pt}"
+    )
 
-    (callPayout, putPayout) = joint.getOptionsProfit()
-    print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
-    print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
+    hedgePayout = joint.getHedgePayout()
+    print(f"Payout from Hedge: {hedgePayout/1e6} {tokenB.symbol()}")
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
@@ -399,11 +408,18 @@ def test_operation_swap_b4a_hedged_light(
 
     # Wait plz
     chain.sleep(3600 * 24 * 7 - 15 * 60)
-    chain.mine(int(3600 / 13) * 24 * 7 - int(60 * 15 / 13))
+    chain.mine()
+    #chain.mine(int(3600 / 13) * 24 * 7 - int(60 * 15 / 13))
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
+    
+    q = hedgil.hedgils(joint.activeHedgeID())[2]
+    
+    calc_il = (pt + p0 - 2 * p0 * math.sqrt(pt/p0)) * q / 1e18
+    print(f"IL calculation: {calc_il:,.4f}")
+    
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
     assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
@@ -411,8 +427,7 @@ def test_operation_swap_b4a_hedged_light(
         f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
     )
 
-    callID = joint.activeCallID()
-    putID = joint.activePutID()
+    hedgeId = joint.activeHedgeID()    
 
     # If there is any profit it should go to the providers
     assert joint.pendingReward() > 0
@@ -425,14 +440,10 @@ def test_operation_swap_b4a_hedged_light(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
-    putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
+    hedgilInfo = hedgil.hedgils(hedgeId)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
-        (callPayout == 0) & (callInfo[0] == 1)
-    )
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
-        (putPayout == 0) & (putInfo[0] == 1)
+    assert ((hedgePayout == 0) & (hedgilInfo[5] != 0)) | (
+        (hedgePayout > 0) & (hedgilInfo[5] == 0)
     )
 
     assert providerA.balanceOfWant() > 0
@@ -441,8 +452,8 @@ def test_operation_swap_b4a_hedged_light(
     gainA = vaultA.strategies(providerA).dict()["totalGain"]
     gainB = vaultB.strategies(providerB).dict()["totalGain"]
 
-    assert gainA > 0
-    assert gainB > 0
+    assert gainA >= 0
+    assert gainB >= 0
 
     returnA = gainA / investedA
     returnB = gainB / investedB
@@ -469,13 +480,12 @@ def test_operation_swap_b4a_hedged_heavy(
     strategist,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    LPHedgingLibrary,
-    oracle,
+    band_oracle,
+    hedgil,
 ):
-
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    p0 = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(f"Price according to Pair is {p0}")
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -506,10 +516,8 @@ def test_operation_swap_b4a_hedged_heavy(
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
-    callCost, putCost = print_hedge_status(joint, tokenA, tokenB)
-
-    investedA -= callCost
-    investedB -= putCost
+    cost = print_hedge_status(joint, hedgil)
+    investedB -= cost
 
     tokenB.approve(router, 2 ** 256 - 1, {"from": tokenB_whale})
     print(
@@ -525,24 +533,34 @@ def test_operation_swap_b4a_hedged_heavy(
         {"from": tokenB_whale},
     )
     # update oracle's price according to sushiswap
-    sync_price(joint, mock_chainlink, strategist)
-    print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
+    sync_price(joint)
+    pt = band_oracle.getReferenceData('FTM', 'USDC')[0]/1e18
+    print(
+        f"Price according to Pair is {pt}"
+    )
 
-    (callPayout, putPayout) = joint.getOptionsProfit()
-    print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
-    print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
+
+    hedgePayout = joint.getHedgePayout()
+    print(f"Payout from Hedge: {hedgePayout/1e6} {tokenB.symbol()}")
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
-
+    
     # Wait plz
     chain.sleep(3600 * 1)
-    chain.mine(int(3600 / 13))
+    chain.mine()
+    #chain.mine(int(3600 / 13))
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
+    
+    q = hedgil.hedgils(joint.activeHedgeID())[2]
+    
+    calc_il = (pt + p0 - 2 * p0 * math.sqrt(pt/p0)) * q / 1e18
+    print(f"IL calculation: {calc_il:,.4f}")
+    
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
     assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
@@ -550,8 +568,7 @@ def test_operation_swap_b4a_hedged_heavy(
         f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
     )
 
-    callID = joint.activeCallID()
-    putID = joint.activePutID()
+    hedgeId = joint.activeHedgeID()    
 
     # If there is any profit it should go to the providers
     assert joint.pendingReward() > 0
@@ -564,14 +581,10 @@ def test_operation_swap_b4a_hedged_heavy(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
-    putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
+    hedgilInfo = hedgil.hedgils(hedgeId)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
-        (callPayout == 0) & (callInfo[0] == 1)
-    )
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
-        (putPayout == 0) & (putInfo[0] == 1)
+    assert ((hedgePayout == 0) & (hedgilInfo[5] != 0)) | (
+        (hedgePayout > 0) & (hedgilInfo[5] == 0)
     )
 
     assert providerA.balanceOfWant() > 0

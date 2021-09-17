@@ -96,8 +96,8 @@ def tokenA_whale(accounts):
 
 @pytest.fixture
 def tokenB_whale(accounts):
-    yield accounts.at("0x3F27AAa1f1918f6f8BfEb55fF5A3148ba2e24143", force=True)
-
+    #yield accounts.at("0x3F27AAa1f1918f6f8BfEb55fF5A3148ba2e24143", force=True)
+    yield accounts.at("0x27e611fd27b276acbd5ffd632e5eaebec9761e40", force=True)	
 
 @pytest.fixture
 def sushi_whale(accounts):  ## BOO
