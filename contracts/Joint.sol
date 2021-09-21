@@ -331,7 +331,7 @@ abstract contract Joint {
         (investedA, investedB, ) = createLP();
         if (hedgeBudget > 0 && hedgingEnabled) {
             // NOTE: if not enough hedgeBudget, call will revert
-            hedgeLP();
+            investedB += hedgeLP();
         }
         depositLP();
 
@@ -404,15 +404,19 @@ abstract contract Joint {
         }
     }
 
-    function hedgeLP() internal {
+    function hedgeLP() internal returns (uint256) {
+        uint256 initialBalanceB = IERC20(tokenB).balanceOf(address(this));
         IERC20 _pair = IERC20(getPair());
         require(activeHedgeID == 0);
-        (activeHedgeID) = hedgil.openHedgil(
+        activeHedgeID = hedgil.openHedgil(
             _pair.balanceOf(address(this)),
             h,
             period,
             address(this)
         );
+        uint256 endBalanceB = IERC20(tokenB).balanceOf(address(this));
+        // NOTE: the hedge is paid using tokenB so take the cost using diff of balances
+        return initialBalanceB.sub(endBalanceB);
     }
 
     function manualCloseHedgil(uint256 id) external onlyAuthorized {
