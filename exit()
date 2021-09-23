@@ -1,0 +1,634 @@
+[33mcommit b0c340e0f39bcd4f6fdd19c37ce2fda5bac975e5[m[33m ([m[1;36mHEAD -> [m[1;32mlance/test[m[33m, [m[1;31morigin/lance/test[m[33m, [m[1;31morigin/jm/hedgil-hedging[m[33m)[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Thu Sep 16 15:15:21 2021 +0200
+
+    fix: formatting black
+
+[33mcommit f91f425f701bb70f7485f5ff6c9cfda93ad6f0b8[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Thu Sep 16 15:15:04 2021 +0200
+
+    fix: last details. test passing
+
+[33mcommit 862ff5aa7f3ff0a495add968e732f31e9357045e[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Tue Sep 14 15:09:57 2021 +0200
+
+    fix: missing files
+
+[33mcommit 5241e8aef9e54db68eca3639f339dbe5cf1e25eb[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Tue Sep 14 15:09:09 2021 +0200
+
+    feat: hedging using hedgil
+
+[33mcommit b3af4d965aacb3c59fd2cb831b2d1da041ae4710[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Mon Aug 23 19:18:49 2021 +0200
+
+    feat: lpHedging
+
+[33mcommit a7738d2124296ad30a54a154ea839dc2b7333598[m
+Author: jmonteer <jmonteer@protonmail.com>
+Date:   Mon Aug 23 18:36:58 2021 +0200
+
+    feat: added LP hedging v0.1
+
+[33mcommit 5e0e47edf963e2a528faeab5bedd7a489af0832d[m[33m ([m[1;31morigin/fp/joint-on-chain[m[33m)[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 22 14:27:07 2021 -0700
+
+    chore: fix comment
+
+[33mcommit 6980dbd3efc2c4188d97c83da2a157d20d546f40[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 22 14:26:20 2021 -0700
+
+    fix: test
+
+[33mcommit 20ccbc874e3e8ea05986efc4b28ec892c37cd5ec[m
+Author: FP <fp@nomail.com>
+Date:   Fri Aug 20 15:36:16 2021 -0700
+
+    chore: joint is abstract
+
+[33mcommit 908bce6b0beadeb95b5f5190095ec804d835daa1[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 14:05:54 2021 -0700
+
+    feat: donations testing
+
+[33mcommit bffa785b1c99813583d505ed41865c56cceaf00d[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 13:39:22 2021 -0700
+
+    fix: simpler handling of loose funds
+
+[33mcommit 1630458e8f9867bd0394035a7e8ffaadbc3bb34d[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 13:15:37 2021 -0700
+
+    chore: cleanup
+
+[33mcommit 3784ef922821f7248aad96c5c04f97726ef29ec3[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 11:08:50 2021 -0700
+
+    chore: test emergency
+
+[33mcommit 10f0973ad3d1203ff7399523e40b97d1ed222d6d[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 11:01:52 2021 -0700
+
+    fix: handle liquidateAll
+
+[33mcommit 2f37fa2781688e0e07dca09b212376f936e56081[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 17 08:39:22 2021 -0700
+
+    feat: test sweep
+
+[33mcommit 8fea27cc5bf261de457ebe71b1f25ed35e1ea67c[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 23:04:00 2021 -0700
+
+    chore: fix boo tests
+
+[33mcommit 5d43f7062e1113a2d61e06f5d28ea1503ff9be67[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 21:57:55 2021 -0700
+
+    chore: minor
+
+[33mcommit 14f9f3ee06a50620b3c91517962c967fab9dda91[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 21:43:20 2021 -0700
+
+    chore: moar cleanup
+
+[33mcommit b3daf266b2d6d7c4f8b088f09ccf9d50b60f52d7[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 21:06:31 2021 -0700
+
+    feat: cleanup of balance function
+
+[33mcommit c9d35d458e0ed8b58b905b22cc012d6f09fdce9b[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 20:22:34 2021 -0700
+
+    feat: starting cleanup
+
+[33mcommit ac6ed0e0d8e24ff9016975a002ea45db66c38d64[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 16:35:31 2021 -0700
+
+    chore: add safety warnings
+
+[33mcommit 5750ff284d4417a06ece3f1a91772e4c24a5782b[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 16:30:07 2021 -0700
+
+    feat: handle slippage
+
+[33mcommit 4afd7839d5bcac984ca488258b88e9d78463bc91[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 10:01:37 2021 -0700
+
+    fix: tests
+
+[33mcommit b778bff2af03e687904db4e3f9f606fc9f403115[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 09:55:30 2021 -0700
+
+    fix: remove require from view
+    
+    https://github.com/poolpitako/joint-strategy/pull/15#discussion_r689113300
+
+[33mcommit 13c1cb060ad8781e4395c9aa8c651fb7b0e90b29[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 09:50:27 2021 -0700
+
+    fix: store pair decimals in stack
+    
+    https://github.com/poolpitako/joint-strategy/pull/15#discussion_r689099905
+
+[33mcommit fc8583fe7c3f903aec2884db4b01eb7055979c04[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 09:42:07 2021 -0700
+
+    feat: return excess loose on adjustPosition
+    
+    https://github.com/poolpitako/joint-strategy/pull/15#discussion_r689003878
+
+[33mcommit 182d77ee138e801a829351d4ae982ebdc46e476d[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 16 09:34:00 2021 -0700
+
+    fix: adjustPosition doesn't need investWant
+    
+    https://github.com/poolpitako/joint-strategy/pull/15#discussion_r689102267
+
+[33mcommit 16a231865786e08b8f46a05274d4af27ba8a8d0d[m
+Author: FP <fp@nomail.com>
+Date:   Sat Aug 14 13:35:25 2021 -0700
+
+    feat: remove `Joint.setReinvest`
+
+[33mcommit ef980cefd847005d096fd0841f6f0cabfd1e5502[m
+Author: FP <fp@nomail.com>
+Date:   Sat Aug 14 13:11:10 2021 -0700
+
+    feat: asset estimation via joint
+
+[33mcommit 3e693d3ffaf02993b4cd21ffc4d5519292500f9b[m
+Author: FP <fp@nomail.com>
+Date:   Wed Aug 11 17:51:11 2021 -0700
+
+    fix(test): eth tests pass
+
+[33mcommit cde787f61287cc714daa9780be3facd34dbcdcff[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 10 22:46:52 2021 -0700
+
+    fix: clone argument order bug
+
+[33mcommit 55d67f6eb6f4a5aba9024baa56eb1cc318ff03fe[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 10 22:29:33 2021 -0700
+
+    fix: add require
+
+[33mcommit c54d85a4f883ec0a4b0b3dd641381139653cd02d[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 10 21:09:14 2021 -0700
+
+    fix(tests): joint migration
+
+[33mcommit 6bc5519a8aaa191190d78c42d55babf80febfcc5[m
+Author: FP <fp@nomail.com>
+Date:   Tue Aug 10 09:30:50 2021 -0700
+
+    chore: mark require network
+
+[33mcommit f07692208627664156cca6aab38d5b56d1c1250b[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 8 21:04:44 2021 -0700
+
+    chore: cleanup more
+
+[33mcommit ccaa74c9eedb297b690f1ebed1f55e6059cc9f6d[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 8 20:57:23 2021 -0700
+
+    chore: cleanup
+
+[33mcommit 4d384fe326fd1842108de5ae90129b21808b3d50[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 8 16:43:04 2021 -0700
+
+    fix: some cleanup
+
+[33mcommit 73c54d5ec68aadb89bba3bbd1edbd73e0ccfa540[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 8 11:07:06 2021 -0700
+
+    feat: reward token can be a LP token
+
+[33mcommit e60c64643322a52d7662846ab13ecddb3aeab65c[m
+Author: FP <fp@nomail.com>
+Date:   Sat Aug 7 09:50:52 2021 -0700
+
+    feat: use abstract base pattern
+
+[33mcommit 897e8b82ba191bd692cc0fd925d5651bd0874cd4[m
+Author: FP <fp@nomail.com>
+Date:   Thu Aug 5 16:47:23 2021 -0700
+
+    feat: some emergency powers
+
+[33mcommit dd2a3ec53fefac561ddbda16ad9c9754fb6794d4[m
+Author: FP <fp@nomail.com>
+Date:   Thu Aug 5 11:44:02 2021 -0700
+
+    fix: more safu
+
+[33mcommit 6016a3dedb5650e256785f58697b9a6dc63152c4[m
+Author: FP <fp@nomail.com>
+Date:   Thu Aug 5 10:48:33 2021 -0700
+
+    fix: remove unused modifier
+
+[33mcommit 4fad786e4cc6cc0fd526c77d08c4e6325196a746[m
+Author: FP <fp@nomail.com>
+Date:   Thu Aug 5 10:24:10 2021 -0700
+
+    feat: estimations
+
+[33mcommit 5a3cbe7095648bf1900b8bbe786835dbd566303e[m
+Author: FP <fp@nomail.com>
+Date:   Wed Aug 4 16:27:45 2021 -0700
+
+    feat: cleanup
+
+[33mcommit 21b35c56a1a8426629323204137223be9335f9a5[m
+Author: FP <fp@nomail.com>
+Date:   Wed Aug 4 15:08:11 2021 -0700
+
+    chore: comment part you need to finish later
+
+[33mcommit 2ff3f7a67e11684bd896412ddccb22779130b143[m
+Author: FP <fp@nomail.com>
+Date:   Wed Aug 4 15:07:10 2021 -0700
+
+    feat: wip
+
+[33mcommit 21908fcd830643a7f20c754efbb6263e5393284e[m
+Author: FP <fp@nomail.com>
+Date:   Mon Aug 2 14:26:50 2021 -0700
+
+    feat: moar working
+
+[33mcommit 68d81df2ce5d6ab4908e76fe5e158ed17b738b15[m
+Author: FP <fp@nomail.com>
+Date:   Sun Aug 1 11:38:28 2021 -0700
+
+    feat: mostly working
+
+[33mcommit 9bc5631ce7c56686972a2f2dea2a409e3ac7d994[m
+Author: FP <fp@nomail.com>
+Date:   Sat Jul 31 15:37:33 2021 -0700
+
+    feat: wrangled
+
+[33mcommit 339f887322ef016884faeaa1ccde3b2c60b347a5[m
+Author: FP <fp@nomail.com>
+Date:   Fri Jul 30 21:41:42 2021 -0700
+
+    feat: making it work?
+
+[33mcommit f3c4a25153c10906e33106afd02a24bfbb9df0ba[m
+Author: FP <fp@nomail.com>
+Date:   Mon Jul 26 09:06:01 2021 -0700
+
+    feat: moar work
+
+[33mcommit cd147d1ecc0903a60fa77486ce450d2277f9cbef[m
+Author: FP <fp@nomail.com>
+Date:   Tue Jul 20 21:08:25 2021 -0700
+
+    feat: progress
+
+[33mcommit 0749503c227af1a6fba9c8efb124d0ba2f0aba83[m
+Author: FP <fp@nomail.com>
+Date:   Tue Jul 20 20:29:43 2021 -0700
+
+    feat: beginning of refactor
+
+[33mcommit b9b71afea4923b970f89f8e022fd4caaf44fb09e[m[33m ([m[1;31morigin/fp/minichefv2[m[33m)[m
+Author: FP <fp@nomail.com>
+Date:   Thu Jun 10 20:07:49 2021 -0700
+
+    fix: approve spend of extraRewardTokens
+
+[33mcommit e5bd4a54c49a48cff347656750dc2e03bf730d2f[m
+Author: FP <fp@nomail.com>
+Date:   Wed Jun 2 17:58:02 2021 -0700
+
+    feat: extra rewards helpers
+
+[33mcommit b165ff33abc122ebfc88703933f3e76845e52418[m
+Author: FP <fp@nomail.com>
+Date:   Wed Jun 2 15:42:20 2021 -0700
+
+    feat: minichef
+
+[33mcommit 70e91f253d765d4462e475655b6c24161c361818[m[33m ([m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmaster[m[33m)[m
+Author: LanceUp <55955227+LanceUp@users.noreply.github.com>
+Date:   Mon May 3 22:05:26 2021 -0300
+
+    feat: BooJoint
+    
+    * feat: booJoint
+    
+    * feat: booJointV2
+    
+    * feat: BooJointV3
+    
+    * feat: BooJointV4
+
+[33mcommit 179e375b27952327134b8fd0bda7c10496618a6a[m
+Merge: 95ee5e3 ec16e77
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Mon May 3 15:18:11 2021 -0500
+
+    Merge pull request #10 from poolpitako/poolpi/psc_joint
+    
+    feat: added psc joint
+
+[33mcommit ec16e77b94e724ab81ae7179d5b2e6f55a206051[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Sat May 1 20:28:57 2021 -0500
+
+    feat: added psc joint
+
+[33mcommit 95ee5e36467fc22ba7e0fde6884ca37046dbe88e[m
+Merge: 9897f2e aacfaa7
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Tue Apr 27 14:44:11 2021 -0500
+
+    Merge pull request #9 from poolpitako/poolpi/boo
+    
+    feat: boo joint
+
+[33mcommit aacfaa73a62715ff18163d84a3398a6bf27d38f2[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 27 10:09:52 2021 -0500
+
+    feat: boo migration
+
+[33mcommit ebc03e2fad4084cf480704d89102badbaa882abd[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Sun Apr 25 21:10:25 2021 -0500
+
+    feat: boo joint
+
+[33mcommit 9897f2e7c9c390b13f1456aa35cf4316ffeed48d[m
+Merge: 9e87f3b 2836a8e
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Thu Apr 15 18:36:59 2021 -0500
+
+    Merge pull request #8 from poolpitako/poolpi/migration2
+    
+    feat: migration2
+
+[33mcommit 2836a8e2d1f32d3c17664fc9d4f786b3238bbc6b[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Thu Apr 15 18:36:27 2021 -0500
+
+    fix: last changes before execution
+
+[33mcommit 06044ba6ce408f5510d71e58f2440fee049a4530[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 13 15:20:49 2021 -0500
+
+    feat: migration2
+
+[33mcommit 9e87f3b576cce5461ef2b841cf6e694e97ea4a8a[m
+Merge: 6fc6fa0 05c2c1e
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Tue Apr 13 13:46:48 2021 -0500
+
+    Merge pull request #7 from poolpitako/poolpi/sell_capital
+    
+    feat: sell capital
+
+[33mcommit 05c2c1e8ef19afaf7e613f3d5d78163721f40583[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 13 07:18:01 2021 -0500
+
+    fix: typo
+
+[33mcommit eac39c47d0d7a00c726565a42df6e9fc91d70b1d[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 13 07:04:36 2021 -0500
+
+    fix: tests
+
+[33mcommit 999d0ee8693369c7a515bb42d39c7e634cf87f36[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 13 06:56:47 2021 -0500
+
+    fix: added one test
+
+[33mcommit 4483d94d54e0a71a6c67d266cb794eecd92c3da0[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Mon Apr 12 18:22:25 2021 -0500
+
+    feat: sell capital
+
+[33mcommit 6fc6fa032382a7bfb173d93f19b7dbe6f098e825[m
+Merge: 98a0424 23cc986
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Fri Apr 9 18:49:16 2021 -0500
+
+    Merge pull request #6 from poolpitako/poolpi/set_swap_ratio
+    
+    feat: poolpi/set_swap_ratio
+
+[33mcommit 23cc9862588062f91988f38fe780ee518635f2fe[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Fri Apr 9 18:22:41 2021 -0500
+
+    fix: test
+
+[33mcommit 5a50d9c8701c196fdc938a4f7d235cf1c3c2660d[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Fri Apr 9 17:50:30 2021 -0500
+
+    fix: pr review
+
+[33mcommit ead666b1700bd6fe22232a71eac3e1e926f6d5ec[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Fri Apr 9 17:05:18 2021 -0500
+
+    feat: poolpi/set_swap_ratio
+
+[33mcommit 98a0424fe2c1ab86ecb206308a160555a188865d[m
+Merge: 7834b51 913a735
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Wed Apr 7 06:26:26 2021 -0500
+
+    Merge pull request #5 from poolpitako/poolpi/reward_fixes
+    
+    fix: added loss test
+
+[33mcommit 913a735a2e9eec111fe23e0b5fd593ef54ebb205[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Tue Apr 6 18:55:06 2021 -0500
+
+    fix: added loss test
+
+[33mcommit 7834b5199ebc5ecf82afee7b558b02dc8f872a6b[m
+Merge: 20b9d11 ed8819c
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Tue Apr 6 12:06:38 2021 -0500
+
+    Merge pull request #3 from poolpitako/todo-completion
+    
+    Todo completion - cleanup and add reinvest code
+
+[33mcommit ed8819c2791bfa08bb5bff67ff73d24d6ebe0bf1[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Tue Apr 6 19:59:06 2021 +0300
+
+    fix: test path
+
+[33mcommit 3a6294b587ba2a19f238d19dd41d7187223ff297[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Tue Apr 6 19:56:34 2021 +0300
+
+    fix: run tests seperately
+
+[33mcommit e6548b516d5dcfbccb99b1aaf4fb5b22da95d6a4[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Mon Apr 5 18:53:09 2021 -0500
+
+    fix: code+tests
+
+[33mcommit 0b595786416cc7efa610a33d658794799864fb82[m
+Merge: e6d7d04 20b9d11
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 18:31:00 2021 +0300
+
+    Merge remote-tracking branch 'origin/master' into todo-completion
+
+[33mcommit e6d7d04848b231e3d8d484b900d2ab27430fb768[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 18:29:12 2021 +0300
+
+    fix: remove liquidatePosition in harvest
+
+[33mcommit 20b9d1175466e48f5e547d2746e83567ec5f1cb5[m
+Merge: 4dbbfd2 e7ce7a8
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Mon Apr 5 10:23:50 2021 -0500
+
+    Merge pull request #4 from poolpitako/poolpi/ci
+    
+    feat: added ftm to the ci pipeline
+
+[33mcommit e7ce7a8e378dc0de7179c6853f1d7299e709cd65[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Mon Apr 5 10:15:02 2021 -0500
+
+    feat: added ftm to the ci pipeline
+
+[33mcommit 0c3947a949bb38a761f41966d2a3f3d3c9384f9f[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 18:12:49 2021 +0300
+
+    fix: revert on no swapTo and misc change
+
+[33mcommit b8156013fbaac6b5d6dee230b6ef7bca14e0788d[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 17:45:12 2021 +0300
+
+    fix: masterchef interface case
+
+[33mcommit aa0e77a74951985daa880f1ed56d579d353fc08b[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 17:40:50 2021 +0300
+
+    fix: lint fixes
+
+[33mcommit cbc439e57ffcb83dfc89e4e429d59ed12132190a[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 17:37:26 2021 +0300
+
+    fix: approve masterchef to spend pair tokens
+
+[33mcommit c9be4f67ffea91f76e57285d3a6b107e74c54bbc[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 17:32:49 2021 +0300
+
+    feat: add pid setter
+
+[33mcommit 1be73da9680c5c8ad6cfe2c909ecb469e94e05ba[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 17:20:32 2021 +0300
+
+    feat: refactor code and finish TODOs
+
+[33mcommit bfdb0f8f5653662e3419735f1c7dd028c9cd60e8[m
+Author: akshaynexus <akshaycm@hotmail.com>
+Date:   Mon Apr 5 15:43:24 2021 +0300
+
+    chore: cleanup includes
+
+[33mcommit 4dbbfd2e67abdcfdd14e05db5d6b550a2451e030[m
+Merge: 0ca6814 e646ab7
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Mon Apr 5 07:27:08 2021 -0500
+
+    Merge pull request #2 from poolpitako/poolpi/joint
+    
+    feat: joint code
+
+[33mcommit 0ca68149ed4ada0a999f5be2f765cf3308f817df[m
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Fri Apr 2 06:18:54 2021 -0500
+
+    Update README.md
+
+[33mcommit e646ab7d7d2f455fadb98b21c795bea446575f7b[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Thu Apr 1 20:33:22 2021 -0500
+
+    fix: liquidate now works
+
+[33mcommit ec079ad87fbb67ef537fa9c404ddb367927d707a[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Thu Apr 1 20:17:35 2021 -0500
+
+    feat: joint code
+
+[33mcommit fe65c775911aaf0691f1b97cc7eb16713cdc5cf9[m
+Merge: 908eb3e 757a11e
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Thu Apr 1 20:16:54 2021 -0500
+
+    Merge pull request #1 from poolpitako/poolpi/ProviderStrategy
+    
+    feat: provider strategy
+
+[33mcommit 757a11e7289bf462b98d62072339666b2ee73963[m
+Author: Poolpi Tako <poolpitako@protonmail.com>
+Date:   Thu Apr 1 16:51:59 2021 -0500
+
+    feat: provider strategy
+
+[33mcommit 908eb3eb21eb54b9d2eb63d50ba087bcab5af81b[m
+Author: poolpitako <78830419+poolpitako@users.noreply.github.com>
+Date:   Thu Apr 1 15:27:53 2021 -0500
+
+    Initial commit

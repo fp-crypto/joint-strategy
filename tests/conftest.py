@@ -106,14 +106,14 @@ def sushi_whale(accounts):  ## BOO
 
 @pytest.fixture
 def amountA(tokenA):
-    yield 7000 * 10 ** tokenA.decimals()
+    yield 70000 * 10 ** tokenA.decimals()
 
 
 @pytest.fixture
 def amountB(tokenB, joint):
     reserve0, reserve1, a = interface.IUniswapV2Pair(joint.pair()).getReserves()
     yield int(
-        7000 * reserve0 / reserve1 * 1e12 * 10 ** tokenB.decimals()
+        70000 * reserve0 / reserve1 * 1e12 * 10 ** tokenB.decimals()
     )  # price A/B times amountA
 
 
