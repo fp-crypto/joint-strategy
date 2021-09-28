@@ -45,12 +45,8 @@ contract ProviderStrategy is BaseStrategy {
     using SafeMath for uint256;
 
     address public joint;
-    bool public takeProfit;
-    bool public investWant;
 
-    constructor(address _vault) public BaseStrategy(_vault) {
-        _initializeStrat();
-    }
+    constructor(address _vault) public BaseStrategy(_vault) {}
 
     function initialize(
         address _vault,
@@ -59,12 +55,6 @@ contract ProviderStrategy is BaseStrategy {
         address _keeper
     ) external {
         _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat();
-    }
-
-    function _initializeStrat() internal {
-        investWant = true;
-        takeProfit = false;
     }
 
     event Cloned(address indexed clone);
@@ -130,12 +120,7 @@ contract ProviderStrategy is BaseStrategy {
             uint256 _debtPayment
         )
     {
-        JointAPI(joint).prepareReturn(!investWant || takeProfit);
-
-        // if we are not taking profit, there is nothing to do
-        if (!takeProfit) {
-            return (0, 0, 0);
-        }
+        JointAPI(joint).prepareReturn(true);
 
         uint256 totalDebt = vault.strategies(address(this)).totalDebt;
         uint256 totalAssets = balanceOfWant();
@@ -176,11 +161,6 @@ contract ProviderStrategy is BaseStrategy {
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
         if (emergencyExit) {
-            return;
-        }
-
-        // If we shouldn't invest, don't do it :D
-        if (!investWant) {
             return;
         }
 
@@ -227,14 +207,6 @@ contract ProviderStrategy is BaseStrategy {
                 JointAPI(_joint).providerB() == address(this)
         );
         joint = _joint;
-    }
-
-    function setTakeProfit(bool _takeProfit) external onlyAuthorized {
-        takeProfit = _takeProfit;
-    }
-
-    function setInvestWant(bool _investWant) external onlyAuthorized {
-        investWant = _investWant;
     }
 
     function liquidateAllPositions()

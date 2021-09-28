@@ -2,7 +2,7 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./Joint.sol";
+import "./HegicJoint.sol";
 
 interface ISushiMasterchef is IMasterchef {
     function pendingSushi(uint256 _pid, address _user)
@@ -11,7 +11,7 @@ interface ISushiMasterchef is IMasterchef {
         returns (uint256);
 }
 
-contract SushiJoint is Joint {
+contract SushiJoint is HegicJoint {
     constructor(
         address _providerA,
         address _providerB,
@@ -22,7 +22,7 @@ contract SushiJoint is Joint {
         uint256 _pid
     )
         public
-        Joint(
+        HegicJoint(
             _providerA,
             _providerB,
             _router,
