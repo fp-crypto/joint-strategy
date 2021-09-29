@@ -184,9 +184,6 @@ library LPHedgingLib {
         uint256 amount,
         uint256 period
     ) internal returns (uint256) {
-        if (amount == 0 || period == 0) {
-            revert("Amount or period is 0");
-        }
         return pool.sellOption(address(this), period, amount, 0); // strike = 0 is ATM
     }
 
