@@ -1,12 +1,35 @@
 import brownie
 import pytest
 from brownie import Contract, Wei
+from utils import sync_price
 
 
 def test_joint_migration(
-    gov, strategist, weth, joint, providerA, providerB, SushiJoint
+    gov,
+    strategist,
+    weth,
+    vaultA,
+    vaultB,
+    joint,
+    providerA,
+    providerB,
+    tokenA,
+    tokenB,
+    amountA,
+    amountB,
+    tokenA_whale,
+    tokenB_whale,
+    SushiJoint,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
     old_joint = joint
+    tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
+    vaultA.deposit(amountA, {"from": tokenA_whale})
+
+    tokenB.approve(vaultB, 2 ** 256 - 1, {"from": tokenB_whale})
+    vaultB.deposit(amountB, {"from": tokenB_whale})
+
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
     old_joint.liquidatePosition({"from": gov})
@@ -47,9 +70,31 @@ def test_joint_migration(
 
 
 def test_joint_clone_migration(
-    chain, gov, strategist, weth, joint, providerA, providerB, SushiJoint
+    chain,
+    gov,
+    strategist,
+    weth,
+    vaultA,
+    vaultB,
+    joint,
+    providerA,
+    providerB,
+    tokenA,
+    tokenB,
+    amountA,
+    amountB,
+    tokenA_whale,
+    tokenB_whale,
+    SushiJoint,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
     old_joint = joint
+    tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
+    vaultA.deposit(amountA, {"from": tokenA_whale})
+
+    tokenB.approve(vaultB, 2 ** 256 - 1, {"from": tokenB_whale})
+    vaultB.deposit(amountB, {"from": tokenB_whale})
 
     chain.sleep(1)
     chain.mine()

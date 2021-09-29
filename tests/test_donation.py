@@ -1,6 +1,7 @@
 import brownie
 import pytest
 from operator import xor
+from utils import sync_price
 
 
 def test_donation_provider(
@@ -11,7 +12,9 @@ def test_donation_provider(
     joint,
     strategist,
     tokenA_whale,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
     ppsA_start = vaultA.pricePerShare()
 
     amount = 1e18
@@ -21,7 +24,6 @@ def test_donation_provider(
     providerA.setInvestWant(False, {"from": strategist})
     providerA.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
-    assert providerA.balanceOfWant() > 0
     assert joint.estimatedTotalAssetsInToken(tokenA) == 0
 
     chain.sleep(60 * 60 * 8)
@@ -46,7 +48,9 @@ def test_donation_joint(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -55,13 +59,13 @@ def test_donation_joint(
 
     ppsA_start = vaultA.pricePerShare()
     ppsB_start = vaultB.pricePerShare()
-
+    providerA.setInvestWant(True, {"from": strategist})
+    providerA.setTakeProfit(False, {"from": strategist})
+    providerB.setInvestWant(True, {"from": strategist})
+    providerB.setTakeProfit(False, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
@@ -73,7 +77,7 @@ def test_donation_joint(
         vaultB.strategies(providerB).dict()["totalDebt"] - providerB.balanceOfWant()
     )
     print(
-        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
+        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
     tokenA.approve(router, 2 ** 256 - 1, {"from": tokenA_whale})
@@ -87,7 +91,7 @@ def test_donation_joint(
     )
 
     print(
-        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
+        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
     # Wait plz
@@ -95,7 +99,7 @@ def test_donation_joint(
     chain.mine(int(3600 / 13))
 
     print(
-        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
+        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
     # If there is any profit it should go to the providers
@@ -106,7 +110,7 @@ def test_donation_joint(
     assert joint.balanceOfB() == amount
 
     print(
-        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
+        f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
 
     # If joint doesn't reinvest, and providers do not invest want, the want
@@ -136,8 +140,6 @@ def test_donation_joint(
     print(
         f"Return: {returnA*100:.5f}% {tokenA.symbol()} {returnB*100:.5f}% {tokenB.symbol()}"
     )
-
-    assert pytest.approx(returnA, rel=50e-3) == returnB
 
     chain.sleep(60 * 60 * 8)
     chain.mine(1)

@@ -3,6 +3,7 @@ import pytest
 from brownie import Contract, Wei, chain
 from operator import xor
 
+
 def print_hedge_status(joint, tokenA, tokenB):
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -17,17 +18,18 @@ def print_hedge_status(joint, tokenA, tokenB):
     print(f"\tStrike {callInfo[1]/1e8}")
     print(f"\tAmount {callInfo[2]/1e18}")
     print(f"\tTTM {(callInfo[4]-chain.time())/3600}h")
-    costCall = (callInfo[5]+callInfo[6])/0.8
+    costCall = (callInfo[5] + callInfo[6]) / 0.8
     print(f"\tCost {(callInfo[5]+callInfo[6])/0.8/1e18} {tokenA.symbol()}")
     print(f"\tPayout: {callPayout/1e18} {tokenA.symbol()}")
     print(f"PUT #{putID}")
     print(f"\tStrike {putInfo[1]/1e8}")
     print(f"\tAmount {putInfo[2]/1e18}")
     print(f"\tTTM {(putInfo[4]-chain.time())/3600}h")
-    costPut = (putInfo[5]+putInfo[6])/0.8
+    costPut = (putInfo[5] + putInfo[6]) / 0.8
     print(f"\tCost {costPut/1e6} {tokenB.symbol()}")
     print(f"\tPayout: {putPayout/1e6} {tokenB.symbol()}")
     return (costCall, costPut)
+
 
 def sync_price(joint, mock_chainlink, strategist):
     pair = Contract(joint.pair())
@@ -52,7 +54,7 @@ def test_operation_swap_a4b_hedged_light(
     tokenB_whale,
     mock_chainlink,
     LPHedgingLibrary,
-    oracle
+    oracle,
 ):
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
@@ -124,9 +126,11 @@ def test_operation_swap_a4b_hedged_light(
 
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
-    assert currentA/currentB == pytest.approx(startingA/startingB, rel=50e-3)
+    assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
 
-    print(f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}")
+    print(
+        f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
+    )
 
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -145,8 +149,12 @@ def test_operation_swap_a4b_hedged_light(
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | ((callPayout == 0) & (callInfo[0] == 1))
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | ((putPayout == 0) & (putInfo[0] == 1))
+    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
+        (callPayout == 0) & (callInfo[0] == 1)
+    )
+    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
+        (putPayout == 0) & (putInfo[0] == 1)
+    )
 
     assert providerA.balanceOfWant() > 0
     assert providerB.balanceOfWant() > 0
@@ -161,7 +169,6 @@ def test_operation_swap_a4b_hedged_light(
     assert lossB == 0
     assert gainA > 0
     assert gainB > 0
-
 
     returnA = gainA / investedA
     returnB = gainB / investedB
@@ -190,7 +197,7 @@ def test_operation_swap_a4b_hedged_heavy(
     tokenB_whale,
     mock_chainlink,
     LPHedgingLibrary,
-    oracle
+    oracle,
 ):
 
     sync_price(joint, mock_chainlink, strategist)
@@ -223,13 +230,11 @@ def test_operation_swap_a4b_hedged_heavy(
     startingA = joint.estimatedTotalAssetsInToken(tokenA)
     startingB = joint.estimatedTotalAssetsInToken(tokenB)
 
-
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
-    
-    print_hedge_status(joint, tokenA, tokenB)
 
+    print_hedge_status(joint, tokenA, tokenB)
 
     tokenA.approve(router, 2 ** 256 - 1, {"from": tokenA_whale})
     print(
@@ -252,7 +257,6 @@ def test_operation_swap_a4b_hedged_heavy(
     print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
     print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
-
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
     )
@@ -267,8 +271,10 @@ def test_operation_swap_a4b_hedged_heavy(
 
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
-    assert currentA/currentB == pytest.approx(startingA/startingB, rel=50e-3)
-    print(f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}")
+    assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
+    print(
+        f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
+    )
 
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -287,8 +293,12 @@ def test_operation_swap_a4b_hedged_heavy(
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | ((callPayout == 0) & (callInfo[0] == 1))
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | ((putPayout == 0) & (putInfo[0] == 1))
+    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
+        (callPayout == 0) & (callInfo[0] == 1)
+    )
+    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
+        (putPayout == 0) & (putInfo[0] == 1)
+    )
 
     assert providerA.balanceOfWant() > 0
     assert providerB.balanceOfWant() > 0
@@ -327,7 +337,7 @@ def test_operation_swap_b4a_hedged_light(
     tokenB_whale,
     mock_chainlink,
     LPHedgingLibrary,
-    oracle
+    oracle,
 ):
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
@@ -357,7 +367,6 @@ def test_operation_swap_b4a_hedged_light(
 
     startingA = joint.estimatedTotalAssetsInToken(tokenA)
     startingB = joint.estimatedTotalAssetsInToken(tokenB)
-
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
@@ -399,8 +408,10 @@ def test_operation_swap_b4a_hedged_light(
     )
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
-    assert currentA/currentB == pytest.approx(startingA/startingB, rel=50e-3)
-    print(f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}")
+    assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
+    print(
+        f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
+    )
 
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -419,8 +430,12 @@ def test_operation_swap_b4a_hedged_light(
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | ((callPayout == 0) & (callInfo[0] == 1))
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | ((putPayout == 0) & (putInfo[0] == 1))
+    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
+        (callPayout == 0) & (callInfo[0] == 1)
+    )
+    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
+        (putPayout == 0) & (putInfo[0] == 1)
+    )
 
     assert providerA.balanceOfWant() > 0
     assert providerB.balanceOfWant() > 0
@@ -458,7 +473,7 @@ def test_operation_swap_b4a_hedged_heavy(
     tokenB_whale,
     mock_chainlink,
     LPHedgingLibrary,
-    oracle
+    oracle,
 ):
 
     sync_price(joint, mock_chainlink, strategist)
@@ -489,7 +504,6 @@ def test_operation_swap_b4a_hedged_heavy(
 
     startingA = joint.estimatedTotalAssetsInToken(tokenA)
     startingB = joint.estimatedTotalAssetsInToken(tokenB)
-
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e6} {tokenB.symbol()}"
@@ -531,8 +545,10 @@ def test_operation_swap_b4a_hedged_heavy(
     )
     currentA = joint.estimatedTotalAssetsInToken(tokenA)
     currentB = joint.estimatedTotalAssetsInToken(tokenB)
-    assert currentA/currentB == pytest.approx(startingA/startingB, rel=50e-3)
-    print(f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}")
+    assert currentA / currentB == pytest.approx(startingA / startingB, rel=50e-3)
+    print(
+        f"Current RatioA/B: {currentA/currentB} vs initial ratio A/B {startingA/startingB}"
+    )
 
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -551,9 +567,12 @@ def test_operation_swap_b4a_hedged_heavy(
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
 
-    assert ((callInfo[0] == 2) & (callPayout > 0)) | ((callPayout == 0) & (callInfo[0] == 1))
-    assert ((putInfo[0] == 2) & (putPayout > 0)) | ((putPayout == 0) & (putInfo[0] == 1))
-
+    assert ((callInfo[0] == 2) & (callPayout > 0)) | (
+        (callPayout == 0) & (callInfo[0] == 1)
+    )
+    assert ((putInfo[0] == 2) & (putPayout > 0)) | (
+        (putPayout == 0) & (putInfo[0] == 1)
+    )
 
     assert providerA.balanceOfWant() > 0
     assert providerB.balanceOfWant() > 0

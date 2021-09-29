@@ -1,6 +1,7 @@
 import brownie
 import pytest
 from operator import xor
+from utils import sync_price
 
 
 def test_emergency_exit(
@@ -17,8 +18,9 @@ def test_emergency_exit(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
-
+    sync_price(joint, mock_chainlink, strategist)
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -26,10 +28,8 @@ def test_emergency_exit(
     vaultB.deposit(amountB, {"from": tokenB_whale})
 
     providerA.harvest({"from": strategist})
-    providerB.harvest({"from": strategist})
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
+    tx = providerB.harvest({"from": strategist})
+
     assert providerA.estimatedTotalAssets() > 0
     assert providerB.estimatedTotalAssets() > 0
     assert joint.balanceOfStake() > 0
@@ -40,8 +40,17 @@ def test_emergency_exit(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert vaultA.strategies(providerA).dict()["totalLoss"] == 0
-    assert vaultB.strategies(providerB).dict()["totalLoss"] == 0
+    assert (
+        vaultA.strategies(providerA).dict()["totalLoss"]
+        <= tx.events["Acquired"][0]["settlementFee"]
+        + tx.events["Acquired"][0]["premium"]
+    )
+    assert (
+        vaultB.strategies(providerB).dict()["totalLoss"]
+        <= tx.events["Acquired"][1]["settlementFee"]
+        + tx.events["Acquired"][1]["premium"]
+        + 2
+    )
     assert providerA.estimatedTotalAssets() == 0
     assert providerB.estimatedTotalAssets() == 0
 
@@ -60,8 +69,9 @@ def test_liquidate_from_joint(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
-
+    sync_price(joint, mock_chainlink, strategist)
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -70,9 +80,7 @@ def test_liquidate_from_joint(
 
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
+
     assert providerA.estimatedTotalAssets() > 0
     assert providerB.estimatedTotalAssets() > 0
 
@@ -102,8 +110,9 @@ def test_liquidate_from_joint_and_swap_reward(
     tokenB_whale,
     chain,
     sushi,
+    mock_chainlink,
 ):
-
+    sync_price(joint, mock_chainlink, strategist)
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -112,9 +121,7 @@ def test_liquidate_from_joint_and_swap_reward(
 
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
+
     assert providerA.estimatedTotalAssets() > 0
     assert providerB.estimatedTotalAssets() > 0
 

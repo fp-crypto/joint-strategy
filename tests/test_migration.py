@@ -1,6 +1,7 @@
 import brownie
 import pytest
 from brownie import Contract, Wei
+from utils import sync_price, print_hedge_status
 
 
 def test_migration(
@@ -21,7 +22,9 @@ def test_migration(
     weth,
     ProviderStrategy,
     SushiJoint,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -31,6 +34,9 @@ def test_migration(
 
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
+
+    print_hedge_status(joint, tokenA, tokenB)
+
     assert joint.balanceOfStake() > 0
     tx = providerA.cloneProviderStrategy(
         providerA.vault(),
@@ -65,10 +71,12 @@ def test_migration(
     providerB.harvest({"from": strategist})
 
     # Wait plz
-    chain.sleep(60 * 60 * 24 * 5)
-    chain.mine(50)
+    chain.sleep(60 * 60 * 24 * 1 - 30)
+    chain.mine(int(60 * 60 * 24 * 1 / 13.5) - 26)
+    print_hedge_status(new_joint, tokenA, tokenB)
 
     assert new_joint.pendingReward() > 0
+    print(f"Rewards: {new_joint.pendingReward()}")
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
     new_a.setInvestWant(False, {"from": strategist})
@@ -95,5 +103,6 @@ def test_migration(
 
     new_a.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-    assert vaultA.strategies(new_a).dict()["totalGain"] > 0
-    assert vaultB.strategies(providerB).dict()["totalGain"] > 0
+    # due to fees from option
+    assert vaultA.strategies(new_a).dict()["totalLoss"] > 0
+    assert vaultB.strategies(providerB).dict()["totalLoss"] > 0

@@ -119,7 +119,7 @@ def amountA(tokenA):
 @pytest.fixture
 def amountB(tokenB, joint):
     reserve0, reserve1, a = Contract(joint.pair()).getReserves()
-    yield reserve0/reserve1 * 1e12 * 10 * 10 ** tokenB.decimals()  # price A/B times amountA
+    yield reserve0 / reserve1 * 1e12 * 10 * 10 ** tokenB.decimals()  # price A/B times amountA
 
 
 @pytest.fixture

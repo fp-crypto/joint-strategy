@@ -569,7 +569,7 @@ abstract contract Joint {
         _returnLooseToProviders();
     }
 
-    function withdrawStakedLp() external onlyAuthorized {
+    function withdrawStakedLP() external onlyAuthorized {
         withdrawLP();
     }
 

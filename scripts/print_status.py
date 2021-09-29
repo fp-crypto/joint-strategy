@@ -13,17 +13,17 @@ def print_status():
         print(f"\tStrike {callInfo[1]/1e8}")
         print(f"\tAmount {callInfo[2]/1e18}")
         print(f"\tTTM {(callInfo[4]-chain.time())/3600}h")
-        costCall = (callInfo[5]+callInfo[6])/0.8
+        costCall = (callInfo[5] + callInfo[6]) / 0.8
         print(f"\tCost {(callInfo[5]+callInfo[6])/0.8/1e18} {tokenA.symbol()}")
         print(f"\tPayout: {callPayout/1e18} {tokenA.symbol()}")
         print(f"PUT #{putID}")
         print(f"\tStrike {putInfo[1]/1e8}")
         print(f"\tAmount {putInfo[2]/1e18}")
         print(f"\tTTM {(putInfo[4]-chain.time())/3600}h")
-        costPut = (putInfo[5]+putInfo[6])/0.8
+        costPut = (putInfo[5] + putInfo[6]) / 0.8
         print(f"\tCost {costPut/1e6} {tokenB.symbol()}")
         print(f"\tPayout: {putPayout/1e6} {tokenB.symbol()}")
-        return(callInfo[1]/1e8, (callInfo[4]-chain.time())/3600)
+        return (callInfo[1] / 1e8, (callInfo[4] - chain.time()) / 3600)
 
     joint = Contract("0x7023Ae05e0FD6f7d6C7BbCB8b435BaF065Df3acD")
     pair = Contract(joint.pair())
@@ -34,9 +34,9 @@ def print_status():
     weth = Contract(joint.tokenB())
     vaultA = Contract(providerA.vault())
     vaultB = Contract(providerB.vault())
-    totalDebtA = vaultA.strategies(providerA).dict()['totalDebt']
-    totalDebtB = vaultB.strategies(providerB).dict()['totalDebt']
-    currentPrice = reserve0/reserve1 * 1e12
+    totalDebtA = vaultA.strategies(providerA).dict()["totalDebt"]
+    totalDebtB = vaultB.strategies(providerB).dict()["totalDebt"]
+    currentPrice = reserve0 / reserve1 * 1e12
     balanceA = providerA.balanceOfWant()
     balanceB = providerB.balanceOfWant()
     assetsA = joint.estimatedTotalAssetsInToken(usdc)

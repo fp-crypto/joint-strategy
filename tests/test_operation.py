@@ -2,6 +2,7 @@ import brownie
 import pytest
 from brownie import Contract, Wei
 from operator import xor
+from utils import sync_price, print_hedge_status
 
 
 def test_operation(
@@ -18,7 +19,9 @@ def test_operation(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -31,10 +34,7 @@ def test_operation(
 
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
+    print_hedge_status(joint, tokenA, tokenB)
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
@@ -51,8 +51,8 @@ def test_operation(
     )
 
     # Wait plz
-    chain.sleep(3600 * 1)
-    chain.mine(int(3600 / 13) * 1)
+    chain.sleep(3600 * 24 - 30)
+    chain.mine(int(3600 / 13) * 24)
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
@@ -71,21 +71,6 @@ def test_operation(
     assert providerA.balanceOfWant() > 0
     assert providerB.balanceOfWant() > 0
 
-    gainA = vaultA.strategies(providerA).dict()["totalGain"]
-    gainB = vaultB.strategies(providerB).dict()["totalGain"]
-
-    assert gainA > 0
-    assert gainB > 0
-
-    returnA = gainA / investedA
-    returnB = gainB / investedB
-
-    print(
-        f"Return: {returnA*100:.5f}% {tokenA.symbol()} {returnB*100:.5f}% {tokenB.symbol()}"
-    )
-
-    assert pytest.approx(returnA, rel=50e-3) == returnB
-
     # Harvest should be a no-op
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
@@ -96,11 +81,9 @@ def test_operation(
 
     chain.sleep(60 * 60 * 8)
     chain.mine(1)
-    assert vaultA.strategies(providerA).dict()["totalGain"] > 0
-    assert vaultB.strategies(providerB).dict()["totalGain"] > 0
-
-    assert vaultA.pricePerShare() > ppsA_start
-    assert vaultB.pricePerShare() > ppsB_start
+    # losses due to not being able to earn enough to cover hedge without trades!
+    assert vaultA.strategies(providerA).dict()["totalLoss"] > 0
+    assert vaultB.strategies(providerB).dict()["totalLoss"] > 0
 
 
 def test_operation_swap_a4b(
@@ -118,7 +101,9 @@ def test_operation_swap_a4b(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
 
@@ -128,9 +113,6 @@ def test_operation_swap_a4b(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
@@ -160,8 +142,8 @@ def test_operation_swap_a4b(
     )
 
     # Wait plz
-    chain.sleep(3600 * 1)
-    chain.mine(int(3600 / 13))
+    chain.sleep(3600 * 24 - 30)
+    chain.mine(int(3600 * 24 / 13) - 30)
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
@@ -212,7 +194,9 @@ def test_operation_swap_b4a(
     strategist,
     tokenA_whale,
     tokenB_whale,
+    mock_chainlink,
 ):
+    sync_price(joint, mock_chainlink, strategist)
 
     tokenA.approve(vaultA, 2 ** 256 - 1, {"from": tokenA_whale})
     vaultA.deposit(amountA, {"from": tokenA_whale})
@@ -223,9 +207,6 @@ def test_operation_swap_b4a(
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert xor(
-        providerA.balanceOfWant() > 0, providerB.balanceOfWant() > 0
-    )  # exactly one should have some remainder
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
@@ -255,8 +236,8 @@ def test_operation_swap_b4a(
     )
 
     # Wait plz
-    chain.sleep(3600 * 1)
-    chain.mine(int(3600 / 13))
+    chain.sleep(3600 * 24)
+    chain.mine(int(3600 * 24 / 13) - 30)
 
     print(
         f"Joint estimated assets: {joint.estimatedTotalAssetsInToken(tokenA) / 1e18} {tokenA.symbol()} and {joint.estimatedTotalAssetsInToken(tokenB) / 1e18} {tokenB.symbol()}"
