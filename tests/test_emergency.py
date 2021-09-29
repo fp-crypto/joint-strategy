@@ -134,9 +134,9 @@ def test_liquidate_from_joint_and_swap_reward(
     assert joint.balanceOfReward() > 0
 
     with brownie.reverts():
-        joint.swapTokenForToken(tokenA, sushi, joint.balanceOfA(), {"from": gov})
+        joint.swapTokenForToken([tokenA, sushi], joint.balanceOfA(), {"from": gov})
 
-    joint.swapTokenForToken(sushi, tokenA, joint.balanceOfReward(), {"from": gov})
+    joint.swapTokenForToken([sushi, tokenA], joint.balanceOfReward(), {"from": gov})
 
     joint.returnLooseToProviders({"from": gov})
 

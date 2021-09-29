@@ -138,41 +138,38 @@ abstract contract Joint {
     function closePositionReturnFunds() external onlyProviders {
         // If we have previously invested funds, let's distribute PnL equally in
         // each token's own terms
-        if (investedA != 0 && investedB != 0) {
-            // Liquidate will also claim rewards & close hedge
-            (uint256 currentA, uint256 currentB) = _liquidatePosition();
+        if (investedA == 0 || investedB == 0) {
+            return;
+        }
 
-            (address rewardSwappedTo, uint256 rewardSwapOutAmount) =
-                swapReward(balanceOfReward());
-            if (rewardSwappedTo == tokenA) {
-                currentA = currentA.add(rewardSwapOutAmount);
-            } else if (rewardSwappedTo == tokenB) {
-                currentB = currentB.add(rewardSwapOutAmount);
-            }
+        // Liquidate will also claim rewards & close hedge
+        (uint256 currentA, uint256 currentB) = _liquidatePosition();
 
-            (address sellToken, uint256 sellAmount) =
-                calculateSellToBalance(
-                    currentA,
-                    currentB,
-                    investedA,
-                    investedB
+        (address rewardSwappedTo, uint256 rewardSwapOutAmount) =
+            swapReward(balanceOfReward());
+        if (rewardSwappedTo == tokenA) {
+            currentA = currentA.add(rewardSwapOutAmount);
+        } else if (rewardSwappedTo == tokenB) {
+            currentB = currentB.add(rewardSwapOutAmount);
+        }
+
+        (address sellToken, uint256 sellAmount) =
+            calculateSellToBalance(currentA, currentB, investedA, investedB);
+
+        if (sellToken != address(0) && sellAmount != 0) {
+            uint256 buyAmount =
+                sellCapital(
+                    sellToken,
+                    sellToken == tokenA ? tokenB : tokenA,
+                    sellAmount
                 );
 
-            if (sellToken != address(0) && sellAmount != 0) {
-                uint256 buyAmount =
-                    sellCapital(
-                        sellToken,
-                        sellToken == tokenA ? tokenB : tokenA,
-                        sellAmount
-                    );
-
-                if (sellToken == tokenA) {
-                    currentA = currentA.sub(sellAmount);
-                    currentB = currentB.add(buyAmount);
-                } else {
-                    currentB = currentB.sub(sellAmount);
-                    currentA = currentA.add(buyAmount);
-                }
+            if (sellToken == tokenA) {
+                currentA = currentA.sub(sellAmount);
+                currentB = currentB.add(buyAmount);
+            } else {
+                currentB = currentB.sub(sellAmount);
+                currentA = currentA.add(buyAmount);
             }
         }
 

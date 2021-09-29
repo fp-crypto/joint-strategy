@@ -33,8 +33,8 @@ def test_joint_migration(
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
     old_joint.liquidatePosition({"from": gov})
-    providerA.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setDontInvestWant(True, {"from": strategist})
+    providerB.setDontInvestWant(True, {"from": strategist})
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
 
@@ -48,20 +48,16 @@ def test_joint_migration(
         providerB,
         joint.router(),
         weth,
-        joint.masterchef(),
         joint.reward(),
+        joint.masterchef(),
         joint.pid(),
         {"from": gov},
     )
 
     providerA.setJoint(new_joint, {"from": gov})
     providerB.setJoint(new_joint, {"from": gov})
-
-    providerA.setInvestWant(True, {"from": strategist})
-    providerB.setInvestWant(True, {"from": strategist})
-
-    assert providerA.takeProfit() == False
-    assert providerB.takeProfit() == False
+    providerA.setDontInvestWant(False, {"from": strategist})
+    providerB.setDontInvestWant(False, {"from": strategist})
 
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
@@ -102,8 +98,8 @@ def test_joint_clone_migration(
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
     old_joint.liquidatePosition({"from": gov})
-    providerA.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setDontInvestWant(True, {"from": strategist})
+    providerB.setDontInvestWant(True, {"from": strategist})
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
 
@@ -113,13 +109,13 @@ def test_joint_clone_migration(
     assert old_joint.balanceOfPair() + old_joint.balanceOfStake() == 0
 
     new_joint = SushiJoint.at(
-        old_joint.cloneJoint(
+        old_joint.cloneSushiJoint(
             providerA,
             providerB,
             joint.router(),
             weth,
-            joint.masterchef(),
             joint.reward(),
+            joint.masterchef(),
             joint.pid(),
             {"from": gov},
         ).return_value
@@ -128,12 +124,8 @@ def test_joint_clone_migration(
 
     providerA.setJoint(new_joint, {"from": gov})
     providerB.setJoint(new_joint, {"from": gov})
-
-    providerA.setInvestWant(True, {"from": strategist})
-    providerB.setInvestWant(True, {"from": strategist})
-
-    assert providerA.takeProfit() == False
-    assert providerB.takeProfit() == False
+    providerA.setDontInvestWant(False, {"from": strategist})
+    providerB.setDontInvestWant(False, {"from": strategist})
 
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})

@@ -62,22 +62,20 @@ def test_operation(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    providerA.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
-    providerA.setTakeProfit(True, {"from": strategist})
-    providerB.setTakeProfit(True, {"from": strategist})
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-    assert providerA.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
+    assert tokenA.balanceOf(vaultA) > 0
+    assert tokenB.balanceOf(vaultB) > 0
 
     # Harvest should be a no-op
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
     chain.sleep(60 * 60 * 8)
     chain.mine(1)
-    assert providerA.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
+    assert tokenA.balanceOf(vaultA) > 0
+    assert tokenB.balanceOf(vaultB) > 0
 
     chain.sleep(60 * 60 * 8)
     chain.mine(1)
@@ -153,15 +151,13 @@ def test_operation_swap_a4b(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    providerA.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
-    providerA.setTakeProfit(True, {"from": strategist})
-    providerB.setTakeProfit(True, {"from": strategist})
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert providerA.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
+    assert tokenA.balanceOf(vaultA) > 0
+    assert tokenB.balanceOf(vaultB) > 0
 
     lossA = vaultA.strategies(providerA).dict()["totalLoss"]
     lossB = vaultB.strategies(providerB).dict()["totalLoss"]
@@ -247,15 +243,13 @@ def test_operation_swap_b4a(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    providerA.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
-    providerA.setTakeProfit(True, {"from": strategist})
-    providerB.setTakeProfit(True, {"from": strategist})
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert providerA.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
+    assert tokenA.balanceOf(vaultA) > 0
+    assert tokenB.balanceOf(vaultB) > 0
 
     lossA = vaultA.strategies(providerA).dict()["totalLoss"]
     lossB = vaultB.strategies(providerB).dict()["totalLoss"]

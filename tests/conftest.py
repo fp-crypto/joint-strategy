@@ -187,7 +187,7 @@ def joint(
     LPHedgingLibrary,
 ):
     joint = gov.deploy(
-        SushiJoint, providerA, providerB, router, weth, masterchef, sushi, mc_pid
+        SushiJoint, providerA, providerB, router, weth, sushi, masterchef, mc_pid
     )
 
     providerA.setJoint(joint, {"from": gov})

@@ -38,7 +38,7 @@ def test_migration(
     print_hedge_status(joint, tokenA, tokenB)
 
     assert joint.balanceOfStake() > 0
-    tx = providerA.cloneProviderStrategy(
+    tx = providerA.clone(
         providerA.vault(),
         providerA.strategist(),
         providerA.rewards(),
@@ -52,13 +52,13 @@ def test_migration(
     vaultA.migrateStrategy(providerA, new_a, {"from": vaultA.governance()})
 
     new_joint = SushiJoint.at(
-        joint.cloneJoint(
+        joint.cloneSushiJoint(
             new_a,
             providerB,
             joint.router(),
             weth,
-            joint.masterchef(),
             joint.reward(),
+            joint.masterchef(),
             joint.pid(),
             {"from": gov},
         ).return_value
@@ -77,32 +77,15 @@ def test_migration(
 
     assert new_joint.pendingReward() > 0
     print(f"Rewards: {new_joint.pendingReward()}")
-    # If joint doesn't reinvest, and providers do not invest want, the want
-    # will stay in the providers
-    new_a.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
+
+    vaultA.updateStrategyDebtRatio(new_a, 0, {"from": vaultA.governance()})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultA.governance()})
     new_a.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-    assert new_a.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
 
-    chain.sleep(60 * 60 * 8)
-    chain.mine(1)
-    assert new_a.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
+    assert new_a.balanceOfWant() == 0
+    assert providerB.balanceOfWant() == 0
     assert vaultA.strategies(new_a).dict()["totalGain"] == 0
     assert vaultB.strategies(providerB).dict()["totalGain"] == 0
-
-    new_a.setTakeProfit(True, {"from": strategist})
-    providerB.setTakeProfit(True, {"from": strategist})
-    new_a.setInvestWant(False, {"from": strategist})
-    providerB.setInvestWant(False, {"from": strategist})
-
-    assert new_a.balanceOfWant() > 0
-    assert providerB.balanceOfWant() > 0
-
-    new_a.harvest({"from": strategist})
-    providerB.harvest({"from": strategist})
-    # due to fees from option
     assert vaultA.strategies(new_a).dict()["totalLoss"] > 0
     assert vaultB.strategies(providerB).dict()["totalLoss"] > 0

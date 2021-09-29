@@ -16,9 +16,9 @@ import {
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface JointAPI {
-    function prepareReturn(bool returnFunds) external;
+    function closePositionReturnFunds() external;
 
-    function adjustPosition() external;
+    function openPosition() external;
 
     function providerA() external view returns (address);
 
@@ -40,6 +40,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
     using SafeMath for uint256;
 
     address public joint;
+
+    bool private dontInvestWant = false;
 
     constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
@@ -71,7 +73,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
             uint256 _debtPayment
         )
     {
-        JointAPI(joint).prepareReturn(true);
+        JointAPI(joint).closePositionReturnFunds();
 
         uint256 totalDebt = vault.strategies(address(this)).totalDebt;
         uint256 totalAssets = balanceOfWant();
@@ -111,7 +113,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
-        if (emergencyExit) {
+        if (emergencyExit || dontInvestWant) {
             return;
         }
 
@@ -119,7 +121,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         if (wantBalance > 0) {
             want.transfer(joint, wantBalance);
         }
-        JointAPI(joint).adjustPosition();
+        JointAPI(joint).openPosition();
     }
 
     function liquidatePosition(uint256 _amountNeeded)
@@ -160,13 +162,17 @@ contract ProviderStrategy is BaseStrategyInitializable {
         joint = _joint;
     }
 
+    function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
+        dontInvestWant = _dontInvestWant;
+    }
+
     function liquidateAllPositions()
         internal
         virtual
         override
         returns (uint256 _amountFreed)
     {
-        JointAPI(joint).prepareReturn(true);
+        JointAPI(joint).closePositionReturnFunds();
         _amountFreed = balanceOfWant();
     }
 

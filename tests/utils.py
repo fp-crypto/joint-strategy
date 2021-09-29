@@ -15,7 +15,7 @@ def print_hedge_status(joint, tokenA, tokenB):
     callInfo = callProvider.options(callID)
     putInfo = putProvider.options(putID)
     assert (joint.activeCallID() != 0) & (joint.activePutID() != 0)
-    (callPayout, putPayout) = joint.getOptionsProfit()
+    (callPayout, putPayout) = joint.getHedgeProfit()
     print(f"Bought two options:")
     print(f"CALL #{callID}")
     print(f"\tStrike {callInfo[1]/1e8}")
