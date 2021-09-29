@@ -12,26 +12,82 @@ interface ISushiMasterchef is IMasterchef {
 }
 
 contract SushiJoint is HegicJoint {
+    uint256 public pid;
+
+    IMasterchef public masterchef;
+
     constructor(
         address _providerA,
         address _providerB,
         address _router,
         address _weth,
-        address _masterchef,
         address _reward,
+        address _masterchef,
         uint256 _pid
-    )
-        public
-        HegicJoint(
+    ) public HegicJoint(_providerA, _providerB, _router, _weth, _reward) {
+        _initalizeSushiJoint(_masterchef, _pid);
+    }
+
+    function initialize(
+        address _providerA,
+        address _providerB,
+        address _router,
+        address _weth,
+        address _reward,
+        address _masterchef,
+        uint256 _pid
+    ) external {
+        _initialize(_providerA, _providerB, _router, _weth, _reward);
+        _initalizeSushiJoint(_masterchef, _pid);
+    }
+
+    function _initalizeSushiJoint(address _masterchef, uint256 _pid) internal {
+        masterchef = IMasterchef(_masterchef);
+        pid = _pid;
+
+        IERC20(address(pair)).approve(_masterchef, type(uint256).max);
+    }
+
+    event Cloned(address indexed clone);
+
+    function cloneSushiJoint(
+        address _providerA,
+        address _providerB,
+        address _router,
+        address _weth,
+        address _reward,
+        address _masterchef,
+        uint256 _pid
+    ) external returns (address newJoint) {
+        bytes20 addressBytes = bytes20(address(this));
+
+        assembly {
+            // EIP-1167 bytecode
+            let clone_code := mload(0x40)
+            mstore(
+                clone_code,
+                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
+            )
+            mstore(add(clone_code, 0x14), addressBytes)
+            mstore(
+                add(clone_code, 0x28),
+                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
+            )
+            newJoint := create(0, clone_code, 0x37)
+        }
+
+        SushiJoint(newJoint).initialize(
             _providerA,
             _providerB,
             _router,
             _weth,
-            _masterchef,
             _reward,
+            _masterchef,
             _pid
-        )
-    {}
+        );
+
+        emit Cloned(newJoint);
+    }
 
     function name() external view override returns (string memory) {
         string memory ab =
@@ -45,11 +101,31 @@ contract SushiJoint is HegicJoint {
         return string(abi.encodePacked("SushiJointOf", ab));
     }
 
+    function balanceOfStake() public view override returns (uint256) {
+        return masterchef.userInfo(pid, address(this)).amount;
+    }
+
     function pendingReward() public view override returns (uint256) {
         return
             ISushiMasterchef(address(masterchef)).pendingSushi(
                 pid,
                 address(this)
             );
+    }
+
+    function getReward() internal override {
+        masterchef.deposit(pid, 0);
+    }
+
+    function depositLP() internal override {
+        if (balanceOfPair() > 0) {
+            masterchef.deposit(pid, balanceOfPair());
+        }
+    }
+
+    function withdrawLP() internal override {
+        if (balanceOfStake() != 0) {
+            masterchef.withdraw(pid, balanceOfStake());
+        }
     }
 }

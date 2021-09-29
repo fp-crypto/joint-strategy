@@ -46,10 +46,6 @@ abstract contract Joint {
     address public reward;
     address public router;
 
-    uint256 public pid;
-
-    IMasterchef public masterchef;
-
     IUniswapV2Pair public pair;
 
     uint256 private investedA;
@@ -107,39 +103,9 @@ abstract contract Joint {
         address _providerB,
         address _router,
         address _weth,
-        address _masterchef,
-        address _reward,
-        uint256 _pid
+        address _reward
     ) public {
-        _initialize(
-            _providerA,
-            _providerB,
-            _router,
-            _weth,
-            _masterchef,
-            _reward,
-            _pid
-        );
-    }
-
-    function initialize(
-        address _providerA,
-        address _providerB,
-        address _router,
-        address _weth,
-        address _masterchef,
-        address _reward,
-        uint256 _pid
-    ) external {
-        _initialize(
-            _providerA,
-            _providerB,
-            _router,
-            _weth,
-            _masterchef,
-            _reward,
-            _pid
-        );
+        _initialize(_providerA, _providerB, _router, _weth, _reward);
     }
 
     function _initialize(
@@ -147,70 +113,24 @@ abstract contract Joint {
         address _providerB,
         address _router,
         address _weth,
-        address _masterchef,
-        address _reward,
-        uint256 _pid
-    ) internal {
+        address _reward
+    ) internal virtual {
         require(address(providerA) == address(0), "Joint already initialized");
         providerA = ProviderStrategy(_providerA);
         providerB = ProviderStrategy(_providerB);
         router = _router;
         WETH = _weth;
-        masterchef = IMasterchef(_masterchef);
         reward = _reward;
-        pid = _pid;
 
         tokenA = address(providerA.want());
         tokenB = address(providerB.want());
 
         pair = IUniswapV2Pair(getPair());
 
-        IERC20(address(pair)).approve(address(masterchef), type(uint256).max);
-        IERC20(tokenA).approve(address(router), type(uint256).max);
-        IERC20(tokenB).approve(address(router), type(uint256).max);
-        IERC20(reward).approve(address(router), type(uint256).max);
-        IERC20(address(pair)).approve(address(router), type(uint256).max);
-    }
-
-    event Cloned(address indexed clone);
-
-    function cloneJoint(
-        address _providerA,
-        address _providerB,
-        address _router,
-        address _weth,
-        address _masterchef,
-        address _reward,
-        uint256 _pid
-    ) external returns (address newJoint) {
-        bytes20 addressBytes = bytes20(address(this));
-
-        assembly {
-            // EIP-1167 bytecode
-            let clone_code := mload(0x40)
-            mstore(
-                clone_code,
-                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
-            )
-            mstore(add(clone_code, 0x14), addressBytes)
-            mstore(
-                add(clone_code, 0x28),
-                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
-            )
-            newJoint := create(0, clone_code, 0x37)
-        }
-
-        Joint(newJoint).initialize(
-            _providerA,
-            _providerB,
-            _router,
-            _weth,
-            _masterchef,
-            _reward,
-            _pid
-        );
-
-        emit Cloned(newJoint);
+        IERC20(tokenA).approve(address(_router), type(uint256).max);
+        IERC20(tokenB).approve(address(_router), type(uint256).max);
+        IERC20(_reward).approve(address(_router), type(uint256).max);
+        IERC20(address(pair)).approve(address(_router), type(uint256).max);
     }
 
     function name() external view virtual returns (string memory) {}
@@ -521,13 +441,11 @@ abstract contract Joint {
         }
     }
 
-    function getReward() internal {
-        masterchef.deposit(pid, 0);
-    }
+    function getReward() internal virtual {}
 
-    function depositLP() internal {
-        if (balanceOfPair() > 0) masterchef.deposit(pid, balanceOfPair());
-    }
+    function depositLP() internal virtual {}
+
+    function withdrawLP() internal virtual {}
 
     function swapReward(uint256 _rewardBal)
         internal
@@ -569,9 +487,7 @@ abstract contract Joint {
     }
 
     function _liquidatePosition() internal returns (uint256, uint256) {
-        if (balanceOfStake() != 0) {
-            masterchef.withdraw(pid, balanceOfStake());
-        }
+        withdrawLP();
 
         if (balanceOfPair() == 0) {
             return (0, 0);
@@ -626,8 +542,8 @@ abstract contract Joint {
         return IERC20(reward).balanceOf(address(this));
     }
 
-    function balanceOfStake() public view returns (uint256) {
-        return masterchef.userInfo(pid, address(this)).amount;
+    function balanceOfStake() public view virtual returns (uint256) {
+        return 0;
     }
 
     function balanceOfTokensInLP()
@@ -653,8 +569,8 @@ abstract contract Joint {
         _returnLooseToProviders();
     }
 
-    function withdrawFromMasterchef() external onlyAuthorized {
-        masterchef.withdraw(pid, balanceOfStake());
+    function withdrawStakedLp() external onlyAuthorized {
+        withdrawLP();
     }
 
     function removeLiquidity(uint256 amount) external onlyAuthorized {

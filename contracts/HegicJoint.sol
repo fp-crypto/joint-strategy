@@ -32,21 +32,22 @@ abstract contract HegicJoint is Joint {
         address _providerB,
         address _router,
         address _weth,
-        address _masterchef,
-        address _reward,
-        uint256 _pid
-    )
-        public
-        Joint(
-            _providerA,
-            _providerB,
-            _router,
-            _weth,
-            _masterchef,
-            _reward,
-            _pid
-        )
-    {}
+        address _reward
+    ) public Joint(_providerA, _providerB, _router, _weth, _reward) {}
+
+    function _initialize(
+        address _providerA,
+        address _providerB,
+        address _router,
+        address _weth,
+        address _reward
+    ) internal override {
+        super._initialize(_providerA, _providerB, _router, _weth, _reward);
+
+        hedgeBudget = 50; // 0.5% per hedging period
+        protectionRange = 1000; // 10%
+        period = 1 days;
+    }
 
     function onERC721Received(
         address,

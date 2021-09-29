@@ -9,16 +9,11 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../interfaces/uni/IUniswapV2Router02.sol";
+import "../interfaces/IERC20Extended.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
-
-interface IERC20Extended {
-    function decimals() external view returns (uint8);
-
-    function name() external view returns (string memory);
-
-    function symbol() external view returns (string memory);
-}
+import {
+    BaseStrategyInitializable
+} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface JointAPI {
     function prepareReturn(bool returnFunds) external;
@@ -39,58 +34,14 @@ interface JointAPI {
     function router() external view returns (address);
 }
 
-contract ProviderStrategy is BaseStrategy {
+contract ProviderStrategy is BaseStrategyInitializable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
     address public joint;
 
-    constructor(address _vault) public BaseStrategy(_vault) {}
-
-    function initialize(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper
-    ) external {
-        _initialize(_vault, _strategist, _rewards, _keeper);
-    }
-
-    event Cloned(address indexed clone);
-
-    function cloneProviderStrategy(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper
-    ) external returns (address newStrategy) {
-        bytes20 addressBytes = bytes20(address(this));
-
-        assembly {
-            // EIP-1167 bytecode
-            let clone_code := mload(0x40)
-            mstore(
-                clone_code,
-                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
-            )
-            mstore(add(clone_code, 0x14), addressBytes)
-            mstore(
-                add(clone_code, 0x28),
-                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
-            )
-            newStrategy := create(0, clone_code, 0x37)
-        }
-
-        ProviderStrategy(newStrategy).initialize(
-            _vault,
-            _strategist,
-            _rewards,
-            _keeper
-        );
-
-        emit Cloned(newStrategy);
-    }
+    constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
     function name() external view override returns (string memory) {
         return
