@@ -65,7 +65,7 @@ abstract contract HegicJoint is Joint {
         return this.onERC721Received.selector;
     }
 
-    function getHedgeBudget() public override returns (uint256) {
+    function getHedgeBudget(address token) public override returns (uint256) {
         return hedgeBudget;
     }
 
