@@ -287,7 +287,7 @@ abstract contract Joint {
         }
     }
 
-    function getHedgeBudget() public virtual returns (uint256) {
+    function getHedgeBudget(address token) public virtual returns (uint256) {
         return 0;
     }
 
@@ -405,10 +405,10 @@ abstract contract Joint {
             IUniswapV2Router02(router).addLiquidity(
                 tokenA,
                 tokenB,
-                balanceOfA().mul(RATIO_PRECISION.sub(getHedgeBudget())).div(
+                balanceOfA().mul(RATIO_PRECISION.sub(getHedgeBudget(tokenA))).div(
                     RATIO_PRECISION
                 ),
-                balanceOfB().mul(RATIO_PRECISION.sub(getHedgeBudget())).div(
+                balanceOfB().mul(RATIO_PRECISION.sub(getHedgeBudget(tokenB))).div(
                     RATIO_PRECISION
                 ),
                 0,
