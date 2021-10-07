@@ -20,14 +20,17 @@ abstract contract HegicJoint is Joint {
     uint256 public activeCallID;
     uint256 public activePutID;
 
-    uint256 public hedgeBudget; // 0.5% per hedging period
-    uint256 public protectionRange; // 10%
+    uint256 public hedgeBudget;
+    uint256 public protectionRange;
     uint256 public period;
 
     uint256 private minTimeToMaturity;
 
     // HEDGING
     bool public isHedgingDisabled;
+
+    uint256 private constant PRICE_DECIMALS = 8;
+    uint256 private maxSlippage; 
 
     constructor(
         address _providerA,
@@ -70,6 +73,10 @@ abstract contract HegicJoint is Joint {
         return LPHedgingLib.getOptionsProfit(activeCallID, activePutID);
     }
 
+    function setMaxSlippage(uint256 _maxSlippage) external onlyAuthorized {
+	maxSlippage = _maxSlippage;
+    }
+
     function setMinTimeToMaturity(uint256 _minTimeToMaturity) external onlyAuthorized {
 	require(_minTimeToMaturity > period); // avoid incorrect settings
 	minTimeToMaturity = _minTimeToMaturity;
@@ -108,6 +115,10 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
+    function getHedgeStrike() internal view returns (uint256) {
+	return LPHedgingLib.getHedgeStrike(activeCallID, activePutID);
+    }
+
     function hedgeLP()
         internal
         override
@@ -119,11 +130,24 @@ abstract contract HegicJoint is Joint {
             uint256 initialBalanceA = balanceOfA();
             uint256 initialBalanceB = balanceOfB();
             require(activeCallID == 0 && activePutID == 0);
-            (activeCallID, activePutID) = LPHedgingLib.hedgeLPToken(
+	    uint256 strikePrice;
+            (activeCallID, activePutID, strikePrice) = LPHedgingLib.hedgeLPToken(
                 address(_pair),
                 protectionRange,
                 period
             );
+	    uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+	    uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+	    (uint256 reserveA, uint256 reserveB) = getReserves();
+	    uint256 currentPairPrice = reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(tokenBDecimals);
+	    
+	    // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. strike)
+	    require(
+		currentPairPrice > strikePrice ? 
+		    currentPairPrice.mul(RATIO_PRECISION).div(strikePrice) < maxSlippage.add(RATIO_PRECISION) :
+		    strikePrice.mul(RATIO_PRECISION).div(currentPairPrice) < maxSlippage.add(RATIO_PRECISION)
+	    );
+
             costA = initialBalanceA.sub(balanceOfA());
             costB = initialBalanceB.sub(balanceOfB());
         }
@@ -131,9 +155,22 @@ abstract contract HegicJoint is Joint {
 
     function closeHedge() internal override {
         // only close hedge if a hedge is open
-        if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
-            LPHedgingLib.closeHedge(activeCallID, activePutID);
+ 	uint256 exercisePrice;
+	if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
+            (, , uint256 exercisePrice) = LPHedgingLib.closeHedge(activeCallID, activePutID);
         }
+
+	uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+	uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+	(uint256 reserveA, uint256 reserveB) = getReserves();
+	uint256 currentPairPrice = reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(tokenBDecimals);
+
+	// This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. exercise)
+	require(
+		currentPairPrice > exercisePrice ? 
+		currentPairPrice.mul(RATIO_PRECISION).div(exercisePrice) < maxSlippage.add(RATIO_PRECISION) :
+		exercisePrice.mul(RATIO_PRECISION).div(currentPairPrice) < maxSlippage.add(RATIO_PRECISION)
+	);
 
         activeCallID = 0;
         activePutID = 0;
@@ -147,13 +184,14 @@ abstract contract HegicJoint is Joint {
 		    return true;
 	    }
 
+	    (uint256 reserveA, uint256 reserveB) = getReserves();
 	    uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
-	    uint256 currentPrice = estimatedTotalAssetsInToken(tokenB).mul(tokenADecimals).div(estimatedTotalAssetsInToken(tokenA));
+	    uint256 currentPrice = reserveB.mul(tokenADecimals).div(reserveA);
 	    uint256 initPrice = investedB.mul(tokenADecimals).div(investedA);
-
+	    
 	    return currentPrice > initPrice ?
 		    currentPrice.mul(RATIO_PRECISION).div(initPrice) > RATIO_PRECISION.add(protectionRange) :
-		    initPrice.mul(RATIO_PRECISION).div(currentPrice) > RATIO_PRECISION.sub(protectionRange);
+		    initPrice.mul(RATIO_PRECISION).div(currentPrice) < RATIO_PRECISION.sub(protectionRange);
 	}
 
 	return super.shouldEndEpoch();

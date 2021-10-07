@@ -11,6 +11,20 @@ import "../interfaces/uni/IUniswapV2Pair.sol";
 import "../interfaces/hegic/IHegicOptions.sol";
 import "../interfaces/IERC20Extended.sol";
 
+interface IPriceProvider {
+	function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        );
+}
+
+
 library LPHedgingLib {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -52,11 +66,23 @@ library LPHedgingLib {
         }
     }
 
+    function getCurrentPrice() public returns (uint256) {
+	IPriceProvider pp = IPriceProvider(hegicCallOptionsPool.priceProvider());
+	(
+            ,
+            int256 answer,
+            ,
+            ,
+            
+        ) = pp.latestRoundData();
+	return uint256(answer);
+    }
+
     function hedgeLPToken(
         address lpToken,
         uint256 h,
         uint256 period
-    ) external returns (uint256 callID, uint256 putID) {
+    ) external returns (uint256 callID, uint256 putID, uint256 strike) {
         (
             ,
             address token0,
@@ -65,7 +91,7 @@ library LPHedgingLib {
             uint256 token1Amount
         ) = getLPInfo(lpToken);
         if (h == 0 || period == 0 || token0Amount == 0 || token1Amount == 0) {
-            return (0, 0);
+            return (0, 0, 0);
         }
 
         uint256 q;
@@ -82,6 +108,7 @@ library LPHedgingLib {
         _checkAllowance(callAmount, putAmount, period);
         callID = buyOptionFrom(hegicCallOptionsPool, callAmount, period);
         putID = buyOptionFrom(hegicPutOptionsPool, putAmount, period);
+	strike = getCurrentPrice();
     }
 
     function getOptionCost(
@@ -119,7 +146,7 @@ library LPHedgingLib {
 
     function closeHedge(uint256 callID, uint256 putID)
         external
-        returns (uint256 payoutToken0, uint256 payoutToken1)
+        returns (uint256 payoutToken0, uint256 payoutToken1, uint256 exercisePrice)
     {
         uint256 callProfit = hegicCallOptionsPool.profitOf(callID);
         uint256 putProfit = hegicPutOptionsPool.profitOf(putID);
@@ -128,7 +155,7 @@ library LPHedgingLib {
         // NOTE: call and put options expiration MUST be the same
         (, , , , uint256 expired, , ) = hegicCallOptionsPool.options(callID);
         if (expired < block.timestamp) {
-            return (0, 0);
+            return (0, 0, 0);
         }
 
         if (callProfit > 0) {
@@ -140,6 +167,7 @@ library LPHedgingLib {
             // put option is ITM
             hegicPutOptionsPool.exercise(putID);
         }
+	exercisePrice = getCurrentPrice();
     }
 
     function getOptionsAmount(uint256 q, uint256 h)
@@ -216,6 +244,12 @@ library LPHedgingLib {
             return 0;
         }
 	return expired.sub(block.timestamp);
+    }
+
+    function getHedgeStrike(uint256 callID, uint256 putID) public view returns (uint) {
+	// NOTE: strike is the same for both options
+	(, uint256 strikeCall, , , , , ) = hegicCallOptionsPool.options(callID);
+	return strikeCall;
     }
 
     function sqrt(uint256 x) public pure returns (uint256 result) {

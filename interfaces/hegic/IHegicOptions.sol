@@ -122,6 +122,8 @@ interface IHegicPool is IERC721, IPriceCalculator {
         uint256 amount
     );
 
+    function priceProvider() external view returns (address);
+
     /**
      * @param id The ERC721 token ID linked to the option
      **/
