@@ -20,9 +20,11 @@ abstract contract HegicJoint is Joint {
     uint256 public activeCallID;
     uint256 public activePutID;
 
-    uint256 private hedgeBudget = 50; // 0.5% per hedging period
-    uint256 private protectionRange = 1000; // 10%
-    uint256 private period = 1 days;
+    uint256 public hedgeBudget; // 0.5% per hedging period
+    uint256 public protectionRange; // 10%
+    uint256 public period;
+
+    uint256 private minTimeToMaturity;
 
     // HEDGING
     bool public isHedgingDisabled;
@@ -47,6 +49,8 @@ abstract contract HegicJoint is Joint {
         hedgeBudget = 50; // 0.5% per hedging period
         protectionRange = 1000; // 10%
         period = 1 days;
+	minTimeToMaturity = 3600; // 1 hour
+
     }
 
     function onERC721Received(
@@ -64,6 +68,11 @@ abstract contract HegicJoint is Joint {
 
     function getHedgeProfit() public view override returns (uint256, uint256) {
         return LPHedgingLib.getOptionsProfit(activeCallID, activePutID);
+    }
+
+    function setMinTimeToMaturity(uint256 _minTimeToMaturity) external onlyAuthorized {
+	require(_minTimToMaturity > period); // avoid incorrect settings
+	minTimeToMaturity = _minTimeToMaturity;
     }
 
     function setIsHedgingDisabled(bool _isHedgingDisabled, bool force)
@@ -128,5 +137,30 @@ abstract contract HegicJoint is Joint {
 
         activeCallID = 0;
         activePutID = 0;
+    }
+
+    function shouldEndEpoch() public override returns (bool) {
+	// End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
+	if(activeCallID != 0 || activePutID != 0) {
+	    // if Time to Maturity of hedge is lower than min threshold, need to end epoch
+	    if(LPHedgingLib.getTimeToMaturity(activeCallID, activePutID) <= minTimeToMaturity) {
+		    return true;
+	    }
+
+	    uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+	    uint256 currentPrice = estimatedTotalAssetsInToken(tokenB).mul(tokenADecimals).div(estimatedTotalAssetsInToken(tokenA));
+	    uint256 initPrice = investedB.mul(tokenADecimals).div(investedA);
+
+	    return currentPrice > initPrice ?
+		    currentPrice.mul(RATIO_PRECISION).div(initPrice) > RATIO_PRECISION.add(protectionRange) :
+		    initPrice.mul(RATIO_PRECISION).div(currentPrice) > RATIO_PRECISION.sub(protectionRange);
+	}
+
+	return super.shouldEndEpoch();
+    }
+
+    function _ratioThreshold() public returns (uint) {
+	// 7% should be close to 15% price change
+	return uint256(7).mul(RATIO_PRECISION).div(100);
     }
 }

@@ -34,6 +34,8 @@ interface JointAPI {
     function router() external view returns (address);
 
     function migrateProvider(address _newProvider) external view;
+
+    function shouldEndEpoch() external view returns (bool);
 }
 
 contract ProviderStrategy is BaseStrategyInitializable {
@@ -112,6 +114,10 @@ contract ProviderStrategy is BaseStrategyInitializable {
                 _profit = amountRequired.sub(_debtPayment);
             }
         }
+    }
+
+    function harvestTrigger(uint256 callCost) external view returns (bool)
+    	return joint.shouldEndEpoch();
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {

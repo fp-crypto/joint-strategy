@@ -48,8 +48,8 @@ abstract contract Joint {
 
     IUniswapV2Pair public pair;
 
-    uint256 private investedA;
-    uint256 private investedB;
+    uint256 internal investedA;
+    uint256 internal investedB;
 
     modifier onlyGovernance {
         checkGovernance();
@@ -134,6 +134,8 @@ abstract contract Joint {
     }
 
     function name() external view virtual returns (string memory) {}
+
+    function shouldEndEpoch() public view virtual returns (bool) {}
 
     function closePositionReturnFunds() external onlyProviders {
         // If we have previously invested funds, let's distribute PnL equally in
@@ -261,7 +263,7 @@ abstract contract Joint {
     }
 
     function estimatedTotalAssetsInToken(address token)
-        external
+        public
         view
         returns (uint256 _balance)
     {
@@ -620,4 +622,5 @@ abstract contract Joint {
         } else {
             revert("Unsupported token");
         }
+    }
 }

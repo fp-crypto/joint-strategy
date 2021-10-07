@@ -204,6 +204,20 @@ library LPHedgingLib {
         token1Amount = amount.mul(balance1) / totalSupply;
     }
 
+    function getTimeToMaturity(uint256 callID, uint256 putID) public view returns (uint) {
+	if(callID == 0 || putID == 0) {
+	    return 0;
+	}
+	(, , , , uint256 expiredCall, , ) = hegicCallOptionsPool.options(callID);
+	(, , , , uint256 expiredPut, , ) = hegicPutOptionsPool.options(putID);
+	// use lowest time to maturity (should be the same)
+        uint256 expired = expiredCall > expiredPut ? expiredPut : expiredCall;
+	if (expired < block.timestamp) {
+            return 0;
+        }
+	return expired.sub(block.timestamp);
+    }
+
     function sqrt(uint256 x) public pure returns (uint256 result) {
         x = x.mul(MAX_BPS);
         result = x;
