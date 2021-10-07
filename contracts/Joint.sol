@@ -610,4 +610,14 @@ abstract contract Joint {
             IERC20(_token).balanceOf(address(this))
         );
     }
+
+    function migrateProvider(address _newProvider) external onlyProviders {
+	ProviderStrategy newProvider = ProviderStrategy(_newProvider);
+        if (newProvider.want() == tokenA) {
+            providerA = newProvider;
+        } else if (newProvider.want() == tokenB) {
+            providerB = newProvider;
+        } else {
+            revert("Unsupported token");
+        }
 }

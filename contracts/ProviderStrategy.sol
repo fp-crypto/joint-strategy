@@ -32,6 +32,8 @@ interface JointAPI {
     function WETH() external view returns (address);
 
     function router() external view returns (address);
+
+    function migrateProvider(address _newProvider) external view;
 }
 
 contract ProviderStrategy is BaseStrategyInitializable {
@@ -139,8 +141,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     }
 
     function prepareMigration(address _newStrategy) internal override {
-        // Want is sent to the new strategy in the base class
-        // nothing to do here
+    	JointAPI(joint).migrateProvider(_newStrategy);
     }
 
     function protectedTokens()
@@ -159,6 +160,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
             JointAPI(_joint).providerA() == address(this) ||
                 JointAPI(_joint).providerB() == address(this)
         );
+
         joint = _joint;
     }
 
