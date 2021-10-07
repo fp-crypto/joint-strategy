@@ -51,6 +51,9 @@ abstract contract Joint {
     uint256 internal investedA;
     uint256 internal investedB;
 
+    bool public dontInvestWant;
+    bool public autoProtectionDisabled;
+    
     modifier onlyGovernance {
         checkGovernance();
         _;
@@ -137,7 +140,17 @@ abstract contract Joint {
 
     function shouldEndEpoch() public view virtual returns (bool) {}
 
+    function _autoProtect() internal view virtual returns (bool) {}
+
+    function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
+        dontInvestWant = _dontInvestWant;
+    }
+
     function closePositionReturnFunds() external onlyProviders {
+	if(_autoProtect()) {
+	    dontInvestWant = true;	
+	}
+
         // If we have previously invested funds, let's distribute PnL equally in
         // each token's own terms
         if (investedA == 0 || investedB == 0) {

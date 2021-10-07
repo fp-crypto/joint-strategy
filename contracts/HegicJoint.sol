@@ -71,7 +71,7 @@ abstract contract HegicJoint is Joint {
     }
 
     function setMinTimeToMaturity(uint256 _minTimeToMaturity) external onlyAuthorized {
-	require(_minTimToMaturity > period); // avoid incorrect settings
+	require(_minTimeToMaturity > period); // avoid incorrect settings
 	minTimeToMaturity = _minTimeToMaturity;
     }
 
@@ -139,7 +139,7 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
-    function shouldEndEpoch() public override returns (bool) {
+    function shouldEndEpoch() public view override returns (bool) {
 	// End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
 	if(activeCallID != 0 || activePutID != 0) {
 	    // if Time to Maturity of hedge is lower than min threshold, need to end epoch
@@ -159,8 +159,12 @@ abstract contract HegicJoint is Joint {
 	return super.shouldEndEpoch();
     }
 
-    function _ratioThreshold() public returns (uint) {
-	// 7% should be close to 15% price change
-	return uint256(7).mul(RATIO_PRECISION).div(100);
+    // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
+    function _autoProtect() internal view override returns (bool) {
+	// if we are closing the position before 50% of hedge period has passed, we did something wrong so auto-init is stopped
+	if(LPHedgingLib.getTimeToMaturity(activeCallID, activePutID) > period.mul(50).div(100)) {
+	    return true;
+	}
+	return super._autoProtect();
     }
 }
