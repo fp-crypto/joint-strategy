@@ -53,7 +53,7 @@ abstract contract Joint {
 
     bool public dontInvestWant;
     bool public autoProtectionDisabled;
-    
+
     modifier onlyGovernance {
         checkGovernance();
         _;
@@ -147,9 +147,9 @@ abstract contract Joint {
     }
 
     function closePositionReturnFunds() external onlyProviders {
-	if(_autoProtect()) {
-	    dontInvestWant = true;	
-	}
+        if (_autoProtect()) {
+            dontInvestWant = true;
+        }
 
         // If we have previously invested funds, let's distribute PnL equally in
         // each token's own terms
@@ -627,7 +627,7 @@ abstract contract Joint {
     }
 
     function migrateProvider(address _newProvider) external onlyProviders {
-	ProviderStrategy newProvider = ProviderStrategy(_newProvider);
+        ProviderStrategy newProvider = ProviderStrategy(_newProvider);
         if (newProvider.want() == tokenA) {
             providerA = newProvider;
         } else if (newProvider.want() == tokenB) {

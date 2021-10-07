@@ -116,12 +116,17 @@ contract ProviderStrategy is BaseStrategyInitializable {
         }
     }
 
-    function harvestTrigger(uint256 callCost) public view override returns (bool) {
-    	return JointAPI(joint).shouldEndEpoch();
+    function harvestTrigger(uint256 callCost)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return JointAPI(joint).shouldEndEpoch();
     }
 
     function dontInvestWant() public view returns (bool) {
-	return JointAPI(joint).dontInvestWant();
+        return JointAPI(joint).dontInvestWant();
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -151,7 +156,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     }
 
     function prepareMigration(address _newStrategy) internal override {
-    	JointAPI(joint).migrateProvider(_newStrategy);
+        JointAPI(joint).migrateProvider(_newStrategy);
     }
 
     function protectedTokens()

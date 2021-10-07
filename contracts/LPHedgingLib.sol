@@ -12,7 +12,7 @@ import "../interfaces/hegic/IHegicOptions.sol";
 import "../interfaces/IERC20Extended.sol";
 
 interface IPriceProvider {
-	function latestRoundData()
+    function latestRoundData()
         external
         view
         returns (
@@ -23,7 +23,6 @@ interface IPriceProvider {
             uint80 answeredInRound
         );
 }
-
 
 library LPHedgingLib {
     using SafeMath for uint256;
@@ -67,22 +66,24 @@ library LPHedgingLib {
     }
 
     function getCurrentPrice() public returns (uint256) {
-	IPriceProvider pp = IPriceProvider(hegicCallOptionsPool.priceProvider());
-	(
-            ,
-            int256 answer,
-            ,
-            ,
-            
-        ) = pp.latestRoundData();
-	return uint256(answer);
+        IPriceProvider pp =
+            IPriceProvider(hegicCallOptionsPool.priceProvider());
+        (, int256 answer, , , ) = pp.latestRoundData();
+        return uint256(answer);
     }
 
     function hedgeLPToken(
         address lpToken,
         uint256 h,
         uint256 period
-    ) external returns (uint256 callID, uint256 putID, uint256 strike) {
+    )
+        external
+        returns (
+            uint256 callID,
+            uint256 putID,
+            uint256 strike
+        )
+    {
         (
             ,
             address token0,
@@ -108,7 +109,7 @@ library LPHedgingLib {
         _checkAllowance(callAmount, putAmount, period);
         callID = buyOptionFrom(hegicCallOptionsPool, callAmount, period);
         putID = buyOptionFrom(hegicPutOptionsPool, putAmount, period);
-	strike = getCurrentPrice();
+        strike = getCurrentPrice();
     }
 
     function getOptionCost(
@@ -146,7 +147,11 @@ library LPHedgingLib {
 
     function closeHedge(uint256 callID, uint256 putID)
         external
-        returns (uint256 payoutToken0, uint256 payoutToken1, uint256 exercisePrice)
+        returns (
+            uint256 payoutToken0,
+            uint256 payoutToken1,
+            uint256 exercisePrice
+        )
     {
         uint256 callProfit = hegicCallOptionsPool.profitOf(callID);
         uint256 putProfit = hegicPutOptionsPool.profitOf(putID);
@@ -167,7 +172,7 @@ library LPHedgingLib {
             // put option is ITM
             hegicPutOptionsPool.exercise(putID);
         }
-	exercisePrice = getCurrentPrice();
+        exercisePrice = getCurrentPrice();
     }
 
     function getOptionsAmount(uint256 q, uint256 h)
@@ -232,24 +237,33 @@ library LPHedgingLib {
         token1Amount = amount.mul(balance1) / totalSupply;
     }
 
-    function getTimeToMaturity(uint256 callID, uint256 putID) public view returns (uint) {
-	if(callID == 0 || putID == 0) {
-	    return 0;
-	}
-	(, , , , uint256 expiredCall, , ) = hegicCallOptionsPool.options(callID);
-	(, , , , uint256 expiredPut, , ) = hegicPutOptionsPool.options(putID);
-	// use lowest time to maturity (should be the same)
-        uint256 expired = expiredCall > expiredPut ? expiredPut : expiredCall;
-	if (expired < block.timestamp) {
+    function getTimeToMaturity(uint256 callID, uint256 putID)
+        public
+        view
+        returns (uint256)
+    {
+        if (callID == 0 || putID == 0) {
             return 0;
         }
-	return expired.sub(block.timestamp);
+        (, , , , uint256 expiredCall, , ) =
+            hegicCallOptionsPool.options(callID);
+        (, , , , uint256 expiredPut, , ) = hegicPutOptionsPool.options(putID);
+        // use lowest time to maturity (should be the same)
+        uint256 expired = expiredCall > expiredPut ? expiredPut : expiredCall;
+        if (expired < block.timestamp) {
+            return 0;
+        }
+        return expired.sub(block.timestamp);
     }
 
-    function getHedgeStrike(uint256 callID, uint256 putID) public view returns (uint) {
-	// NOTE: strike is the same for both options
-	(, uint256 strikeCall, , , , , ) = hegicCallOptionsPool.options(callID);
-	return strikeCall;
+    function getHedgeStrike(uint256 callID, uint256 putID)
+        public
+        view
+        returns (uint256)
+    {
+        // NOTE: strike is the same for both options
+        (, uint256 strikeCall, , , , , ) = hegicCallOptionsPool.options(callID);
+        return strikeCall;
     }
 
     function sqrt(uint256 x) public pure returns (uint256 result) {
