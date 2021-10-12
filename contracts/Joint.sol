@@ -48,8 +48,11 @@ abstract contract Joint {
 
     IUniswapV2Pair public pair;
 
-    uint256 private investedA;
-    uint256 private investedB;
+    uint256 internal investedA;
+    uint256 internal investedB;
+
+    bool public dontInvestWant;
+    bool public autoProtectionDisabled;
 
     modifier onlyGovernance {
         checkGovernance();
@@ -135,7 +138,19 @@ abstract contract Joint {
 
     function name() external view virtual returns (string memory) {}
 
+    function shouldEndEpoch() public view virtual returns (bool) {}
+
+    function _autoProtect() internal view virtual returns (bool) {}
+
+    function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
+        dontInvestWant = _dontInvestWant;
+    }
+
     function closePositionReturnFunds() external onlyProviders {
+        if (_autoProtect()) {
+            dontInvestWant = true;
+        }
+
         // If we have previously invested funds, let's distribute PnL equally in
         // each token's own terms
         if (investedA == 0 || investedB == 0) {
@@ -261,7 +276,7 @@ abstract contract Joint {
     }
 
     function estimatedTotalAssetsInToken(address token)
-        external
+        public
         view
         returns (uint256 _balance)
     {
@@ -609,5 +624,16 @@ abstract contract Joint {
             providerA.vault().governance(),
             IERC20(_token).balanceOf(address(this))
         );
+    }
+
+    function migrateProvider(address _newProvider) external onlyProviders {
+        ProviderStrategy newProvider = ProviderStrategy(_newProvider);
+        if (newProvider.want() == tokenA) {
+            providerA = newProvider;
+        } else if (newProvider.want() == tokenB) {
+            providerB = newProvider;
+        } else {
+            revert("Unsupported token");
+        }
     }
 }

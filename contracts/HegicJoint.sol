@@ -20,12 +20,18 @@ abstract contract HegicJoint is Joint {
     uint256 public activeCallID;
     uint256 public activePutID;
 
-    uint256 private hedgeBudget = 50; // 0.5% per hedging period
-    uint256 private protectionRange = 1000; // 10%
-    uint256 private period = 1 days;
+    uint256 public hedgeBudget;
+    uint256 public protectionRange;
+    uint256 public period;
+
+    uint256 private minTimeToMaturity;
 
     // HEDGING
     bool public isHedgingDisabled;
+
+    uint256 private constant PRICE_DECIMALS = 8;
+    uint256 private maxSlippageOpen;
+    uint256 private maxSlippageClose;
 
     constructor(
         address _providerA,
@@ -47,6 +53,7 @@ abstract contract HegicJoint is Joint {
         hedgeBudget = 50; // 0.5% per hedging period
         protectionRange = 1000; // 10%
         period = 1 days;
+        minTimeToMaturity = 3600; // 1 hour
     }
 
     function onERC721Received(
@@ -64,6 +71,28 @@ abstract contract HegicJoint is Joint {
 
     function getHedgeProfit() public view override returns (uint256, uint256) {
         return LPHedgingLib.getOptionsProfit(activeCallID, activePutID);
+    }
+
+    function setMaxSlippageClose(uint256 _maxSlippageClose)
+        external
+        onlyAuthorized
+    {
+        maxSlippageClose = _maxSlippageClose;
+    }
+
+    function setMaxSlippageOpen(uint256 _maxSlippageOpen)
+        external
+        onlyAuthorized
+    {
+        maxSlippageOpen = _maxSlippageOpen;
+    }
+
+    function setMinTimeToMaturity(uint256 _minTimeToMaturity)
+        external
+        onlyAuthorized
+    {
+        require(_minTimeToMaturity > period); // avoid incorrect settings
+        minTimeToMaturity = _minTimeToMaturity;
     }
 
     function setIsHedgingDisabled(bool _isHedgingDisabled, bool force)
@@ -99,6 +128,10 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
+    function getHedgeStrike() internal view returns (uint256) {
+        return LPHedgingLib.getHedgeStrike(activeCallID, activePutID);
+    }
+
     function hedgeLP()
         internal
         override
@@ -110,11 +143,28 @@ abstract contract HegicJoint is Joint {
             uint256 initialBalanceA = balanceOfA();
             uint256 initialBalanceB = balanceOfB();
             require(activeCallID == 0 && activePutID == 0);
-            (activeCallID, activePutID) = LPHedgingLib.hedgeLPToken(
-                address(_pair),
-                protectionRange,
-                period
+            uint256 strikePrice;
+            (activeCallID, activePutID, strikePrice) = LPHedgingLib
+                .hedgeLPToken(address(_pair), protectionRange, period);
+            uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+            uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+            (uint256 reserveA, uint256 reserveB) = getReserves();
+            uint256 currentPairPrice =
+                reserveB
+                    .mul(tokenADecimals)
+                    .mul(PRICE_DECIMALS)
+                    .div(reserveA)
+                    .div(tokenBDecimals);
+
+            // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. strike)
+            require(
+                currentPairPrice > strikePrice
+                    ? currentPairPrice.mul(RATIO_PRECISION).div(strikePrice) <
+                        maxSlippageOpen.add(RATIO_PRECISION)
+                    : strikePrice.mul(RATIO_PRECISION).div(currentPairPrice) <
+                        maxSlippageOpen.add(RATIO_PRECISION)
             );
+
             costA = initialBalanceA.sub(balanceOfA());
             costB = initialBalanceB.sub(balanceOfB());
         }
@@ -122,11 +172,71 @@ abstract contract HegicJoint is Joint {
 
     function closeHedge() internal override {
         // only close hedge if a hedge is open
+        uint256 exercisePrice;
         if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
-            LPHedgingLib.closeHedge(activeCallID, activePutID);
+            (, , exercisePrice) = LPHedgingLib.closeHedge(
+                activeCallID,
+                activePutID
+            );
         }
+
+        uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+        uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+        (uint256 reserveA, uint256 reserveB) = getReserves();
+        uint256 currentPairPrice =
+            reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(
+                tokenBDecimals
+            );
+
+        // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. exercise)
+        require(
+            currentPairPrice > exercisePrice
+                ? currentPairPrice.mul(RATIO_PRECISION).div(exercisePrice) <
+                    maxSlippageClose.add(RATIO_PRECISION)
+                : exercisePrice.mul(RATIO_PRECISION).div(currentPairPrice) <
+                    maxSlippageClose.add(RATIO_PRECISION)
+        );
 
         activeCallID = 0;
         activePutID = 0;
+    }
+
+    function shouldEndEpoch() public view override returns (bool) {
+        // End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
+        if (activeCallID != 0 || activePutID != 0) {
+            // if Time to Maturity of hedge is lower than min threshold, need to end epoch
+            if (
+                LPHedgingLib.getTimeToMaturity(activeCallID, activePutID) <=
+                minTimeToMaturity
+            ) {
+                return true;
+            }
+
+            (uint256 reserveA, uint256 reserveB) = getReserves();
+            uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
+            uint256 currentPrice = reserveB.mul(tokenADecimals).div(reserveA);
+            uint256 initPrice = investedB.mul(tokenADecimals).div(investedA);
+
+            return
+                currentPrice > initPrice
+                    ? currentPrice.mul(RATIO_PRECISION).div(initPrice) >
+                        RATIO_PRECISION.add(protectionRange)
+                    : initPrice.mul(RATIO_PRECISION).div(currentPrice) <
+                        RATIO_PRECISION.sub(protectionRange);
+        }
+
+        return super.shouldEndEpoch();
+    }
+
+    // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
+    function _autoProtect() internal view override returns (bool) {
+        // if we are closing the position before 50% of hedge period has passed, we did something wrong so auto-init is stopped
+        if (
+            LPHedgingLib.getTimeToMaturity(activeCallID, activePutID) >
+            period.mul(50).div(100)
+        ) {
+            return true;
+        }
+        return super._autoProtect();
     }
 }

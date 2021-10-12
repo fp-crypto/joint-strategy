@@ -32,6 +32,12 @@ interface JointAPI {
     function WETH() external view returns (address);
 
     function router() external view returns (address);
+
+    function migrateProvider(address _newProvider) external view;
+
+    function shouldEndEpoch() external view returns (bool);
+
+    function dontInvestWant() external view returns (bool);
 }
 
 contract ProviderStrategy is BaseStrategyInitializable {
@@ -40,8 +46,6 @@ contract ProviderStrategy is BaseStrategyInitializable {
     using SafeMath for uint256;
 
     address public joint;
-
-    bool private dontInvestWant = false;
 
     constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
@@ -112,8 +116,21 @@ contract ProviderStrategy is BaseStrategyInitializable {
         }
     }
 
+    function harvestTrigger(uint256 callCost)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return JointAPI(joint).shouldEndEpoch();
+    }
+
+    function dontInvestWant() public view returns (bool) {
+        return JointAPI(joint).dontInvestWant();
+    }
+
     function adjustPosition(uint256 _debtOutstanding) internal override {
-        if (emergencyExit || dontInvestWant) {
+        if (emergencyExit || dontInvestWant()) {
             return;
         }
 
@@ -139,8 +156,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     }
 
     function prepareMigration(address _newStrategy) internal override {
-        // Want is sent to the new strategy in the base class
-        // nothing to do here
+        JointAPI(joint).migrateProvider(_newStrategy);
     }
 
     function protectedTokens()
@@ -159,11 +175,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
             JointAPI(_joint).providerA() == address(this) ||
                 JointAPI(_joint).providerB() == address(this)
         );
-        joint = _joint;
-    }
 
-    function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
-        dontInvestWant = _dontInvestWant;
+        joint = _joint;
     }
 
     function liquidateAllPositions()
