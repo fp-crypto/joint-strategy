@@ -73,8 +73,18 @@ abstract contract HegicJoint is Joint {
         return LPHedgingLib.getOptionsProfit(activeCallID, activePutID);
     }
 
-    function setMaxSlippage(uint256 _maxSlippage) external onlyAuthorized {
-        maxSlippage = _maxSlippage;
+    function setMaxSlippageClose(uint256 _maxSlippageClose)
+        external
+        onlyAuthorized
+    {
+        maxSlippageClose = _maxSlippageClose;
+    }
+
+    function setMaxSlippageOpen(uint256 _maxSlippageOpen)
+        external
+        onlyAuthorized
+    {
+        maxSlippageOpen = _maxSlippageOpen;
     }
 
     function setMinTimeToMaturity(uint256 _minTimeToMaturity)
@@ -164,8 +174,10 @@ abstract contract HegicJoint is Joint {
         // only close hedge if a hedge is open
         uint256 exercisePrice;
         if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
-            (, , uint256 exercisePrice) =
-                LPHedgingLib.closeHedge(activeCallID, activePutID);
+            (, , exercisePrice) = LPHedgingLib.closeHedge(
+                activeCallID,
+                activePutID
+            );
         }
 
         uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
