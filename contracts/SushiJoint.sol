@@ -128,4 +128,8 @@ contract SushiJoint is HegicJoint {
             masterchef.withdraw(pid, balanceOfStake());
         }
     }
+
+    function withdrawStakedLP() external onlyAuthorized {
+        withdrawLP();
+    }
 }

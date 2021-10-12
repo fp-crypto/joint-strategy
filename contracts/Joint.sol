@@ -147,29 +147,43 @@ abstract contract Joint {
     }
 
     function closePositionReturnFunds() external onlyProviders {
+        // Check if it needs to stop starting new epochs after finishing this one. _autoProtect is implemented in children
         if (_autoProtect()) {
             dontInvestWant = true;
         }
 
-        // If we have previously invested funds, let's distribute PnL equally in
-        // each token's own terms
+        // Check that we have a position to close
         if (investedA == 0 || investedB == 0) {
             return;
         }
 
-        // Liquidate will also claim rewards & close hedge
-        (uint256 currentA, uint256 currentB) = _liquidatePosition();
+        // 1. CLOSE LIQUIDITY POSITION
+        // Closing the position will:
+        // - Remove liquidity from DEX
+        // - Claim pending rewards
+        // - Close Hedge and receive payoff
+        // and returns current balance of tokenA and tokenB
+        (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
 
+        // 2. SELL REWARDS FOR WANT
         (address rewardSwappedTo, uint256 rewardSwapOutAmount) =
             swapReward(balanceOfReward());
         if (rewardSwappedTo == tokenA) {
-            currentA = currentA.add(rewardSwapOutAmount);
+            currentBalanceA = currentBalanceA.add(rewardSwapOutAmount);
         } else if (rewardSwappedTo == tokenB) {
-            currentB = currentB.add(rewardSwapOutAmount);
+            currentBalanceB = currentBalanceB.add(rewardSwapOutAmount);
         }
 
+        // 3. REBALANCE PORTFOLIO
+        // Calculate rebalance operation
+        // It will return which of the tokens (A or B) we need to sell and how much of it to leave the position with the initial proportions
         (address sellToken, uint256 sellAmount) =
-            calculateSellToBalance(currentA, currentB, investedA, investedB);
+            calculateSellToBalance(
+                currentBalanceA,
+                currentBalanceB,
+                investedA,
+                investedB
+            );
 
         if (sellToken != address(0) && sellAmount != 0) {
             uint256 buyAmount =
@@ -180,14 +194,15 @@ abstract contract Joint {
                 );
 
             if (sellToken == tokenA) {
-                currentA = currentA.sub(sellAmount);
-                currentB = currentB.add(buyAmount);
+                currentBalanceA = currentBalanceA.sub(sellAmount);
+                currentBalanceB = currentBalanceB.add(buyAmount);
             } else {
-                currentB = currentB.sub(sellAmount);
-                currentA = currentA.add(buyAmount);
+                currentBalanceB = currentBalanceB.sub(sellAmount);
+                currentBalanceA = currentBalanceA.add(buyAmount);
             }
         }
 
+        // reset invested balances
         investedA = investedB = 0;
 
         _returnLooseToProviders();
@@ -498,13 +513,15 @@ abstract contract Joint {
         _amountOut = amounts[amounts.length - 1];
     }
 
-    function _liquidatePosition() internal returns (uint256, uint256) {
+    function _closePosition() internal returns (uint256, uint256) {
+        // Unstake LP from staking contract
         withdrawLP();
 
         if (balanceOfPair() == 0) {
             return (0, 0);
         }
 
+        // Close the hedge
         closeHedge();
 
         // **WARNING**: This call is sandwichable, care should be taken
@@ -573,16 +590,13 @@ abstract contract Joint {
 
     function pendingReward() public view virtual returns (uint256) {}
 
+    // --- MANAGEMENT FUNCTIONS ---
     function liquidatePosition() external onlyAuthorized {
-        _liquidatePosition();
+        _closePosition();
     }
 
     function returnLooseToProviders() external onlyAuthorized {
         _returnLooseToProviders();
-    }
-
-    function withdrawStakedLP() external onlyAuthorized {
-        withdrawLP();
     }
 
     function removeLiquidity(uint256 amount) external onlyAuthorized {

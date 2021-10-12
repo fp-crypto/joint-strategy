@@ -77,8 +77,11 @@ contract ProviderStrategy is BaseStrategyInitializable {
             uint256 _debtPayment
         )
     {
+        // NOTE: this strategy is operated following epochs. These begin during adjustPosition and end during prepareReturn
+        // The Provider will always ask the joint to close the position before harvesting
         JointAPI(joint).closePositionReturnFunds();
 
+        // After closePosition, the provider will always have funds in its own balance (not in joint)
         uint256 totalDebt = vault.strategies(address(this)).totalDebt;
         uint256 totalAssets = balanceOfWant();
 
@@ -90,12 +93,11 @@ contract ProviderStrategy is BaseStrategyInitializable {
             _profit = totalAssets.sub(totalDebt);
         }
 
-        // free funds to repay debt + profit to the strategy
         uint256 amountAvailable = totalAssets;
         uint256 amountRequired = _debtOutstanding.add(_profit);
 
         if (amountRequired > amountAvailable) {
-            if (amountAvailable < _debtOutstanding) {
+            if (_debtOutstanding > amountAvailable) {
                 // available funds are lower than the repayment that we need to do
                 _profit = 0;
                 _debtPayment = amountAvailable;
@@ -103,7 +105,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
                 // but it will still be there for the next harvest
             } else {
                 // NOTE: amountRequired is always equal or greater than _debtOutstanding
-                // important to use amountRequired just in case amountAvailable is > amountAvailable
+                // important to use amountAvailable just in case amountRequired is > amountAvailable
                 _debtPayment = _debtOutstanding;
                 _profit = amountAvailable.sub(_debtPayment);
             }
@@ -122,10 +124,12 @@ contract ProviderStrategy is BaseStrategyInitializable {
         override
         returns (bool)
     {
+        // Delegating decision to joint
         return JointAPI(joint).shouldEndEpoch();
     }
 
     function dontInvestWant() public view returns (bool) {
+        // Delegating decision to joint
         return JointAPI(joint).dontInvestWant();
     }
 
@@ -134,6 +138,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
             return;
         }
 
+        // Using a push approach (instead of pull)
         uint256 wantBalance = balanceOfWant();
         if (wantBalance > 0) {
             want.transfer(joint, wantBalance);
