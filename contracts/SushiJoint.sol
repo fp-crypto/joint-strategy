@@ -28,6 +28,7 @@ contract SushiJoint is HegicJoint {
         _initalizeSushiJoint(_masterchef, _pid);
     }
 
+    ////
     function initialize(
         address _providerA,
         address _providerB,
