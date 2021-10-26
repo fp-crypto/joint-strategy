@@ -48,8 +48,8 @@ abstract contract Joint {
 
     IUniswapV2Pair public pair;
 
-    uint256 internal investedA;
-    uint256 internal investedB;
+    uint256 public investedA;
+    uint256 public investedB;
 
     bool public dontInvestWant;
     bool public autoProtectionDisabled;
@@ -138,7 +138,7 @@ abstract contract Joint {
 
     function name() external view virtual returns (string memory) {}
 
-    function shouldEndEpoch() public view virtual returns (bool) {}
+    function shouldEndEpoch() public virtual returns (bool) {}
 
     function _autoProtect() internal view virtual returns (bool) {}
 
@@ -302,7 +302,12 @@ abstract contract Joint {
         }
     }
 
-    function getHedgeBudget() public virtual returns (uint256) {
+    function getHedgeBudget(address token)
+        public
+        view
+        virtual
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -420,12 +425,12 @@ abstract contract Joint {
             IUniswapV2Router02(router).addLiquidity(
                 tokenA,
                 tokenB,
-                balanceOfA().mul(RATIO_PRECISION.sub(getHedgeBudget())).div(
-                    RATIO_PRECISION
-                ),
-                balanceOfB().mul(RATIO_PRECISION.sub(getHedgeBudget())).div(
-                    RATIO_PRECISION
-                ),
+                balanceOfA()
+                    .mul(RATIO_PRECISION.sub(getHedgeBudget(tokenA)))
+                    .div(RATIO_PRECISION),
+                balanceOfB()
+                    .mul(RATIO_PRECISION.sub(getHedgeBudget(tokenB)))
+                    .div(RATIO_PRECISION),
                 0,
                 0,
                 address(this),

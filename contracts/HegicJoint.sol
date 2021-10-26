@@ -29,31 +29,38 @@ abstract contract HegicJoint is Joint {
     bool public skipManipulatedCheck;
     bool public isHedgingDisabled;
 
-    uint256 private constant PRICE_DECIMALS = 8;
-    uint256 private maxSlippageOpen;
-    uint256 private maxSlippageClose;
+    uint256 private constant PRICE_DECIMALS = 1e8;
+    uint256 public maxSlippageOpen;
+    uint256 public maxSlippageClose;
+
+    address public hegicCallOptionsPool;
+    address public hegicPutOptionsPool;
 
     constructor(
         address _providerA,
         address _providerB,
         address _router,
         address _weth,
-        address _reward
-    ) public Joint(_providerA, _providerB, _router, _weth, _reward) {}
+        address _reward,
+        address _hegicCallOptionsPool,
+        address _hegicPutOptionsPool
+    ) public Joint(_providerA, _providerB, _router, _weth, _reward) {
+        _initializeHegicJoint(_hegicCallOptionsPool, _hegicPutOptionsPool);
+    }
 
-    function _initialize(
-        address _providerA,
-        address _providerB,
-        address _router,
-        address _weth,
-        address _reward
-    ) internal override {
-        super._initialize(_providerA, _providerB, _router, _weth, _reward);
+    function _initializeHegicJoint(
+        address _hegicCallOptionsPool,
+        address _hegicPutOptionsPool
+    ) internal {
+        hegicCallOptionsPool = _hegicCallOptionsPool;
+        hegicPutOptionsPool = _hegicPutOptionsPool;
 
         hedgeBudget = 50; // 0.5% per hedging period
         protectionRange = 1000; // 10%
         period = 1 days;
         minTimeToMaturity = 3600; // 1 hour
+        maxSlippageOpen = 100; // 1%
+        maxSlippageClose = 100; // 1%
     }
 
     function onERC721Received(
@@ -65,7 +72,12 @@ abstract contract HegicJoint is Joint {
         return this.onERC721Received.selector;
     }
 
-    function getHedgeBudget() public override returns (uint256) {
+    function getHedgeBudget(address token)
+        public
+        view
+        override
+        returns (uint256)
+    {
         return hedgeBudget;
     }
 
@@ -186,18 +198,29 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
+    event Numbers(string name, uint256 number);
+
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
         internal
-        view
         returns (bool)
     {
-        uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
-        uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+        uint256 tokenADecimals =
+            uint256(10)**uint256(IERC20Extended(tokenA).decimals());
+        uint256 tokenBDecimals =
+            uint256(10)**uint256(IERC20Extended(tokenB).decimals());
+
         (uint256 reserveA, uint256 reserveB) = getReserves();
         uint256 currentPairPrice =
             reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(
                 tokenBDecimals
             );
+
+        emit Numbers("reserveA", reserveA);
+        emit Numbers("reserveB", reserveB);
+        emit Numbers("decimalsA", tokenADecimals);
+        emit Numbers("decimalsB", tokenBDecimals);
+        emit Numbers("oraclePrice", oraclePrice);
+        emit Numbers("pairPrice", currentPairPrice);
 
         // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. exercise)
         // we need pairPrice ⁄ oraclePrice to be within (1+maxSlippage) and (1-maxSlippage)
@@ -210,7 +233,7 @@ abstract contract HegicJoint is Joint {
                     RATIO_PRECISION.sub(maxSlippage);
     }
 
-    function shouldEndEpoch() public view override returns (bool) {
+    function shouldEndEpoch() public override returns (bool) {
         // End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
         if (activeCallID != 0 || activePutID != 0) {
             // if Time to Maturity of hedge is lower than min threshold, need to end epoch NOW
@@ -222,8 +245,10 @@ abstract contract HegicJoint is Joint {
             }
 
             // NOTE: the initial price is calculated using the added liquidity
-            uint256 tokenADecimals = IERC20Extended(tokenA).decimals();
-            uint256 tokenBDecimals = IERC20Extended(tokenB).decimals();
+            uint256 tokenADecimals =
+                uint256(10)**uint256(IERC20Extended(tokenA).decimals());
+            uint256 tokenBDecimals =
+                uint256(10)**uint256(IERC20Extended(tokenB).decimals());
             uint256 initPrice =
                 investedB
                     .mul(tokenADecimals)
