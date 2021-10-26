@@ -15,6 +15,7 @@ contract SushiJoint is HegicJoint {
     uint256 public pid;
 
     IMasterchef public masterchef;
+    event Numbers(string name, uint256 number);
 
     constructor(
         address _providerA,
@@ -22,23 +23,38 @@ contract SushiJoint is HegicJoint {
         address _router,
         address _weth,
         address _reward,
+        address _hegicCallOptionsPool,
+        address _hegicPutOptionsPool,
         address _masterchef,
         uint256 _pid
-    ) public HegicJoint(_providerA, _providerB, _router, _weth, _reward) {
+    )
+        public
+        HegicJoint(
+            _providerA,
+            _providerB,
+            _router,
+            _weth,
+            _reward,
+            _hegicCallOptionsPool,
+            _hegicPutOptionsPool
+        )
+    {
         _initalizeSushiJoint(_masterchef, _pid);
     }
 
-    ////
     function initialize(
         address _providerA,
         address _providerB,
         address _router,
         address _weth,
         address _reward,
+        address _hegicCallOptionsPool,
+        address _hegicPutOptionsPool,
         address _masterchef,
         uint256 _pid
     ) external {
         _initialize(_providerA, _providerB, _router, _weth, _reward);
+        _initializeHegicJoint(_hegicCallOptionsPool, _hegicPutOptionsPool);
         _initalizeSushiJoint(_masterchef, _pid);
     }
 
@@ -57,6 +73,8 @@ contract SushiJoint is HegicJoint {
         address _router,
         address _weth,
         address _reward,
+        address _hegicCallOptionsPool,
+        address _hegicPutOptionsPool,
         address _masterchef,
         uint256 _pid
     ) external returns (address newJoint) {
@@ -83,6 +101,8 @@ contract SushiJoint is HegicJoint {
             _router,
             _weth,
             _reward,
+            _hegicCallOptionsPool,
+            _hegicPutOptionsPool,
             _masterchef,
             _pid
         );
