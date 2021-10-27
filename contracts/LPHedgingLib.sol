@@ -9,25 +9,13 @@ import {
 import "@openzeppelin/contracts/math/Math.sol";
 import "../interfaces/uni/IUniswapV2Pair.sol";
 import "../interfaces/hegic/IHegicOptions.sol";
-import "../interfaces/IERC20Extended.sol";
 
-interface IPriceProvider {
-    function latestRoundData()
-        external
-        view
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        );
-}
+interface IERC20Extended is IERC20 {
+    function decimals() external view returns (uint8);
 
-interface HegicJointAPI {
-    function hegicCallOptionsPool() external view returns (address);
+    function name() external view returns (string memory);
 
-    function hegicPutOptionsPool() external view returns (address);
+    function symbol() external view returns (string memory);
 }
 
 library LPHedgingLib {
@@ -35,8 +23,15 @@ library LPHedgingLib {
     using SafeERC20 for IERC20;
     using Address for address;
 
+    IHegicPool public constant hegicCallOptionsPool =
+        IHegicPool(0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d);
+    IHegicPool public constant hegicPutOptionsPool =
+        IHegicPool(0x790e96E7452c3c2200bbCAA58a468256d482DD8b);
     address public constant hegicOptionsManager =
         0x1BA4b447d0dF64DA64024e5Ec47dA94458C1e97f;
+
+    address public constant MAIN_ASSET =
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     uint256 private constant MAX_BPS = 10_000;
 
@@ -46,8 +41,7 @@ library LPHedgingLib {
         uint256 period
     ) internal {
         IERC20 _token;
-        IHegicPool hegicCallOptionsPool = _hegicCallOptionsPool();
-        IHegicPool hegicPutOptionsPool = _hegicPutOptionsPool();
+
         _token = hegicCallOptionsPool.token();
         if (
             _token.allowance(address(hegicCallOptionsPool), address(this)) <
@@ -65,38 +59,29 @@ library LPHedgingLib {
         }
     }
 
-    function getCurrentPrice() public returns (uint256) {
-        IPriceProvider pp =
-            IPriceProvider(_hegicCallOptionsPool().priceProvider());
-        (, int256 answer, , , ) = pp.latestRoundData();
-        return uint256(answer);
-    }
-
-    function _hegicCallOptionsPool() internal view returns (IHegicPool) {
-        return IHegicPool(HegicJointAPI(address(this)).hegicCallOptionsPool());
-    }
-
-    function _hegicPutOptionsPool() internal view returns (IHegicPool) {
-        return IHegicPool(HegicJointAPI(address(this)).hegicPutOptionsPool());
-    }
-
     function hedgeLPToken(
         address lpToken,
         uint256 h,
         uint256 period
-    )
-        external
-        returns (
-            uint256 callID,
-            uint256 putID,
-            uint256 strike
-        )
-    {
-        IHegicPool hegicCallOptionsPool = _hegicCallOptionsPool();
-        IHegicPool hegicPutOptionsPool = _hegicPutOptionsPool();
-        uint256 q = getLPInfo(lpToken, hegicCallOptionsPool);
-        if (h == 0 || period == 0 || q == 0) {
-            return (0, 0, 0);
+    ) external returns (uint256 callID, uint256 putID) {
+        (
+            ,
+            address token0,
+            address token1,
+            uint256 token0Amount,
+            uint256 token1Amount
+        ) = getLPInfo(lpToken);
+        if (h == 0 || period == 0 || token0Amount == 0 || token1Amount == 0) {
+            return (0, 0);
+        }
+
+        uint256 q;
+        if (MAIN_ASSET == token0) {
+            q = token0Amount;
+        } else if (MAIN_ASSET == token1) {
+            q = token1Amount;
+        } else {
+            revert("LPtoken not supported");
         }
 
         (uint256 putAmount, uint256 callAmount) = getOptionsAmount(q, h);
@@ -104,7 +89,6 @@ library LPHedgingLib {
         _checkAllowance(callAmount, putAmount, period);
         callID = buyOptionFrom(hegicCallOptionsPool, callAmount, period);
         putID = buyOptionFrom(hegicPutOptionsPool, putAmount, period);
-        strike = getCurrentPrice();
     }
 
     function getOptionCost(
@@ -130,26 +114,20 @@ library LPHedgingLib {
         if (id == 0) {
             return 0;
         }
-        return _hegicCallOptionsPool().profitOf(id);
+        return hegicCallOptionsPool.profitOf(id);
     }
 
     function getPutProfit(uint256 id) internal view returns (uint256) {
         if (id == 0) {
             return 0;
         }
-        return _hegicPutOptionsPool().profitOf(id);
+        return hegicPutOptionsPool.profitOf(id);
     }
 
     function closeHedge(uint256 callID, uint256 putID)
         external
-        returns (
-            uint256 payoutToken0,
-            uint256 payoutToken1,
-            uint256 exercisePrice
-        )
+        returns (uint256 payoutToken0, uint256 payoutToken1)
     {
-        IHegicPool hegicCallOptionsPool = _hegicCallOptionsPool();
-        IHegicPool hegicPutOptionsPool = _hegicPutOptionsPool();
         uint256 callProfit = hegicCallOptionsPool.profitOf(callID);
         uint256 putProfit = hegicPutOptionsPool.profitOf(putID);
 
@@ -157,7 +135,7 @@ library LPHedgingLib {
         // NOTE: call and put options expiration MUST be the same
         (, , , , uint256 expired, , ) = hegicCallOptionsPool.options(callID);
         if (expired < block.timestamp) {
-            return (0, 0, 0);
+            return (0, 0);
         }
 
         if (callProfit > 0) {
@@ -169,7 +147,6 @@ library LPHedgingLib {
             // put option is ITM
             hegicPutOptionsPool.exercise(putID);
         }
-        exercisePrice = getCurrentPrice();
     }
 
     function getOptionsAmount(uint256 q, uint256 h)
@@ -207,65 +184,34 @@ library LPHedgingLib {
         uint256 amount,
         uint256 period
     ) internal returns (uint256) {
+        if (amount == 0 || period == 0) {
+            revert("Amount or period is 0");
+        }
         return pool.sellOption(address(this), period, amount, 0); // strike = 0 is ATM
     }
 
-    function getLPInfo(address lpToken, IHegicPool hegicCallOptionsPool)
+    function getLPInfo(address lpToken)
         public
         view
-        returns (uint256 q)
+        returns (
+            uint256 amount,
+            address token0,
+            address token1,
+            uint256 token0Amount,
+            uint256 token1Amount
+        )
     {
-        uint256 amount = IUniswapV2Pair(lpToken).balanceOf(address(this));
+        amount = IUniswapV2Pair(lpToken).balanceOf(address(this));
 
-        address token0 = IUniswapV2Pair(lpToken).token0();
-        address token1 = IUniswapV2Pair(lpToken).token1();
+        token0 = IUniswapV2Pair(lpToken).token0();
+        token1 = IUniswapV2Pair(lpToken).token1();
 
         uint256 balance0 = IERC20(token0).balanceOf(address(lpToken));
         uint256 balance1 = IERC20(token1).balanceOf(address(lpToken));
         uint256 totalSupply = IUniswapV2Pair(lpToken).totalSupply();
 
-        uint256 token0Amount = amount.mul(balance0) / totalSupply;
-        uint256 token1Amount = amount.mul(balance1) / totalSupply;
-
-        address mainAsset = address(hegicCallOptionsPool.token());
-        if (mainAsset == token0) {
-            q = token0Amount;
-        } else if (mainAsset == token1) {
-            q = token1Amount;
-        } else {
-            revert("LPtoken not supported");
-        }
-    }
-
-    function getTimeToMaturity(uint256 callID, uint256 putID)
-        public
-        view
-        returns (uint256)
-    {
-        if (callID == 0 || putID == 0) {
-            return 0;
-        }
-        (, , , , uint256 expiredCall, , ) =
-            _hegicCallOptionsPool().options(callID);
-        (, , , , uint256 expiredPut, , ) =
-            _hegicPutOptionsPool().options(putID);
-        // use lowest time to maturity (should be the same)
-        uint256 expired = expiredCall > expiredPut ? expiredPut : expiredCall;
-        if (expired < block.timestamp) {
-            return 0;
-        }
-        return expired.sub(block.timestamp);
-    }
-
-    function getHedgeStrike(uint256 callID, uint256 putID)
-        public
-        view
-        returns (uint256)
-    {
-        // NOTE: strike is the same for both options
-        (, uint256 strikeCall, , , , , ) =
-            _hegicCallOptionsPool().options(callID);
-        return strikeCall;
+        token0Amount = amount.mul(balance0) / totalSupply;
+        token1Amount = amount.mul(balance1) / totalSupply;
     }
 
     function sqrt(uint256 x) public pure returns (uint256 result) {

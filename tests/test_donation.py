@@ -1,5 +1,6 @@
 import brownie
 import pytest
+from operator import xor
 from utils import sync_price
 
 
@@ -20,6 +21,8 @@ def test_donation_provider(
     tokenA.transfer(providerA, amount, {"from": tokenA_whale})
     assert providerA.balanceOfWant() == amount
 
+    providerA.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     assert joint.estimatedTotalAssetsInToken(tokenA) == 0
 
@@ -42,7 +45,6 @@ def test_donation_joint(
     providerB,
     joint,
     router,
-    gov,
     strategist,
     tokenA_whale,
     tokenB_whale,
@@ -57,6 +59,10 @@ def test_donation_joint(
 
     ppsA_start = vaultA.pricePerShare()
     ppsB_start = vaultB.pricePerShare()
+    providerA.setInvestWant(True, {"from": strategist})
+    providerA.setTakeProfit(False, {"from": strategist})
+    providerB.setInvestWant(True, {"from": strategist})
+    providerB.setTakeProfit(False, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
@@ -109,13 +115,15 @@ def test_donation_joint(
 
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+    providerA.setInvestWant(False, {"from": strategist})
+    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
+    providerB.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
 
-    assert tokenA.balanceOf(vaultA) > 0
-    assert tokenB.balanceOf(vaultB) > 0
+    assert providerA.balanceOfWant() > 0
+    assert providerB.balanceOfWant() > 0
 
     assert vaultA.strategies(providerA).dict()["totalLoss"] == 0
     assert vaultB.strategies(providerB).dict()["totalLoss"] == 0

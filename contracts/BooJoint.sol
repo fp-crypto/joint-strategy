@@ -4,14 +4,14 @@ pragma experimental ABIEncoderV2;
 
 import "./Joint.sol";
 
-interface ISushiMasterchef is IMasterchef {
-    function pendingSushi(uint256 _pid, address _user)
+interface IBooMasterchef is IMasterchef {
+    function pendingBOO(uint256 _pid, address _user)
         external
         view
         returns (uint256);
 }
 
-contract SushiJoint is Joint {
+contract BooJoint is Joint {
     constructor(
         address _providerA,
         address _providerB,
@@ -42,14 +42,11 @@ contract SushiJoint is Joint {
                 )
             );
 
-        return string(abi.encodePacked("SushiJointOf", ab));
+        return string(abi.encodePacked("BooJointOf", ab));
     }
 
     function pendingReward() public view override returns (uint256) {
         return
-            ISushiMasterchef(address(masterchef)).pendingSushi(
-                pid,
-                address(this)
-            );
+            IBooMasterchef(address(masterchef)).pendingBOO(pid, address(this));
     }
 }

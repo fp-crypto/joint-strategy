@@ -2,7 +2,39 @@ import brownie
 import pytest
 from brownie import Contract, Wei, chain
 from operator import xor
-from utils import print_hedge_status, sync_price
+
+
+def print_hedge_status(joint, tokenA, tokenB):
+    callID = joint.activeCallID()
+    putID = joint.activePutID()
+    callProvider = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d")
+    putProvider = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b")
+    callInfo = callProvider.options(callID)
+    putInfo = putProvider.options(putID)
+    assert (joint.activeCallID() != 0) & (joint.activePutID() != 0)
+    (callPayout, putPayout) = joint.getOptionsProfit()
+    print(f"Bought two options:")
+    print(f"CALL #{callID}")
+    print(f"\tStrike {callInfo[1]/1e8}")
+    print(f"\tAmount {callInfo[2]/1e18}")
+    print(f"\tTTM {(callInfo[4]-chain.time())/3600}h")
+    costCall = (callInfo[5] + callInfo[6]) / 0.8
+    print(f"\tCost {(callInfo[5]+callInfo[6])/0.8/1e18} {tokenA.symbol()}")
+    print(f"\tPayout: {callPayout/1e18} {tokenA.symbol()}")
+    print(f"PUT #{putID}")
+    print(f"\tStrike {putInfo[1]/1e8}")
+    print(f"\tAmount {putInfo[2]/1e18}")
+    print(f"\tTTM {(putInfo[4]-chain.time())/3600}h")
+    costPut = (putInfo[5] + putInfo[6]) / 0.8
+    print(f"\tCost {costPut/1e6} {tokenB.symbol()}")
+    print(f"\tPayout: {putPayout/1e6} {tokenB.symbol()}")
+    return (costCall, costPut)
+
+
+def sync_price(joint, mock_chainlink, strategist):
+    pair = Contract(joint.pair())
+    (reserve0, reserve1, a) = pair.getReserves()
+    mock_chainlink.setPrice(reserve0 / reserve1 * 1e12 * 10 ** 8, {"from": strategist})
 
 
 def test_operation_swap_a4b_hedged_light(
@@ -76,7 +108,7 @@ def test_operation_swap_a4b_hedged_light(
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
 
-    (callPayout, putPayout) = joint.getHedgeProfit()
+    (callPayout, putPayout) = joint.getOptionsProfit()
     print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
     print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
@@ -107,13 +139,12 @@ def test_operation_swap_a4b_hedged_light(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
+    providerA.setInvestWant(False, {"from": strategist})
+    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
+    providerB.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-
-    assert tokenA.balanceOf(vaultA) > 0
-    assert tokenB.balanceOf(vaultB) > 0
 
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
@@ -124,6 +155,9 @@ def test_operation_swap_a4b_hedged_light(
     assert ((putInfo[0] == 2) & (putPayout > 0)) | (
         (putPayout == 0) & (putInfo[0] == 1)
     )
+
+    assert providerA.balanceOfWant() > 0
+    assert providerB.balanceOfWant() > 0
 
     gainA = vaultA.strategies(providerA).dict()["totalGain"]
     gainB = vaultB.strategies(providerB).dict()["totalGain"]
@@ -219,7 +253,7 @@ def test_operation_swap_a4b_hedged_heavy(
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
 
-    (callPayout, putPayout) = joint.getHedgeProfit()
+    (callPayout, putPayout) = joint.getOptionsProfit()
     print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
     print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
@@ -249,13 +283,12 @@ def test_operation_swap_a4b_hedged_heavy(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
+    providerA.setInvestWant(False, {"from": strategist})
+    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
+    providerB.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-
-    assert tokenA.balanceOf(vaultA) > 0
-    assert tokenB.balanceOf(vaultB) > 0
 
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
@@ -266,6 +299,9 @@ def test_operation_swap_a4b_hedged_heavy(
     assert ((putInfo[0] == 2) & (putPayout > 0)) | (
         (putPayout == 0) & (putInfo[0] == 1)
     )
+
+    assert providerA.balanceOfWant() > 0
+    assert providerB.balanceOfWant() > 0
 
     lossA = vaultA.strategies(providerA).dict()["totalLoss"]
     lossB = vaultB.strategies(providerB).dict()["totalLoss"]
@@ -355,7 +391,7 @@ def test_operation_swap_b4a_hedged_light(
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
 
-    (callPayout, putPayout) = joint.getHedgeProfit()
+    (callPayout, putPayout) = joint.getOptionsProfit()
     print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
     print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
@@ -384,13 +420,12 @@ def test_operation_swap_b4a_hedged_light(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
+    providerA.setInvestWant(False, {"from": strategist})
+    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
+    providerB.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-
-    assert tokenA.balanceOf(vaultA) > 0
-    assert tokenB.balanceOf(vaultB) > 0
 
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
@@ -401,6 +436,9 @@ def test_operation_swap_b4a_hedged_light(
     assert ((putInfo[0] == 2) & (putPayout > 0)) | (
         (putPayout == 0) & (putInfo[0] == 1)
     )
+
+    assert providerA.balanceOfWant() > 0
+    assert providerB.balanceOfWant() > 0
 
     gainA = vaultA.strategies(providerA).dict()["totalGain"]
     gainB = vaultB.strategies(providerB).dict()["totalGain"]
@@ -490,7 +528,7 @@ def test_operation_swap_b4a_hedged_heavy(
     sync_price(joint, mock_chainlink, strategist)
     print(f"Price according to Pair is {oracle.latestAnswer()/1e8}")
 
-    (callPayout, putPayout) = joint.getHedgeProfit()
+    (callPayout, putPayout) = joint.getOptionsProfit()
     print(f"Payout from CALL option: {callPayout/1e18} {tokenA.symbol()}")
     print(f"Payout from PUT option: {putPayout/1e6} {tokenB.symbol()}")
 
@@ -519,13 +557,12 @@ def test_operation_swap_b4a_hedged_heavy(
     assert joint.pendingReward() > 0
     # If joint doesn't reinvest, and providers do not invest want, the want
     # will stay in the providers
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": vaultA.governance()})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": vaultB.governance()})
+    providerA.setInvestWant(False, {"from": strategist})
+    providerB.setInvestWant(False, {"from": strategist})
+    providerA.setTakeProfit(True, {"from": strategist})
+    providerB.setTakeProfit(True, {"from": strategist})
     providerA.harvest({"from": strategist})
     providerB.harvest({"from": strategist})
-
-    assert tokenA.balanceOf(vaultA) > 0
-    assert tokenB.balanceOf(vaultB) > 0
 
     callInfo = Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").options(callID)
     putInfo = Contract("0x790e96E7452c3c2200bbCAA58a468256d482DD8b").options(putID)
@@ -536,6 +573,9 @@ def test_operation_swap_b4a_hedged_heavy(
     assert ((putInfo[0] == 2) & (putPayout > 0)) | (
         (putPayout == 0) & (putInfo[0] == 1)
     )
+
+    assert providerA.balanceOfWant() > 0
+    assert providerB.balanceOfWant() > 0
 
     lossA = vaultA.strategies(providerA).dict()["totalLoss"]
     lossB = vaultB.strategies(providerB).dict()["totalLoss"]

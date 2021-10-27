@@ -1,27 +1,15 @@
 import pytest
-from brownie import config
-from brownie import Contract, accounts
+from brownie import config, Contract
 
-# Function scoped isolation fixture to enable xdist.
-# Snapshots the chain before each test and reverts after test completion.
-@pytest.fixture(scope="function", autouse=True)
-def shared_setup(fn_isolation):
+
+@pytest.fixture(autouse=True)
+def isolation(fn_isolation):
     pass
 
 
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
-
-
-@pytest.fixture
-def strat_ms(accounts):
-    yield accounts.at("0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7", force=True)
-
-
-@pytest.fixture
-def user(accounts):
-    yield accounts[0]
 
 
 @pytest.fixture
@@ -49,110 +37,110 @@ def keeper(accounts):
     yield accounts[5]
 
 
-token_addresses = {
-    "WBTC": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",  # WBTC
-    "YFI": "0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e",  # YFI
-    "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
-    "LINK": "0x514910771AF9Ca656af840dff83E8264EcF986CA",  # LINK
-    "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",  # USDT
-    "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
-    "USDC": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
-    "SUSHI": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",  # SUSHI
-}
-
-# TODO: uncomment those tokens you want to test as want
-@pytest.fixture(
-    params=[
-        # 'WBTC', # WBTC
-        # "YFI",  # YFI
-        "WETH",  # WETH
-        # 'LINK', # LINK
-        # 'USDT', # USDT
-        # 'DAI', # DAI
-        # 'USDC', # USDC
-    ],
-    scope="session",
-    autouse=True,
-)
-def tokenA(request):
-    yield Contract(token_addresses[request.param])
+@pytest.fixture
+def attacker(accounts):
+    yield accounts[6]
 
 
-# TODO: uncomment those tokens you want to test as want
-@pytest.fixture(
-    params=[
-        # 'WBTC', # WBTC
-        # "YFI",  # YFI
-        # "WETH",  # WETH
-        # 'LINK', # LINK
-        # 'USDT', # USDT
-        # 'DAI', # DAI
-        "USDC",  # USDC
-    ],
-    scope="session",
-    autouse=True,
-)
-def tokenB(request):
-    yield Contract(token_addresses[request.param])
+@pytest.fixture
+def tokenA():
+    yield Contract("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")  # WETH
+    # yield Contract(vaultA.token())
 
 
-whale_addresses = {
-    "WBTC": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "WETH": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "LINK": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "YFI": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "SUSHI": "0xf977814e90da44bfa03b6295a0616a897441acec",
-}
+@pytest.fixture
+def tokenB():
+    yield Contract("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")  # USDC
+    # yield Contract(vaultB.token())
 
 
-@pytest.fixture(scope="session", autouse=True)
-def tokenA_whale(tokenA):
-    yield whale_addresses[tokenA.symbol()]
+@pytest.fixture
+def vaultA_test(pm, gov, rewards, guardian, management, tokenA):
+    Vault = pm(config["dependencies"][0]).Vault
+    vault = guardian.deploy(Vault)
+    vault.initialize(tokenA, gov, rewards, "", "", guardian, management, {"from": gov})
+
+    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+    vault.setManagementFee(0, {"from": gov})
+    vault.setPerformanceFee(0, {"from": gov})
+    yield vault
 
 
-@pytest.fixture(scope="session", autouse=True)
-def tokenB_whale(tokenB):
-    yield whale_addresses[tokenB.symbol()]
+@pytest.fixture
+def vaultB_test(pm, gov, rewards, guardian, management, tokenB):
+    Vault = pm(config["dependencies"][0]).Vault
+    vault = guardian.deploy(Vault)
+    vault.initialize(tokenB, gov, rewards, "", "", guardian, management, {"from": gov})
+
+    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+    vault.setManagementFee(0, {"from": gov})
+    vault.setPerformanceFee(0, {"from": gov})
+    yield vault
 
 
-token_prices = {
-    "WBTC": 60_000,
-    "WETH": 4_220,
-    "LINK": 20,
-    "YFI": 30_000,
-    "USDT": 1,
-    "USDC": 1,
-    "DAI": 1,
-}
+@pytest.fixture
+def vaultA(vaultA_test, tokenA):
+    yield vaultA_test
+    # WETH vault (PROD)
+    # vaultA_prod = Contract("0xa258C4606Ca8206D8aA700cE2143D7db854D168c")
+    # assert vaultA_prod.token() == tokenA.address
+    # yield vaultA_prod
 
 
-@pytest.fixture(autouse=True)
-def amountA(tokenA, tokenA_whale, user):
-    # this will get the number of tokens (around $1m worth of token)
-    amillion = round(1_000_000 / token_prices[tokenA.symbol()])
-    amount = amillion * 10 ** tokenA.decimals()
-    # In order to get some funds for the token you are about to use,
-    # it impersonate a whale address
-    if amount > tokenA.balanceOf(tokenA_whale):
-        amount = tokenA.balanceOf(tokenA_whale)
-    tokenA.transfer(user, amount, {"from": tokenA_whale})
-    yield amount
+@pytest.fixture
+def vaultB(vaultB_test, tokenB):
+    yield vaultB_test
+    # YFI vault (PROD)
+    # vaultB_prod = Contract("0xE14d13d8B3b85aF791b2AADD661cDBd5E6097Db1")
+    # assert vaultB_prod.token() == tokenB.address
+    # yield vaultB_prod
 
 
-@pytest.fixture(autouse=True)
-def amountB(tokenB, tokenB_whale, user):
-    # this will get the number of tokens (around $1m worth of token)
-    amillion = round(1_000_000 / token_prices[tokenB.symbol()])
-    amount = amillion * 10 ** tokenB.decimals()
-    # In order to get some funds for the token you are about to use,
-    # it impersonate a whale address
-    if amount > tokenB.balanceOf(tokenB_whale):
-        amount = tokenB.balanceOf(tokenB_whale)
-    tokenB.transfer(user, amount, {"from": tokenB_whale})
-    yield amount
+@pytest.fixture
+def tokenA_whale(accounts):
+    yield accounts.at("0x2F0b23f53734252Bda2277357e97e1517d6B042A", force=True)
+
+
+@pytest.fixture
+def tokenB_whale(accounts):
+    yield accounts.at("0x0A59649758aa4d66E25f08Dd01271e891fe52199", force=True)  # usdc
+
+
+@pytest.fixture
+def sushi_whale(accounts):
+    yield accounts.at("0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272", force=True)
+
+
+@pytest.fixture
+def amountA(tokenA):
+    yield 10 * 10 ** tokenA.decimals()
+
+
+@pytest.fixture
+def amountB(tokenB, joint):
+    reserve0, reserve1, a = Contract(joint.pair()).getReserves()
+    yield reserve0 / reserve1 * 1e12 * 10 * 10 ** tokenB.decimals()  # price A/B times amountA
+
+
+@pytest.fixture
+def weth():
+    yield Contract("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
+
+
+@pytest.fixture
+def router():
+    # Sushi
+    yield Contract("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+
+
+@pytest.fixture
+def masterchef():
+    yield Contract("0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd")
+
+
+@pytest.fixture
+def sushi():
+    yield Contract("0x6B3595068778DD592e39A122f4f5a5cF09C90fE2")
 
 
 @pytest.fixture
@@ -160,201 +148,22 @@ def mc_pid():
     yield 1
 
 
-router_addresses = {
-    "SUSHI": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-}
-
-
 @pytest.fixture
-def router(rewards):
-    yield Contract(router_addresses[rewards.symbol()])
-
-
-@pytest.fixture
-def weth():
-    token_address = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    yield Contract(token_address)
-
-
-@pytest.fixture(params=["SUSHI"], scope="session", autouse=True)
-def rewards(request):
-    rewards_address = token_addresses[request.param]  # sushi
-    yield Contract(rewards_address)
-
-
-@pytest.fixture
-def rewards_whale(rewards):
-    yield whale_addresses[rewards.symbol()]
-
-
-masterchef_addresses = {
-    "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
-}
-
-
-@pytest.fixture
-def masterchef(rewards):
-    yield Contract(masterchef_addresses[rewards.symbol()])
-
-
-@pytest.fixture
-def weth_amount(user, weth):
-    weth_amount = 10 ** weth.decimals()
-    user.transfer(weth, weth_amount)
-    yield weth_amount
-
-
-@pytest.fixture(scope="function", autouse=True)
-def vaultA(pm, gov, rewards, guardian, management, tokenA):
-    Vault = pm(config["dependencies"][0]).Vault
-    vault = guardian.deploy(Vault)
-    vault.initialize(tokenA, gov, rewards, "", "", guardian, management)
-    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
-    vault.setManagement(management, {"from": gov})
-    yield vault
-
-
-@pytest.fixture(scope="function", autouse=True)
-def vaultB(pm, gov, rewards, guardian, management, tokenB):
-    Vault = pm(config["dependencies"][0]).Vault
-    vault = guardian.deploy(Vault)
-    vault.initialize(tokenB, gov, rewards, "", "", guardian, management)
-    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
-    vault.setManagement(management, {"from": gov})
-    yield vault
-
-
-@pytest.fixture(scope="session")
-def registry():
-    yield Contract("0x50c1a2eA0a861A967D9d0FFE2AE4012c2E053804")
-
-
-@pytest.fixture(scope="session")
-def live_vaultA(registry, tokenA):
-    yield registry.latestVault(tokenA)
-
-
-@pytest.fixture(scope="session")
-def live_vaultB(registry, tokenB):
-    yield registry.latestVault(tokenB)
-
-
-@pytest.fixture
-def joint(
-    strategist,
-    keeper,
-    providerA,
-    providerB,
-    SushiJoint,
-    router,
-    masterchef,
-    rewards,
-    weth,
-    mc_pid,
-    LPHedgingLibrary,
-    gov,
-    tokenA,
-    tokenB,
-):
-    joint = gov.deploy(
-        SushiJoint,
-        providerA,
-        providerB,
-        router,
-        weth,
-        rewards,
-        callPool_addresses[tokenA.symbol()],
-        putPool_addresses[tokenA.symbol()],
-        masterchef,
-        mc_pid,
-    )
-
-    providerA.setJoint(joint, {"from": gov})
-    providerB.setJoint(joint, {"from": gov})
-
-    yield joint
-
-
-@pytest.fixture
-def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
-    strategy = strategist.deploy(ProviderStrategy, vaultA)
-    strategy.setKeeper(keeper)
-    vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    yield strategy
-
-
-@pytest.fixture
-def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
-    strategy = strategist.deploy(ProviderStrategy, vaultB)
-    strategy.setKeeper(keeper)
-    vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    yield strategy
-
-
-putPool_addresses = {
-    "WETH": "0x790e96E7452c3c2200bbCAA58a468256d482DD8b",
-    "WBTC": "0x7A42A60F8bA4843fEeA1bD4f08450D2053cC1ab6",
-}
-callPool_addresses = {
-    "WETH": "0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d",
-    "WBTC": "0xfA77f713901a840B3DF8F2Eb093d95fAC61B215A",
-}
-
-
-@pytest.fixture(autouse=True)
-def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
-    hegic_gov = "0xf15968a096fc8f47650001585d23bee819b5affb"
-    putPool = Contract(putPool_addresses[tokenA.symbol()])
-    callPool = Contract(callPool_addresses[tokenA.symbol()])
-
-    callPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov})
-    putPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov})
-
-    tokenA.approve(callPool, 2 ** 256 - 1, {"from": tokenA_whale})
-    callPool.provideFrom(tokenA_whale, amountA, False, 0, {"from": tokenA_whale})
-    tokenB.approve(putPool, 2 ** 256 - 1, {"from": tokenB_whale})
-    putPool.provideFrom(tokenB_whale, amountB, False, 0, {"from": tokenB_whale})
-
-
-# @pytest.fixture
-# def cloned_strategy(Strategy, vault, strategy, strategist, gov):
-#     # TODO: customize clone method and arguments
-#     # TODO: use correct contract name (i.e. replace Strategy)
-#     cloned_strategy = strategy.cloneStrategy(
-#         strategist, {"from": strategist}
-#     ).return_value
-#     cloned_strategy = Strategy.at(cloned_strategy)
-#     vault.revokeStrategy(strategy)
-#     vault.addStrategy(cloned_strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-#     yield
-#
-
-
-@pytest.fixture(autouse=False)
-def withdraw_no_losses(vault, token, amount, user):
-    yield
-    if vault.totalSupply() != 0:
-        return
-    vault.withdraw({"from": user})
-
-    # check that we dont have previously realised losses
-    # NOTE: this assumes deposit is `amount`
-    assert token.balanceOf(user) >= amount
-
-
-@pytest.fixture(autouse=True)
 def LPHedgingLibrary(LPHedgingLib, gov):
     yield gov.deploy(LPHedgingLib)
 
 
-@pytest.fixture(scope="session", autouse=True)
-def RELATIVE_APPROX():
-    yield 1e-5
+@pytest.fixture
+def oracle():
+    yield Contract(
+        Contract("0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d").priceProvider()
+    )
 
 
 @pytest.fixture(autouse=True)
 def mock_chainlink(AggregatorMock, gov):
     owner = "0x21f73d42eb58ba49ddb685dc29d3bf5c0f0373ca"
+
     priceProvider = Contract("0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419")
     aggregator = gov.deploy(AggregatorMock, 0)
 
@@ -364,14 +173,43 @@ def mock_chainlink(AggregatorMock, gov):
     yield aggregator
 
 
-@pytest.fixture(autouse=True)
-def first_sync(mock_chainlink, joint):
-    reserveA, reserveB = joint.getReserves()
-    pairPrice = (
-        reserveB
-        / reserveA
-        * 10 ** Contract(joint.tokenA()).decimals()
-        / 10 ** Contract(joint.tokenB()).decimals()
-        * 1e8
+@pytest.fixture
+def joint(
+    gov,
+    providerA,
+    providerB,
+    SushiJoint,
+    router,
+    masterchef,
+    sushi,
+    weth,
+    mc_pid,
+    LPHedgingLibrary,
+):
+    joint = gov.deploy(
+        SushiJoint, providerA, providerB, router, weth, masterchef, sushi, mc_pid
     )
-    mock_chainlink.setPrice(pairPrice, {"from": accounts[0]})
+
+    providerA.setJoint(joint, {"from": gov})
+    providerB.setJoint(joint, {"from": gov})
+
+    yield joint
+
+
+@pytest.fixture
+def providerA(gov, strategist, keeper, vaultA, ProviderStrategy):
+    strategy = strategist.deploy(ProviderStrategy, vaultA)
+    strategy.setKeeper(keeper)
+
+    vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+
+    yield strategy
+
+
+@pytest.fixture
+def providerB(gov, strategist, vaultB, ProviderStrategy):
+    strategy = strategist.deploy(ProviderStrategy, vaultB)
+
+    vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+
+    yield strategy
