@@ -14,6 +14,7 @@ def sync_price(joint, mock_chainlink, strategist):
     )
     mock_chainlink.setPrice(pairPrice, {"from": accounts[0]})
 
+
 def print_hedge_status(joint, tokenA, tokenB):
     callID = joint.activeCallID()
     putID = joint.activePutID()
@@ -39,7 +40,8 @@ def print_hedge_status(joint, tokenA, tokenB):
     print(f"\tCost {costPut/1e6} {tokenB.symbol()}")
     print(f"\tPayout: {putPayout/1e6} {tokenB.symbol()}")
     return (costCall, costPut)
-    
+
+
 def vault_status(vault):
     print(f"--- Vault {vault.name()} ---")
     print(f"API: {vault.apiVersion()}")
