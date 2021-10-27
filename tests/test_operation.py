@@ -25,7 +25,7 @@ def test_operation(
         pytest.approx(token.balanceOf(user), rel=RELATIVE_APPROX) == user_balance_before
     )
 
-
+# emergency exit should return funds to vault
 def test_emergency_exit(
     chain, accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
@@ -41,7 +41,7 @@ def test_emergency_exit(
     strategy.harvest({"from": strategist})
     assert strategy.estimatedTotalAssets() < amount
 
-
+# debt ratios should not be increased in the middle of an epoch
 def test_increase_debt_ratio(
     chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
@@ -59,7 +59,7 @@ def test_increase_debt_ratio(
     strategy.harvest({"from": strategist})
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
-
+# debt ratios should not be increased in the middle of an epoch
 def test_decrease_debt_ratio(
     chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
@@ -102,13 +102,3 @@ def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amount):
     strategy.sweep(weth, {"from": gov})
     assert weth.balanceOf(gov) == weth_amount + before_balance
 
-
-def test_triggers(chain, gov, vault, strategy, token, amount, user, strategist):
-    # Deposit to the vault and harvest
-    actions.user_deposit(user, vault, token, amount)
-    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest()
-
-    strategy.harvestTrigger(0)
-    strategy.tendTrigger(0)

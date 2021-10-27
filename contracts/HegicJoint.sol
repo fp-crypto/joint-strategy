@@ -255,7 +255,7 @@ abstract contract HegicJoint is Joint {
                     .mul(PRICE_DECIMALS)
                     .div(investedA)
                     .div(tokenBDecimals);
-            return _isWithinRange(initPrice, protectionRange);
+            return !_isWithinRange(initPrice, protectionRange);
         }
 
         return super.shouldEndEpoch();

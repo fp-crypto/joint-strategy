@@ -66,8 +66,7 @@ def test_profitable_harvest(
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
-    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
-    chain.mine(1)
+    utils.sleep() # sleep for 6 hours
 
     # all the balance (principal + profit) is in vault
     total_balance_tokenA = vaultA.totalAssets()

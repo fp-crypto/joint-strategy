@@ -6,7 +6,7 @@ import pytest
 from utils import actions
 
 
-def test_migration(
+def test_migration_during_epoch(
     chain,
     token,
     vault,
@@ -18,11 +18,11 @@ def test_migration(
     user,
     RELATIVE_APPROX,
 ):
-    # Deposit to the vault and harvest
+    # deposit in vaults
     actions.user_deposit(user, vault, token, amount)
 
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
+    # Start epoch
+
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
     # TODO: add other tokens balance
