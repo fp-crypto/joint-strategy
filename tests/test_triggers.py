@@ -1,9 +1,10 @@
 from pytest import approx
 from utils import utils, actions, checks
 
+
 def test_harvest_trigger_within_period(
-        vaultA, vaultB, providerA, providerB, joint, user, gov
-        ):
+    vaultA, vaultB, providerA, providerB, joint, user, gov
+):
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -21,9 +22,10 @@ def test_harvest_trigger_within_period(
 
     # harvesting should close the epoch
 
+
 def test_harvest_trigger_after_period(
-        vaultA, vaultB, providerA, providerB, joint, user, gov
-        ):
+    vaultA, vaultB, providerA, providerB, joint, user, gov
+):
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -57,9 +59,10 @@ def test_harvest_trigger_below_range():
 
     # harvesting should close the epoch
 
+
 def test_harvest_trigger_above_range():
     print("tobeimplemented")
- 
+
     # deposit to the vault
 
     # start epoch
@@ -71,5 +74,3 @@ def test_harvest_trigger_above_range():
     # harvestrigger should return true
 
     # harvesting should close the epoch
-
-   

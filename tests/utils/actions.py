@@ -1,6 +1,7 @@
 import pytest
 from brownie import chain, Contract
 import utils
+from utils import checks
 
 # This file is reserved for standard actions like deposits
 def user_deposit(user, vault, token, amount):
@@ -10,7 +11,7 @@ def user_deposit(user, vault, token, amount):
     assert token.balanceOf(vault.address) == amount
 
 
-def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
+def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB):
     # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
     # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
     providerA.harvest({"from": gov})
@@ -18,6 +19,8 @@ def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
     # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
     vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+
+    checks.epoch_started(providerA, providerB, joint, amountA, amountB)
 
 
 def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
@@ -29,6 +32,8 @@ def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
     # in prod we need to set these manually to represent the same value
     vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
     vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
+
+    checks.epoch_ended(providerA, providerB, joint)
 
 
 def generate_profit(

@@ -46,6 +46,7 @@ def test_airdrop(
     assert token.balanceOf(strategy) + profit > amount
     assert vault.pricePerShare() > before_pps
 
+
 def test_airdrop_providers(
     chain,
     accounts,
@@ -64,6 +65,7 @@ def test_airdrop_providers(
 
     # harvest and check it has been taken as profit
     token_whale
+
 
 def test_airdrop_providers(
     chain,

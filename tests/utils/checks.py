@@ -8,6 +8,27 @@ def check_vault_empty(vault):
     assert vault.totalSupply() == 0
 
 
+def epoch_started(providerA, providerB, joint, amountA, amountB):
+    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
+    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
+
+    assert joint.balanceOfA() == 0
+    assert joint.balanceOfB() == 0
+    assert joint.balanceOfStake() > 0
+
+    assert joint.activeCallID() != 0
+    assert joint.activePutID() != 0
+
+
+def epoch_ended(providerA, providerB, joint):
+    assert joint.balanceOfA() == 0
+    assert joint.balanceOfB() == 0
+    assert joint.activeCallID() == 0
+    assert joint.activePutID() == 0
+    assert joint.balanceOfStake() == 0
+    assert joint.balanceOfLP() == 0
+
+
 def check_strategy_empty(strategy):
     assert strategy.estimatedTotalAssets() == 0
     vault = interface.VaultAPI(strategy.vault())
@@ -18,7 +39,6 @@ def check_revoked_strategy(vault, strategy):
     status = vault.strategies(strategy).dict()
     assert status.debtRatio == 0
     assert status.totalDebt == 0
-    return
 
 
 def check_harvest_profit(tx, profit_amount):

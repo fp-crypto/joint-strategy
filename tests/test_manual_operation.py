@@ -5,19 +5,36 @@ from utils import utils
 # manual operation: those functions that are called by management to affect strategy's position
 # e.g. repay debt manually
 # e.g. emergency unstake
-def test_manual_function1(
+def test_manual_unwind(
     chain, token, vault, strategy, amount, gov, user, management, RELATIVE_APPROX
 ):
-    # set up steady state
-    actions.first_deposit_and_harvest(
-        vault, strategy, token, user, gov, amount, RELATIVE_APPROX
-    )
+    print(f"Not implemented")
+    # start epoch
 
-    # use manual function
-    # strategy.manual_function(arg1, arg2, {"from": management})
+    # let it run to half period
 
-    # shut down strategy and check accounting
-    strategy.updateStrategyDebtRatio(strategy, 0, {"from": gov})
-    strategy.harvest({"from": gov})
-    utils.sleep()
-    return
+    # move price by swapping
+
+    # manual end of epoch
+    # manual unstake
+    # manual close hedge
+    # manual remove liquidity
+    # manual rebalance
+    # manual return funds to providers
+
+    # manual set not invest want
+
+    # return funds to vaults
+
+
+def test_manual_stop_invest_want():
+    print(f"Not implemented")
+    # start epoch
+
+    # let it run
+
+    # set dont invest want to true
+
+    # set debt ratios to > 0 (to make providers think they should invest)
+
+    # restart epoch

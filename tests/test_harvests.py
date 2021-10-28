@@ -32,6 +32,8 @@ def test_profitable_harvest(
 
     actions.gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
+    checks.epoch_started(providerA, providerB, joint, amountA, amountB)
+
     total_assets_tokenA = providerA.estimatedTotalAssets()
     total_assets_tokenB = providerB.estimatedTotalAssets()
 
@@ -66,7 +68,7 @@ def test_profitable_harvest(
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
-    utils.sleep() # sleep for 6 hours
+    utils.sleep()  # sleep for 6 hours
 
     # all the balance (principal + profit) is in vault
     total_balance_tokenA = vaultA.totalAssets()

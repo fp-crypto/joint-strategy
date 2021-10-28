@@ -81,6 +81,10 @@ abstract contract HegicJoint is Joint {
         return hedgeBudget;
     }
 
+    function getTimeToMaturity() public view returns (uint256) {
+        return LPHedgingLib.getTimeToMaturity(activeCallID, activePutID);
+    }
+
     function getHedgeProfit() public view override returns (uint256, uint256) {
         return LPHedgingLib.getOptionsProfit(activeCallID, activePutID);
     }
@@ -198,8 +202,6 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
-    event Numbers(string name, uint256 number);
-
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
         internal
         returns (bool)
@@ -214,13 +216,6 @@ abstract contract HegicJoint is Joint {
             reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(
                 tokenBDecimals
             );
-
-        emit Numbers("reserveA", reserveA);
-        emit Numbers("reserveB", reserveB);
-        emit Numbers("decimalsA", tokenADecimals);
-        emit Numbers("decimalsB", tokenBDecimals);
-        emit Numbers("oraclePrice", oraclePrice);
-        emit Numbers("pairPrice", currentPairPrice);
 
         // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. exercise)
         // we need pairPrice ⁄ oraclePrice to be within (1+maxSlippage) and (1-maxSlippage)
@@ -264,8 +259,7 @@ abstract contract HegicJoint is Joint {
     // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
     function _autoProtect() internal view override returns (bool) {
         // if we are closing the position before 50% of hedge period has passed, we did something wrong so auto-init is stopped
-        uint256 timeToMaturity =
-            LPHedgingLib.getTimeToMaturity(activeCallID, activePutID);
+        uint256 timeToMaturity = getTimeToMaturity();
         if (activeCallID != 0 && activePutID != 0) {
             // NOTE: if timeToMaturity is 0, it means that the epoch has finished without being exercised
             // Something might be wrong so we don't start new epochs

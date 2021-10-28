@@ -6,7 +6,7 @@ import pytest
 from utils import actions
 
 
-def test_migration_during_epoch(
+def test_provider_migration_during_epoch(
     chain,
     token,
     vault,
@@ -18,27 +18,29 @@ def test_migration_during_epoch(
     user,
     RELATIVE_APPROX,
 ):
-    # deposit in vaults
-    actions.user_deposit(user, vault, token, amount)
-
+    print(f"Not implemented")
     # Start epoch
 
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    # let epoch run a bit
 
-    # TODO: add other tokens balance
-    pre_want_balance = token.balanceOf(strategy)
+    # swap
 
-    # migrate to a new strategy
-    new_strategy = strategist.deploy(Strategy, vault)
-    vault.migrateStrategy(strategy, new_strategy, {"from": gov})
-    assert (
-        pytest.approx(new_strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX)
-        == amount
-    )
+    # migrate providerA
 
-    # TODO: check that balances match previous balances
-    # TODO: add more tokens that the strategy holds
-    assert pre_want_balance == token.balanceOf(new_strategy)
+    # migrate providerB
 
-    # check that harvest work as expected
-    new_strategy.harvest({"from": gov})
+    # check status
+
+
+def test_joint_migration():
+    print(f"Not implemented")
+
+    # start epoch
+
+    # let epoch run a bit
+
+    # swap
+
+    # migrate joint
+
+    # check status

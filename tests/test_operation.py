@@ -7,75 +7,45 @@ from utils import actions, checks
 def test_operation(
     chain, accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
-    # Deposit to the vault
-    user_balance_before = token.balanceOf(user)
-    actions.user_deposit(user, vault, token, amount)
 
-    # harvest
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    print(f"Not implememented")
+    # start epoch
 
-    # tend()
-    strategy.tend({"from": strategist})
+    # set new debt ratios (100% and 100%)
 
-    # withdrawal
-    vault.withdraw({"from": user})
-    assert (
-        pytest.approx(token.balanceOf(user), rel=RELATIVE_APPROX) == user_balance_before
-    )
+    # wait for epoch to finish
 
-# emergency exit should return funds to vault
-def test_emergency_exit(
-    chain, accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
-):
-    # Deposit to the vault
-    actions.user_deposit(user, vault, token, amount)
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    # restart epoch
 
-    # set emergency and exit
-    strategy.setEmergencyExit()
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    assert strategy.estimatedTotalAssets() < amount
+    # wait for epoch to finish
+
+    # end epoch and return funds to vault
+
 
 # debt ratios should not be increased in the middle of an epoch
 def test_increase_debt_ratio(
     chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
-    # Deposit to the vault and harvest
-    actions.user_deposit(user, vault, token, amount)
-    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    half = int(amount / 2)
+    print(f"Not implememented")
+    # set debt ratios to 50% and 50%
 
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == half
+    # start epoch
 
-    vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    # set debt ratios to 100% and 100%
+
+    # restart epoch
+
 
 # debt ratios should not be increased in the middle of an epoch
 def test_decrease_debt_ratio(
     chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
 ):
-    # Deposit to the vault and harvest
-    actions.user_deposit(user, vault, token, amount)
-    vault.updateStrategyDebtRatio(strategy.address, 10_000, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
+    print(f"Not implememented")
+    # start epoch
 
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    # set dent ratios to 50% and 50%
 
-    vault.updateStrategyDebtRatio(strategy.address, 5_000, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    half = int(amount / 2)
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == half
+    # restart epoch
 
 
 def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amount):
@@ -101,4 +71,3 @@ def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amount):
     assert weth.balanceOf(user) == 0
     strategy.sweep(weth, {"from": gov})
     assert weth.balanceOf(gov) == weth_amount + before_balance
-
