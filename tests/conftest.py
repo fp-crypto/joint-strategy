@@ -1,6 +1,8 @@
 import pytest
-from brownie import config
+from brownie import config, web3
 from brownie import Contract, accounts
+from brownie.network import gas_price
+from brownie.network.gas.strategies import LinearScalingStrategy
 
 # Function scoped isolation fixture to enable xdist.
 # Snapshots the chain before each test and reverts after test completion.
@@ -98,7 +100,7 @@ def tokenB(request):
 
 whale_addresses = {
     "WBTC": "0x28c6c06298d514db089934071355e5743bf21d60",
-    "WETH": "0x28c6c06298d514db089934071355e5743bf21d60",
+    "WETH": "0xc564ee9f21ed8a2d8e7e76c085740d5e4c5fafbe",
     "LINK": "0x28c6c06298d514db089934071355e5743bf21d60",
     "YFI": "0x28c6c06298d514db089934071355e5743bf21d60",
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
@@ -110,17 +112,19 @@ whale_addresses = {
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenA_whale(tokenA):
+    # accounts[2].transfer(whale_addresses[tokenA.symbol()], 1e19)
     yield whale_addresses[tokenA.symbol()]
 
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenB_whale(tokenB):
+    # accounts[2].transfer(whale_addresses[tokenB.symbol()], 1e19)
     yield whale_addresses[tokenB.symbol()]
 
 
 token_prices = {
     "WBTC": 60_000,
-    "WETH": 4_220,
+    "WETH": 4_150,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
@@ -138,7 +142,7 @@ def amountA(tokenA, tokenA_whale, user):
     # it impersonate a whale address
     if amount > tokenA.balanceOf(tokenA_whale):
         amount = tokenA.balanceOf(tokenA_whale)
-    tokenA.transfer(user, amount, {"from": tokenA_whale})
+    tokenA.transfer(user, amount, {"from": tokenA_whale, 'gas': 6_000_000, 'gas_price': 0})
     yield amount
 
 
@@ -151,7 +155,7 @@ def amountB(tokenB, tokenB_whale, user):
     # it impersonate a whale address
     if amount > tokenB.balanceOf(tokenB_whale):
         amount = tokenB.balanceOf(tokenB_whale)
-    tokenB.transfer(user, amount, {"from": tokenB_whale})
+    tokenB.transfer(user, amount, {"from": tokenB_whale, 'gas': 6_000_000, 'gas_price': 0})
     yield amount
 
 
@@ -208,7 +212,7 @@ def weth_amount(user, weth):
 def vaultA(pm, gov, rewards, guardian, management, tokenA):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
-    vault.initialize(tokenA, gov, rewards, "", "", guardian, management)
+    vault.initialize(tokenA, gov, rewards, "", "", guardian, management, {'from': gov})
     vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
     vault.setManagement(management, {"from": gov})
     yield vault
@@ -218,7 +222,7 @@ def vaultA(pm, gov, rewards, guardian, management, tokenA):
 def vaultB(pm, gov, rewards, guardian, management, tokenB):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
-    vault.initialize(tokenB, gov, rewards, "", "", guardian, management)
+    vault.initialize(tokenB, gov, rewards, "", "", guardian, management, {'from': gov})
     vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
     vault.setManagement(management, {"from": gov})
     yield vault
@@ -278,7 +282,7 @@ def joint(
 @pytest.fixture
 def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultA)
-    strategy.setKeeper(keeper)
+    strategy.setKeeper(keeper, {'from': gov})
     vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
     yield strategy
 
@@ -286,7 +290,7 @@ def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
 @pytest.fixture
 def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultB)
-    strategy.setKeeper(keeper)
+    strategy.setKeeper(keeper, {'from': gov})
     vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
     yield strategy
 
@@ -307,13 +311,13 @@ def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amount
     putPool = Contract(putPool_addresses[tokenA.symbol()])
     callPool = Contract(callPool_addresses[tokenA.symbol()])
 
-    callPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov})
-    putPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov})
+    callPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov, 'gas': 6_000_000, 'gas_price': 0})
+    putPool.setMaxDepositAmount(2 ** 256 - 1, 2 ** 256 - 1, {"from": hegic_gov, 'gas': 6_000_000, 'gas_price': 0})
 
-    tokenA.approve(callPool, 2 ** 256 - 1, {"from": tokenA_whale})
-    callPool.provideFrom(tokenA_whale, amountA, False, 0, {"from": tokenA_whale})
-    tokenB.approve(putPool, 2 ** 256 - 1, {"from": tokenB_whale})
-    putPool.provideFrom(tokenB_whale, amountB, False, 0, {"from": tokenB_whale})
+    tokenA.approve(callPool, 2 ** 256 - 1, {"from": tokenA_whale, 'gas': 6_000_000, 'gas_price': 0})
+    callPool.provideFrom(tokenA_whale, amountA, False, 0, {"from": tokenA_whale, 'gas': 6_000_000, 'gas_price': 0})
+    tokenB.approve(putPool, 2 ** 256 - 1, {"from": tokenB_whale, 'gas': 6_000_000, 'gas_price': 0})
+    putPool.provideFrom(tokenB_whale, amountB, False, 0, {"from": tokenB_whale, 'gas': 6_000_000, 'gas_price': 0})
 
 
 # @pytest.fixture
@@ -355,11 +359,12 @@ def RELATIVE_APPROX():
 @pytest.fixture(autouse=True)
 def mock_chainlink(AggregatorMock, gov):
     owner = "0x21f73d42eb58ba49ddb685dc29d3bf5c0f0373ca"
+
     priceProvider = Contract("0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419")
     aggregator = gov.deploy(AggregatorMock, 0)
 
-    priceProvider.proposeAggregator(aggregator.address, {"from": owner})
-    priceProvider.confirmAggregator(aggregator.address, {"from": owner})
+    priceProvider.proposeAggregator(aggregator.address, {"from": owner, 'gas': 6_000_000, 'gas_price': 0})
+    priceProvider.confirmAggregator(aggregator.address, {"from": owner, 'gas': 6_000_000, 'gas_price': 0})
 
     yield aggregator
 
@@ -375,3 +380,18 @@ def first_sync(mock_chainlink, joint):
         * 1e8
     )
     mock_chainlink.setPrice(pairPrice, {"from": accounts[0]})
+
+
+@pytest.fixture(autouse=True)
+def short_period(gov, joint):
+    print(f"Current HedgingPeriod: {joint.period()} seconds")
+    joint.setHedgingPeriod(86400, {'from': gov})
+    joint.setMinTimeToMaturity(86400/2, {'from': gov})
+    print(f"New HedgingPeriod: {joint.period()} seconds")
+
+@pytest.fixture(scope='session', autouse=True)
+def reset_tenderly_fork():
+    gas_strategy = LinearScalingStrategy("0 gwei", "0 gwei", 1.1)
+    gas_price(gas_strategy)
+    # web3.manager.request_blocking("evm_revert", [1])
+    yield

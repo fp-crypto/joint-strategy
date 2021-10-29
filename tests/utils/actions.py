@@ -22,6 +22,11 @@ def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, a
 
     checks.epoch_started(providerA, providerB, joint, amountA, amountB)
 
+def wait_period_fraction(joint, percentage_of_period):
+    seconds = int(joint.getTimeToMaturity()*percentage_of_period)
+    print(f"Waiting (and mining) {seconds} seconds")
+    utils.utils.sleep_mine(seconds)
+
 
 def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
     # first harvest uninvests (withdraws, closes hedge and removes liquidity) and takes funds (tokenA)

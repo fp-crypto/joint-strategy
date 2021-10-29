@@ -57,7 +57,7 @@ abstract contract HegicJoint is Joint {
 
         hedgeBudget = 50; // 0.5% per hedging period
         protectionRange = 1000; // 10%
-        period = 1 days;
+        period = 7 days;
         minTimeToMaturity = 3600; // 1 hour
         maxSlippageOpen = 100; // 1%
         maxSlippageClose = 100; // 1%
@@ -114,7 +114,7 @@ abstract contract HegicJoint is Joint {
         external
         onlyAuthorized
     {
-        require(_minTimeToMaturity > period); // avoid incorrect settings
+        require(_minTimeToMaturity <= period); // avoid incorrect settings
         minTimeToMaturity = _minTimeToMaturity;
     }
 
@@ -192,6 +192,7 @@ abstract contract HegicJoint is Joint {
             );
         }
 
+        emit Numbers("oraclePrice", exercisePrice);
         require(
             _isWithinRange(exercisePrice, maxSlippageClose) ||
                 skipManipulatedCheck,
@@ -202,8 +203,11 @@ abstract contract HegicJoint is Joint {
         activePutID = 0;
     }
 
+    event Numbers(string name, uint256 number);
+
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
         internal
+        view
         returns (bool)
     {
         uint256 tokenADecimals =
@@ -216,7 +220,6 @@ abstract contract HegicJoint is Joint {
             reserveB.mul(tokenADecimals).mul(PRICE_DECIMALS).div(reserveA).div(
                 tokenBDecimals
             );
-
         // This is a price check to avoid manipulated pairs. It checks current pair price vs hedging protocol oracle price (i.e. exercise)
         // we need pairPrice ⁄ oraclePrice to be within (1+maxSlippage) and (1-maxSlippage)
         // otherwise, we consider the price manipulated
@@ -228,7 +231,7 @@ abstract contract HegicJoint is Joint {
                     RATIO_PRECISION.sub(maxSlippage);
     }
 
-    function shouldEndEpoch() public override returns (bool) {
+    function shouldEndEpoch() public view override returns (bool) {
         // End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
         if (activeCallID != 0 || activePutID != 0) {
             // if Time to Maturity of hedge is lower than min threshold, need to end epoch NOW

@@ -26,7 +26,7 @@ def epoch_ended(providerA, providerB, joint):
     assert joint.activeCallID() == 0
     assert joint.activePutID() == 0
     assert joint.balanceOfStake() == 0
-    assert joint.balanceOfLP() == 0
+    assert joint.balanceOfPair() == 0
 
 
 def check_strategy_empty(strategy):

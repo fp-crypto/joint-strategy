@@ -138,7 +138,7 @@ abstract contract Joint {
 
     function name() external view virtual returns (string memory) {}
 
-    function shouldEndEpoch() public virtual returns (bool) {}
+    function shouldEndEpoch() public view virtual returns (bool) {}
 
     function _autoProtect() internal view virtual returns (bool) {}
 

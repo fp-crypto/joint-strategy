@@ -1,5 +1,5 @@
 import brownie
-from brownie import interface, chain, accounts
+from brownie import interface, chain, accounts, web3
 
 
 def sync_price(joint, mock_chainlink, strategist):
@@ -72,3 +72,12 @@ def from_units(token, amount):
 def sleep(seconds=6 * 60 * 60):
     chain.sleep(seconds)
     chain.mine(1)
+
+
+def sleep_mine(seconds=13):
+    chain.sleep(seconds)
+    method = "evm_increaseBlocks"
+    print(f"Block number: {web3.eth.block_number}")
+    params = int(seconds / 13.15)
+    web3.manager.request_blocking(method, [params])
+    print(f"Block number: {web3.eth.block_number}")
