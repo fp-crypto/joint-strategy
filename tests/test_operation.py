@@ -1,73 +1,149 @@
 import brownie
 from brownie import Contract
 import pytest
-from utils import actions, checks
+from utils import actions, checks, utils
 
 
 def test_operation(
-    chain, accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    chain,
+    accounts,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    strategist,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
 ):
+    # run two epochs
 
-    print(f"Not implememented")
     # start epoch
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
 
-    # set new debt ratios (100% and 100%)
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
+
+    assert joint.getTimeToMaturity() > 0
+
+    # we set back the debt ratios
+    vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
 
     # wait for epoch to finish
+    actions.wait_period_fraction(joint, 0.75)
 
     # restart epoch
+    # using start epoch because it is the same and start sets debt ratios to 0
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
+
+    assert joint.getTimeToMaturity() > 0
 
     # wait for epoch to finish
+    actions.wait_period_fraction(joint, 0.75)
 
     # end epoch and return funds to vault
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+
+    assert providerA.balanceOfWant() == 0
 
 
 # debt ratios should not be increased in the middle of an epoch
 def test_increase_debt_ratio(
-    chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    chain,
+    accounts,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    strategist,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
 ):
-    print(f"Not implememented")
     # set debt ratios to 50% and 50%
+    vaultA.updateStrategyDebtRatio(providerA, 5_000, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 5_000, {"from": gov})
 
     # start epoch
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    # to avoid autoprotect due to time to maturitiy
+    joint.setAutoProtectionDisabled(True, {"from": gov})
+
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA / 2, amountB / 2
+    )
 
     # set debt ratios to 100% and 100%
+    vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
 
     # restart epoch
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
+
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+
+    assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
+    assert vaultB.strategies(providerB).dict()["totalDebt"] == 0
 
 
 # debt ratios should not be increased in the middle of an epoch
 def test_decrease_debt_ratio(
-    chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    chain,
+    accounts,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    strategist,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
 ):
-    print(f"Not implememented")
     # start epoch
 
-    # set dent ratios to 50% and 50%
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
+
+    # to avoid autoprotect due to time to maturitiy
+    joint.setAutoProtectionDisabled(True, {"from": gov})
+    # set debt ratios to 50% and 50%
+    vaultA.updateStrategyDebtRatio(providerA, 5_000, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 5_000, {"from": gov})
 
     # restart epoch
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA / 2, amountB / 2
+    )
 
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
-def test_sweep(gov, vault, strategy, token, user, amount, weth, weth_amount):
-    # Strategy want token doesn't work
-    token.transfer(strategy, amount, {"from": user})
-    assert token.address == strategy.want()
-    assert token.balanceOf(strategy) > 0
-    with brownie.reverts("!want"):
-        strategy.sweep(token, {"from": gov})
-
-    # Vault share token doesn't work
-    with brownie.reverts("!shares"):
-        strategy.sweep(vault.address, {"from": gov})
-
-    # TODO: If you add protected tokens to the strategy.
-    # Protected token doesn't work
-    # with brownie.reverts("!protected"):
-    #     strategy.sweep(strategy.protectedToken(), {"from": gov})
-
-    before_balance = weth.balanceOf(gov)
-    weth.transfer(strategy, weth_amount, {"from": user})
-    assert weth.address != strategy.want()
-    assert weth.balanceOf(user) == 0
-    strategy.sweep(weth, {"from": gov})
-    assert weth.balanceOf(gov) == weth_amount + before_balance
+    assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
+    assert vaultB.strategies(providerB).dict()["totalDebt"] == 0

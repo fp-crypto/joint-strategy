@@ -146,9 +146,16 @@ abstract contract Joint {
         dontInvestWant = _dontInvestWant;
     }
 
+    function setAutoProtectionDisabled(bool _autoProtectionDisabled)
+        external
+        onlyAuthorized
+    {
+        autoProtectionDisabled = _autoProtectionDisabled;
+    }
+
     function closePositionReturnFunds() external onlyProviders {
         // Check if it needs to stop starting new epochs after finishing this one. _autoProtect is implemented in children
-        if (_autoProtect()) {
+        if (_autoProtect() && !autoProtectionDisabled) {
             dontInvestWant = true;
         }
 
@@ -522,12 +529,12 @@ abstract contract Joint {
         // Unstake LP from staking contract
         withdrawLP();
 
+        // Close the hedge
+        closeHedge();
+
         if (balanceOfPair() == 0) {
             return (0, 0);
         }
-
-        // Close the hedge
-        closeHedge();
 
         // **WARNING**: This call is sandwichable, care should be taken
         //              to always execute with a private relay
@@ -540,6 +547,7 @@ abstract contract Joint {
             address(this),
             now
         );
+
         return (balanceOfA(), balanceOfB());
     }
 
@@ -596,15 +604,15 @@ abstract contract Joint {
     function pendingReward() public view virtual returns (uint256) {}
 
     // --- MANAGEMENT FUNCTIONS ---
-    function liquidatePosition() external onlyAuthorized {
+    function liquidatePositionManually() external onlyAuthorized {
         _closePosition();
     }
 
-    function returnLooseToProviders() external onlyAuthorized {
+    function returnLooseToProvidersManually() external onlyAuthorized {
         _returnLooseToProviders();
     }
 
-    function removeLiquidity(uint256 amount) external onlyAuthorized {
+    function removeLiquidityManually(uint256 amount) external onlyAuthorized {
         IUniswapV2Router02(router).removeLiquidity(
             tokenA,
             tokenB,
@@ -616,11 +624,10 @@ abstract contract Joint {
         );
     }
 
-    function swapTokenForToken(address[] memory swapPath, uint256 swapInAmount)
-        external
-        onlyGovernance
-        returns (uint256)
-    {
+    function swapTokenForTokenManually(
+        address[] memory swapPath,
+        uint256 swapInAmount
+    ) external onlyGovernance returns (uint256) {
         address swapTo = swapPath[swapPath.length - 1];
         require(swapTo == tokenA || swapTo == tokenB); // swapTo must be tokenA or tokenB
         uint256[] memory amounts =

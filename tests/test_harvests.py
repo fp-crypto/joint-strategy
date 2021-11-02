@@ -30,9 +30,9 @@ def test_profitable_harvest(
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
 
-    actions.gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
-
-    checks.epoch_started(providerA, providerB, joint, amountA, amountB)
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
 
     total_assets_tokenA = providerA.estimatedTotalAssets()
     total_assets_tokenB = providerB.estimatedTotalAssets()
@@ -88,34 +88,50 @@ def test_profitable_harvest(
 # TODO: implement this
 # tests harvesting a strategy that reports losses
 def test_lossy_harvest(
-    chain, accounts, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX
+    chain,
+    accounts,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    strategist,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
+    tokenA_whale,
+    tokenB_whale,
+    mock_chainlink,
 ):
     # Deposit to the vault
-    actions.user_deposit(user, vault, token, amount)
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
 
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
-    strategy.harvest({"from": strategist})
-    total_assets = strategy.estimatedTotalAssets()
-    assert pytest.approx(total_assets, rel=RELATIVE_APPROX) == amount
 
-    # TODO: Add some code before harvest #2 to simulate a lower pps
-    loss_amount = amount * 0.05
-    actions.generate_loss(loss_amount)
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
 
-    # check that estimatedTotalAssets estimates correctly
-    assert total_assets - loss_amount == strategy.estimatedTotalAssets()
-
-    # Harvest 2: Realize loss
+    # We will have a loss when closing the epoch because we have spent money on Hedging
     chain.sleep(1)
-    tx = strategy.harvest({"from": strategist})
-    checks.check_harvest_loss(tx, loss_amount)
+    tx = providerA.harvest({"from": strategist})
+    lossA = tx.events["Harvested"]["loss"]
+    assert lossA > 0
+    tx = providerB.harvest({"from": strategist})
+    lossB = tx.events["Harvested"]["loss"]
+    assert lossB > 0
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
 
     # User will withdraw accepting losses
-    vault.withdraw(vault.balanceOf(user), user, 10_000, {"from": user})
-    assert token.balanceOf(user) + loss_amount == amount
+    assert tokenA.balanceOf(vaultA) + lossA == amountA
+    assert tokenB.balanceOf(vaultB) + lossB == amountB
 
 
 # TODO: implement this

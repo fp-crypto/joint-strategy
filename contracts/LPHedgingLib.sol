@@ -143,33 +143,34 @@ library LPHedgingLib {
     function closeHedge(uint256 callID, uint256 putID)
         external
         returns (
-            uint256 payoutToken0,
-            uint256 payoutToken1,
+            uint256 payoutTokenA,
+            uint256 payoutTokenB,
             uint256 exercisePrice
         )
     {
         IHegicPool hegicCallOptionsPool = _hegicCallOptionsPool();
         IHegicPool hegicPutOptionsPool = _hegicPutOptionsPool();
-        uint256 callProfit = hegicCallOptionsPool.profitOf(callID);
-        uint256 putProfit = hegicPutOptionsPool.profitOf(putID);
 
+        exercisePrice = getCurrentPrice();
         // Check the options have not expired
         // NOTE: call and put options expiration MUST be the same
         (, , , , uint256 expired, , ) = hegicCallOptionsPool.options(callID);
         if (expired < block.timestamp) {
-            return (0, 0, 0);
+            return (0, 0, exercisePrice);
         }
 
-        if (callProfit > 0) {
+        payoutTokenA = hegicCallOptionsPool.profitOf(callID);
+        payoutTokenB = hegicPutOptionsPool.profitOf(putID);
+
+        if (payoutTokenA > 0) {
             // call option is ITM
             hegicCallOptionsPool.exercise(callID);
         }
 
-        if (putProfit > 0) {
+        if (payoutTokenB > 0) {
             // put option is ITM
             hegicPutOptionsPool.exercise(putID);
         }
-        exercisePrice = getCurrentPrice();
     }
 
     function getOptionsAmount(uint256 q, uint256 h)

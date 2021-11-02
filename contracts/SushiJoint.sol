@@ -150,7 +150,7 @@ contract SushiJoint is HegicJoint {
         }
     }
 
-    function withdrawStakedLP() external onlyAuthorized {
+    function withdrawLPManually() external onlyAuthorized {
         withdrawLP();
     }
 }

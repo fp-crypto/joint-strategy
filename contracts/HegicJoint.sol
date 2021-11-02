@@ -155,6 +155,10 @@ abstract contract HegicJoint is Joint {
         return LPHedgingLib.getHedgeStrike(activeCallID, activePutID);
     }
 
+    function closeHedgeManually() external onlyAuthorized {
+        closeHedge();
+    }
+
     function hedgeLP()
         internal
         override
@@ -190,26 +194,25 @@ abstract contract HegicJoint is Joint {
                 activeCallID,
                 activePutID
             );
+            require(
+                _isWithinRange(exercisePrice, maxSlippageClose) ||
+                    skipManipulatedCheck,
+                "!close price looks manipulated"
+            );
         }
-
-        emit Numbers("oraclePrice", exercisePrice);
-        require(
-            _isWithinRange(exercisePrice, maxSlippageClose) ||
-                skipManipulatedCheck,
-            "!close price looks manipulated"
-        );
 
         activeCallID = 0;
         activePutID = 0;
     }
-
-    event Numbers(string name, uint256 number);
 
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
         internal
         view
         returns (bool)
     {
+        if (oraclePrice == 0) {
+            return false;
+        }
         uint256 tokenADecimals =
             uint256(10)**uint256(IERC20Extended(tokenA).decimals());
         uint256 tokenBDecimals =

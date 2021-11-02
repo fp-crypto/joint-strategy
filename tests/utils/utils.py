@@ -1,8 +1,8 @@
 import brownie
-from brownie import interface, chain, accounts, web3
+from brownie import interface, chain, accounts, web3, network, Contract
 
 
-def sync_price(joint, mock_chainlink, strategist):
+def sync_price(joint, mock_chainlink):
     # we update the price on the Oracle to simulate real market dynamics
     # otherwise, price of pair and price of oracle would be different and it would look manipulated
     reserveA, reserveB = joint.getReserves()
@@ -11,6 +11,7 @@ def sync_price(joint, mock_chainlink, strategist):
         / reserveA
         * 10 ** Contract(joint.tokenA()).decimals()
         / 10 ** Contract(joint.tokenB()).decimals()
+        * 1e8
     )
     mock_chainlink.setPrice(pairPrice, {"from": accounts[0]})
 
@@ -74,10 +75,19 @@ def sleep(seconds=6 * 60 * 60):
     chain.mine(1)
 
 
-def sleep_mine(seconds=13):
-    chain.sleep(seconds)
-    method = "evm_increaseBlocks"
-    print(f"Block number: {web3.eth.block_number}")
-    params = int(seconds / 13.15)
-    web3.manager.request_blocking(method, [params])
-    print(f"Block number: {web3.eth.block_number}")
+def sleep_mine(seconds=13.15):
+    start = chain.time()
+    blocks = int(seconds / 13.15)
+    if network.show_active() == "tenderly":
+        method = "evm_increaseBlocks"
+        print(f"Block number: {web3.eth.block_number}")
+        params = blocks
+        web3.manager.request_blocking(method, [params])
+        print(f"Block number: {web3.eth.block_number}")
+    else:
+        chain.mine(blocks)
+
+    end = chain.time()
+    print(f"Mined {blocks} blocks during {end-start} seconds")
+    chain.sleep(seconds - (end - start))
+    chain.mine(1)

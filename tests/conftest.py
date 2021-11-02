@@ -112,13 +112,11 @@ whale_addresses = {
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenA_whale(tokenA):
-    # accounts[2].transfer(whale_addresses[tokenA.symbol()], 1e19)
     yield whale_addresses[tokenA.symbol()]
 
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenB_whale(tokenB):
-    # accounts[2].transfer(whale_addresses[tokenB.symbol()], 1e19)
     yield whale_addresses[tokenB.symbol()]
 
 
@@ -420,11 +418,11 @@ def short_period(gov, joint):
     joint.setHedgingPeriod(86400, {"from": gov})
     joint.setMinTimeToMaturity(86400 / 2, {"from": gov})
     print(f"New HedgingPeriod: {joint.period()} seconds")
+    joint.setProtectionRange(500, {"from": gov})
 
 
 @pytest.fixture(scope="session", autouse=True)
 def reset_tenderly_fork():
-    gas_strategy = LinearScalingStrategy("0 gwei", "0 gwei", 1.1)
-    gas_price(gas_strategy)
+    gas_price(0)
     # web3.manager.request_blocking("evm_revert", [1])
     yield

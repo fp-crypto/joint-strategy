@@ -40,6 +40,10 @@ def test_harvest_trigger_within_period(
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
+    assert providerA.harvestTrigger(1) == False
+    assert providerB.harvestTrigger(1) == False
+    assert joint.shouldEndEpoch() == False
+
 
 def test_harvest_trigger_after_period(
     vaultA,
@@ -76,6 +80,10 @@ def test_harvest_trigger_after_period(
     # harvesting should close the epoch
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
+    assert providerA.harvestTrigger(1) == False
+    assert providerB.harvestTrigger(1) == False
+    assert joint.shouldEndEpoch() == False
+
 
 def test_harvest_trigger_below_range(
     vaultA,
@@ -87,7 +95,10 @@ def test_harvest_trigger_below_range(
     gov,
     tokenA_whale,
     mock_chainlink,
+    tokenA,
+    tokenB,
     amountA,
+    amountB,
 ):
     # deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -103,8 +114,8 @@ def test_harvest_trigger_below_range(
     assert joint.shouldEndEpoch() == False
     # swap a4b (sell tokenA) so the price is out of protected range (below)
     actions.swap(
-        joint.tokenA(),
-        joint.tokenB(),
+        tokenA,
+        tokenB,
         amountA * 20,
         tokenA_whale,
         joint,
@@ -119,6 +130,10 @@ def test_harvest_trigger_below_range(
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
+    assert providerA.harvestTrigger(1) == False
+    assert providerB.harvestTrigger(1) == False
+    assert joint.shouldEndEpoch() == False
+
 
 def test_harvest_trigger_above_range(
     vaultA,
@@ -130,6 +145,9 @@ def test_harvest_trigger_above_range(
     gov,
     tokenB_whale,
     mock_chainlink,
+    tokenA,
+    tokenB,
+    amountA,
     amountB,
 ):
     # deposit to the vault
@@ -146,8 +164,8 @@ def test_harvest_trigger_above_range(
 
     # swap b4a (buy tokenA) so the price is out of protected range (above)
     actions.swap(
-        joint.tokenB(),
-        joint.tokenA(),
+        tokenB,
+        tokenA,
         amountB * 20,
         tokenB_whale,
         joint,
@@ -161,3 +179,7 @@ def test_harvest_trigger_above_range(
 
     # harvesting should close the epoch
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+
+    assert providerA.harvestTrigger(1) == False
+    assert providerB.harvestTrigger(1) == False
+    assert joint.shouldEndEpoch() == False

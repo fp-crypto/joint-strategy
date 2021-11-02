@@ -1,7 +1,6 @@
 import pytest
 from brownie import chain, Contract
-import utils
-from utils import checks
+from utils import checks, utils
 
 # This file is reserved for standard actions like deposits
 def user_deposit(user, vault, token, amount):
@@ -26,7 +25,7 @@ def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, a
 def wait_period_fraction(joint, percentage_of_period):
     seconds = int(joint.getTimeToMaturity() * percentage_of_period)
     print(f"Waiting (and mining) {seconds} seconds")
-    utils.utils.sleep_mine(seconds)
+    utils.sleep_mine(seconds)
 
 
 def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
@@ -70,6 +69,7 @@ def swap(tokenFrom, tokenTo, amountFrom, tokenFrom_whale, joint, mock_chainlink)
         / 10 ** Contract(joint.tokenB()).decimals()
     )
     print(f"OldPairPrice: {pairPrice}")
+    router = Contract(joint.router())
     router.swapExactTokensForTokens(
         amountFrom,
         0,
