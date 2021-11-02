@@ -4,86 +4,153 @@ import pytest
 
 def test_airdrop(
     chain,
-    accounts,
-    token,
-    vault,
-    strategy,
     user,
-    strategist,
-    amount,
+    gov,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    amountA,
+    amountB,
     RELATIVE_APPROX,
-    token_whale,
+    tokenA_whale,
+    tokenB_whale
 ):
     # Deposit to the vault
-    actions.user_deposit(user, vault, token, amount)
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
 
     # Harvest 1: Send funds through the strategy
     # start epoch
+    actions.gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
 
-    total_assets = strategy.estimatedTotalAssets()
-    assert pytest.approx(total_assets, rel=RELATIVE_APPROX) == amount
+    total_assetsA = joint.investedA()
+    total_assetsB = joint.investedB()
+
+    cost_of_investmenA = joint.investedA() - joint.estimatedTotalAssetsInToken(tokenA)
+    cost_of_investmenB = joint.investedB() - joint.estimatedTotalAssetsInToken(tokenB)
+
+    assert pytest.approx(total_assetsA, rel=RELATIVE_APPROX) == amountA - providerA.balanceOfWant()
+    assert pytest.approx(total_assetsB, rel=RELATIVE_APPROX) == amountB - providerB.balanceOfWant()
 
     # we airdrop tokens to strategy
     # TODO: airdrop LP token to joint
-    airdrop_amount = amount * 0.1  # 10% of current assets
-    token.transfer(strategy, airdrop_amount, {"from": token_whale})
-
-    # TODO: airdrop tokenA to joint
-
-    # TODO: airdrop tokenB to joint
+    amount_percentage = 0.1  # 10% of current assets
+    airdrop_amountA = providerA.estimatedTotalAssets() * amount_percentage
+    airdrop_amountB = providerB.estimatedTotalAssets() * amount_percentage
+    
+    # TODO: airdrop tokenA and tokenB to joint
+    actions.generate_profit(amount_percentage, joint, providerA, providerB, tokenA_whale, tokenB_whale)
 
     # check that estimatedTotalAssets estimates correctly
-    assert total_assets + airdrop_amount == strategy.estimatedTotalAssets()
 
-    before_pps = vault.pricePerShare()
-    # Harvest 2: Realize profit
-    chain.sleep(1)
-    strategy.harvest()
+    assert pytest.approx((airdrop_amountA / 10 ** tokenA.decimals()), rel=RELATIVE_APPROX) == joint.balanceOfA() / 10 ** tokenA.decimals()
+    assert pytest.approx((airdrop_amountB / 10 ** tokenB.decimals()), rel=RELATIVE_APPROX) == joint.balanceOfB() / 10 ** tokenB.decimals()
+    
+    #assert airdrop_amountA == joint.balanceOfA()
+    #assert airdrop_amountB == joint.balanceOfB()
+
+    before_ppsA = vaultA.pricePerShare()
+    before_ppsB = vaultB.pricePerShare()
+        # Harvest 2: Realize profit
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
-    profit = token.balanceOf(vault.address)  # Profits go to vault
+    profitA = tokenA.balanceOf(vaultA.address)  - amountA   # Profits go to vaultA
+    profitB = tokenB.balanceOf(vaultB.address)  - amountB   # Profits go to vaultB
     # TODO: Uncomment the lines below
-    assert token.balanceOf(strategy) + profit > amount
-    assert vault.pricePerShare() > before_pps
+    assert tokenA.balanceOf(vaultA) > amountA
+    assert tokenB.balanceOf(vaultB) > amountB
+    assert vaultA.pricePerShare() > before_ppsA
+    assert vaultB.pricePerShare() > before_ppsB
+    
 
-
-def test_airdrop_providers(
+def test_airdrop_provider(
     chain,
-    accounts,
-    token,
-    vault,
-    strategy,
-    user,
-    strategist,
-    amount,
-    RELATIVE_APPROX,
-    token_whale,
+    gov,
+    tokenA,
+    vaultA,
+    providerA,
+    tokenA_whale
 ):
     # set debtRatio of providerA to 0
+    vaultA.updateStrategyDebtRatio(providerA, 0, {'from': gov})
+    assert providerA.balanceOfWant() == 0
 
     # airdrop token
+    airdrop_amountA = 1 * 10 ** tokenA.decimals()
 
+    tokenA.approve(providerA, airdrop_amountA, {'from': tokenA_whale})
+    tokenA.transfer(providerA, airdrop_amountA, {'from': tokenA_whale})
+
+    assert providerA.balanceOfWant() == airdrop_amountA
+    
     # harvest and check it has been taken as profit
-    token_whale
-
+    before_ppsA = vaultA.pricePerShare()
+    hv = providerA.harvest({'from': gov})
+    assert hv.events['Harvested']['profit'] == airdrop_amountA
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    assert vaultA.pricePerShare() > before_ppsA
 
 def test_airdrop_providers(
     chain,
-    accounts,
-    token,
-    vault,
-    strategy,
     user,
-    strategist,
-    amount,
+    gov,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    amountA,
+    amountB,
     RELATIVE_APPROX,
-    token_whale,
+    tokenA_whale,
+    tokenB_whale
 ):
     # start epoch
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    actions.gov_start_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
+
+    total_assetsA = joint.investedA()
+    total_assetsB = joint.investedB()
+    
+    assert pytest.approx(total_assetsA, rel=RELATIVE_APPROX) == amountA - providerA.balanceOfWant()
+    assert pytest.approx(total_assetsB, rel=RELATIVE_APPROX) == amountB - providerB.balanceOfWant()
 
     # airdrop token to providerA
+    before_providerA_balance = providerA.balanceOfWant()
 
-    # finish epoch
+    amount_percentage = 0.1  # 10% of current assets
+    airdrop_amountA = providerA.estimatedTotalAssets() * amount_percentage
+
+    tokenA.approve(providerA, airdrop_amountA, {'from': tokenA_whale})
+    tokenA.transfer(providerA, airdrop_amountA, {'from': tokenA_whale})
+
+    assert providerA.balanceOfWant() - before_providerA_balance == airdrop_amountA
 
     # check that it has been taken as profit for providerA only
-    token_whale
+    before_ppsA = vaultA.pricePerShare()  
+    before_ppsB = vaultB.pricePerShare() 
+    assert before_ppsA == 1 * 10 ** tokenA.decimals()
+    assert before_ppsB == 1 * 10 ** tokenB.decimals()
+        # Harvest 2: Realize profit
+    actions.gov_end_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+    assert pytest.approx(vaultA.strategies(providerA).dict()['totalGain'], rel=RELATIVE_APPROX) == int(airdrop_amountA)
+    
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    
+    ppsA = vaultA.pricePerShare() 
+    ppsB = vaultB.pricePerShare() 
+
+    assert ppsA > before_ppsA
+    assert ppsB == before_ppsB
+        
