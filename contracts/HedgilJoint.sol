@@ -12,6 +12,24 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./LPHedgingLib.sol";
 import "./Joint.sol";
 
+interface IHedgilPool {
+    function getTimeToMaturity(uint256 hedgeID) external view returns (uint256);
+
+    function getHedgeProfit(uint256 hedgeID) external view returns (uint256);
+
+    function getHedgeStrike(uint256 hedgeID) external view returns (uint256);
+
+    function hedgeLPToken(
+        address pair,
+        uint256 protectionRange,
+        uint256 period
+    ) external returns (uint256, uint256);
+
+    function closeHedge(uint256 hedgedID)
+        external
+        returns (uint256 payoff, uint256 exercisePrice);
+}
+
 abstract contract HedgilJoint is Joint {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -74,8 +92,8 @@ abstract contract HedgilJoint is Joint {
         return IHedgilPool(hedgilPool).getTimeToMaturity(activeHedgeID);
     }
 
-    function getHedgeProfit() public view override returns (uint256) {
-        return IHedgilPool(hedgilPool).getHedgeProfit(activeHedgeID);
+    function getHedgeProfit() public view override returns (uint256, uint256) {
+        return (IHedgilPool(hedgilPool).getHedgeProfit(activeHedgeID), 0);
     }
 
     function setSkipManipulatedCheck(bool _skipManipulatedCheck)
@@ -158,7 +176,7 @@ abstract contract HedgilJoint is Joint {
             uint256 initialBalanceA = balanceOfA();
             uint256 initialBalanceB = balanceOfB();
             // Only able to open a new position if no active options
-            require(activeCallID == 0 && activePutID == 0);
+            require(activeHedgeID == 0);
             uint256 strikePrice;
             (activeHedgeID, strikePrice) = IHedgilPool(hedgilPool).hedgeLPToken(
                 address(_pair),
@@ -181,7 +199,7 @@ abstract contract HedgilJoint is Joint {
         uint256 exercisePrice;
         // only close hedge if a hedge is open
         if (activeHedgeID != 0 && !isHedgingDisabled) {
-            (, , exercisePrice) = IHedgilPool(hedgilPool).closeHedge(
+            (, exercisePrice) = IHedgilPool(hedgilPool).closeHedge(
                 activeHedgeID
             );
             require(
@@ -191,8 +209,7 @@ abstract contract HedgilJoint is Joint {
             );
         }
 
-        activeCallID = 0;
-        activePutID = 0;
+        activeHedgeID = 0;
     }
 
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
