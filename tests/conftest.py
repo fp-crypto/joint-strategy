@@ -122,7 +122,7 @@ def tokenB_whale(tokenB):
 
 token_prices = {
     "WBTC": 60_000,
-    "WETH": 4_150,
+    "WETH": 4_500,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
@@ -262,6 +262,7 @@ def joint(
     tokenA,
     tokenB,
 ):
+    gas_price(0)
     joint = gov.deploy(
         SushiJoint,
         providerA,
@@ -421,7 +422,7 @@ def short_period(gov, joint):
     joint.setProtectionRange(500, {"from": gov})
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def reset_tenderly_fork():
     gas_price(0)
     # web3.manager.request_blocking("evm_revert", [1])

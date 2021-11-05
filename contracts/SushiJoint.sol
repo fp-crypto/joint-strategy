@@ -15,6 +15,7 @@ contract SushiJoint is HegicJoint {
     uint256 public pid;
 
     IMasterchef public masterchef;
+    bool public dontWithdraw;
     event Numbers(string name, uint256 number);
 
     constructor(
@@ -138,6 +139,10 @@ contract SushiJoint is HegicJoint {
         masterchef.deposit(pid, 0);
     }
 
+    function setDontWithdraw(bool _dontWithdraw) external onlyAuthorized {
+        dontWithdraw = _dontWithdraw;
+    }
+
     function depositLP() internal override {
         if (balanceOfPair() > 0) {
             masterchef.deposit(pid, balanceOfPair());
@@ -145,7 +150,7 @@ contract SushiJoint is HegicJoint {
     }
 
     function withdrawLP() internal override {
-        if (balanceOfStake() != 0) {
+        if (balanceOfStake() > 0 && !dontWithdraw) {
             masterchef.withdraw(pid, balanceOfStake());
         }
     }

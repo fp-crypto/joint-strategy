@@ -258,8 +258,6 @@ abstract contract HegicJoint is Joint {
                     .div(tokenBDecimals);
             return !_isWithinRange(initPrice, protectionRange);
         }
-
-        return super.shouldEndEpoch();
     }
 
     // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
@@ -275,6 +273,5 @@ abstract contract HegicJoint is Joint {
                 return true;
             }
         }
-        return super._autoProtect();
     }
 }

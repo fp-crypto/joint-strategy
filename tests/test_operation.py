@@ -147,3 +147,4 @@ def test_decrease_debt_ratio(
 
     assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
     assert vaultB.strategies(providerB).dict()["totalDebt"] == 0
+

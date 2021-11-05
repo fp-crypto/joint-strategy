@@ -47,6 +47,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
 
     address public joint;
 
+    bool public forceLiquidate;
+
     constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
     function name() external view override returns (string memory) {
@@ -66,6 +68,10 @@ contract ProviderStrategy is BaseStrategyInitializable {
             want.balanceOf(address(this)).add(
                 JointAPI(joint).estimatedTotalAssetsInToken(address(want))
             );
+    }
+
+    function totalDebt() public view returns (uint256) {
+        return vault.strategies(address(this)).totalDebt;
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -184,14 +190,28 @@ contract ProviderStrategy is BaseStrategyInitializable {
         joint = _joint;
     }
 
+    function setForceLiquidate(bool _forceLiquidate)
+        external
+        onlyEmergencyAuthorized
+    {
+        forceLiquidate = _forceLiquidate;
+    }
+
     function liquidateAllPositions()
         internal
         virtual
         override
         returns (uint256 _amountFreed)
     {
+        uint256 expectedBalance = estimatedTotalAssets();
         JointAPI(joint).closePositionReturnFunds();
         _amountFreed = balanceOfWant();
+        // NOTE: we accept a 1% difference before reverting
+        require(
+            forceLiquidate ||
+                expectedBalance.mul(9_900).div(10_000) < _amountFreed,
+            "!liquidation"
+        );
     }
 
     function ethToWant(uint256 _amtInWei)

@@ -27,6 +27,8 @@ interface ProviderStrategy {
     function keeper() external view returns (address);
 
     function want() external view returns (address);
+
+    function totalDebt() external view returns (uint256);
 }
 
 abstract contract Joint {
@@ -53,6 +55,9 @@ abstract contract Joint {
 
     bool public dontInvestWant;
     bool public autoProtectionDisabled;
+
+    uint256 public minAmountToSell;
+    uint256 public maxPercentageLoss;
 
     modifier onlyGovernance {
         checkGovernance();
@@ -125,9 +130,12 @@ abstract contract Joint {
         WETH = _weth;
         reward = _reward;
 
+        // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
+        maxPercentageLoss = 10; // 0.1%
+
         tokenA = address(providerA.want());
         tokenB = address(providerB.want());
-
+        require(tokenA != tokenB, "!same-want");
         pair = IUniswapV2Pair(getPair());
 
         IERC20(tokenA).approve(address(_router), type(uint256).max);
@@ -136,14 +144,21 @@ abstract contract Joint {
         IERC20(address(pair)).approve(address(_router), type(uint256).max);
     }
 
-    function name() external view virtual returns (string memory) {}
+    function name() external view virtual returns (string memory);
 
-    function shouldEndEpoch() public view virtual returns (bool) {}
+    function shouldEndEpoch() public view virtual returns (bool);
 
-    function _autoProtect() internal view virtual returns (bool) {}
+    function _autoProtect() internal view virtual returns (bool);
 
     function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
         dontInvestWant = _dontInvestWant;
+    }
+
+    function setMinAmountToSell(uint256 _minAmountToSell)
+        external
+        onlyAuthorized
+    {
+        minAmountToSell = _minAmountToSell;
     }
 
     function setAutoProtectionDisabled(bool _autoProtectionDisabled)
@@ -151,6 +166,14 @@ abstract contract Joint {
         onlyAuthorized
     {
         autoProtectionDisabled = _autoProtectionDisabled;
+    }
+
+    function setMaxPercentageLoss(uint256 _maxPercentageLoss)
+        external
+        onlyAuthorized
+    {
+        require(_maxPercentageLoss <= RATIO_PRECISION);
+        maxPercentageLoss = _maxPercentageLoss;
     }
 
     function closePositionReturnFunds() external onlyProviders {
@@ -192,27 +215,37 @@ abstract contract Joint {
                 investedB
             );
 
-        if (sellToken != address(0) && sellAmount != 0) {
+        if (sellToken != address(0) && sellAmount > minAmountToSell) {
             uint256 buyAmount =
                 sellCapital(
                     sellToken,
                     sellToken == tokenA ? tokenB : tokenA,
                     sellAmount
                 );
-
-            if (sellToken == tokenA) {
-                currentBalanceA = currentBalanceA.sub(sellAmount);
-                currentBalanceB = currentBalanceB.add(buyAmount);
-            } else {
-                currentBalanceB = currentBalanceB.sub(sellAmount);
-                currentBalanceA = currentBalanceA.add(buyAmount);
-            }
         }
 
         // reset invested balances
         investedA = investedB = 0;
 
         _returnLooseToProviders();
+        // Check that we have returned with no losses
+        //
+        require(
+            IERC20(tokenA).balanceOf(address(providerA)) >=
+                providerA
+                    .totalDebt()
+                    .mul(RATIO_PRECISION.sub(maxPercentageLoss))
+                    .div(RATIO_PRECISION),
+            "!wrong-balance"
+        );
+        require(
+            IERC20(tokenB).balanceOf(address(providerB)) >=
+                providerB
+                    .totalDebt()
+                    .mul(RATIO_PRECISION.sub(maxPercentageLoss))
+                    .div(RATIO_PRECISION),
+            "!wrong-balance"
+        );
     }
 
     function openPosition() external onlyProviders {
@@ -241,9 +274,7 @@ abstract contract Joint {
         }
     }
 
-    function getHedgeProfit() public view virtual returns (uint256, uint256) {
-        return (0, 0);
-    }
+    function getHedgeProfit() public view virtual returns (uint256, uint256);
 
     function estimatedTotalAssetsAfterBalance()
         public
@@ -313,16 +344,11 @@ abstract contract Joint {
         public
         view
         virtual
-        returns (uint256)
-    {
-        return 0;
-    }
+        returns (uint256);
 
-    function hedgeLP() internal virtual returns (uint256, uint256) {
-        return (0, 0);
-    }
+    function hedgeLP() internal virtual returns (uint256, uint256);
 
-    function closeHedge() internal virtual {}
+    function closeHedge() internal virtual;
 
     function calculateSellToBalance(
         uint256 currentA,
@@ -386,6 +412,10 @@ abstract contract Joint {
         );
         denominator = precision + starting0.mul(exchangeRate).div(starting1);
         _sellAmount = numerator.div(denominator);
+        // Shortcut to avoid Uniswap amountIn == 0 revert
+        if (_sellAmount == 0) {
+            return 0;
+        }
 
         // Second time to account for price impact
         exchangeRate = UniswapV2Library
@@ -480,11 +510,11 @@ abstract contract Joint {
         }
     }
 
-    function getReward() internal virtual {}
+    function getReward() internal virtual;
 
-    function depositLP() internal virtual {}
+    function depositLP() internal virtual;
 
-    function withdrawLP() internal virtual {}
+    function withdrawLP() internal virtual;
 
     function swapReward(uint256 _rewardBal)
         internal
@@ -551,13 +581,16 @@ abstract contract Joint {
         return (balanceOfA(), balanceOfB());
     }
 
-    function _returnLooseToProviders() internal {
-        uint256 balanceA = balanceOfA();
+    function _returnLooseToProviders()
+        internal
+        returns (uint256 balanceA, uint256 balanceB)
+    {
+        balanceA = balanceOfA();
         if (balanceA > 0) {
             IERC20(tokenA).transfer(address(providerA), balanceA);
         }
 
-        uint256 balanceB = balanceOfB();
+        balanceB = balanceOfB();
         if (balanceB > 0) {
             IERC20(tokenB).transfer(address(providerB), balanceB);
         }
@@ -584,9 +617,7 @@ abstract contract Joint {
         return IERC20(reward).balanceOf(address(this));
     }
 
-    function balanceOfStake() public view virtual returns (uint256) {
-        return 0;
-    }
+    function balanceOfStake() public view virtual returns (uint256);
 
     function balanceOfTokensInLP()
         public
@@ -601,27 +632,38 @@ abstract contract Joint {
         _balanceB = reserveB.mul(percentTotal).div(pairPrecision);
     }
 
-    function pendingReward() public view virtual returns (uint256) {}
+    function pendingReward() public view virtual returns (uint256);
 
     // --- MANAGEMENT FUNCTIONS ---
-    function liquidatePositionManually() external onlyAuthorized {
-        _closePosition();
+    function liquidatePositionManually(
+        uint256 expectedBalanceA,
+        uint256 expectedBalanceB
+    ) external onlyAuthorized {
+        (uint256 balanceA, uint256 balanceB) = _closePosition();
+        require(expectedBalanceA <= balanceA, "!sandwidched");
+        require(expectedBalanceB <= balanceB, "!sandwidched");
     }
 
     function returnLooseToProvidersManually() external onlyAuthorized {
         _returnLooseToProviders();
     }
 
-    function removeLiquidityManually(uint256 amount) external onlyAuthorized {
+    function removeLiquidityManually(
+        uint256 amount,
+        uint256 expectedBalanceA,
+        uint256 expectedBalanceB
+    ) external onlyAuthorized {
         IUniswapV2Router02(router).removeLiquidity(
             tokenA,
             tokenB,
-            balanceOfPair(),
+            amount,
             0,
             0,
             address(this),
             now
         );
+        require(expectedBalanceA <= balanceOfA(), "!sandwidched");
+        require(expectedBalanceA <= balanceOfB(), "!sandwidched");
     }
 
     function swapTokenForTokenManually(
