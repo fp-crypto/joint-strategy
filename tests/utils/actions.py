@@ -22,6 +22,19 @@ def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, a
     checks.epoch_started(providerA, providerB, joint, amountA, amountB)
 
 
+def gov_start_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB):
+    # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
+    # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
+    joint.setIsHedgingDisabled(True, True, {'from': gov})
+    providerA.harvest({"from": gov})
+    providerB.harvest({"from": gov})
+    # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+
+    checks.non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB)
+
+
 def wait_period_fraction(joint, percentage_of_period):
     seconds = int(joint.getTimeToMaturity() * percentage_of_period)
     print(f"Waiting (and mining) {seconds} seconds")
@@ -41,6 +54,19 @@ def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
     checks.epoch_ended(providerA, providerB, joint)
 
 
+def gov_end_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
+    # first harvest uninvests (withdraws and removes liquidity) and takes funds (tokenA)
+    # second harvest takes funds (tokenB) from joint
+    providerA.harvest({"from": gov})
+    providerB.harvest({"from": gov})
+    # we set debtRatio to 10_000 in tests because the two vaults have the same amount.
+    # in prod we need to set these manually to represent the same value
+    vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
+
+    checks.non_hedged_epoch_ended(providerA, providerB, joint)
+
+
 def generate_profit(
     amount_percentage, joint, providerA, providerB, tokenA_whale, tokenB_whale
 ):
@@ -50,8 +76,8 @@ def generate_profit(
     profitA = providerA.estimatedTotalAssets() * amount_percentage
     profitB = providerB.estimatedTotalAssets() * amount_percentage
 
-    tokenA.transfer(joint, profitA, {"from": tokenA_whale})
-    tokenB.transfer(joint, profitB, {"from": tokenB_whale})
+    tokenA.transfer(joint, profitA, {"from": tokenA_whale, "gas": 6_000_000, "gas_price": 0})
+    tokenB.transfer(joint, profitB, {"from": tokenB_whale, "gas": 6_000_000, "gas_price": 0})
 
     return profitA, profitB
 
