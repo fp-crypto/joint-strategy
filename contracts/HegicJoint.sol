@@ -161,7 +161,7 @@ abstract contract HegicJoint is Joint {
         external
         onlyVaultManagers
     {
-        (, , exercisePrice) = LPHedgingLib.closeHedge(callID, putID);
+        (, , uint256 exercisePrice) = LPHedgingLib.closeHedge(callID, putID);
         require(
             _isWithinRange(exercisePrice, maxSlippageClose) ||
                 skipManipulatedCheck

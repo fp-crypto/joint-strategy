@@ -88,15 +88,15 @@ contract ProviderStrategy is BaseStrategyInitializable {
         JointAPI(joint).closePositionReturnFunds();
 
         // After closePosition, the provider will always have funds in its own balance (not in joint)
-        uint256 totalDebt = vault.strategies(address(this)).totalDebt;
+        uint256 _totalDebt = totalDebt();
         uint256 totalAssets = balanceOfWant();
 
-        if (totalDebt > totalAssets) {
+        if (_totalDebt > totalAssets) {
             // we have losses
-            _loss = totalDebt.sub(totalAssets);
+            _loss = _totalDebt.sub(totalAssets);
         } else {
             // we have profit
-            _profit = totalAssets.sub(totalDebt);
+            _profit = totalAssets.sub(_totalDebt);
         }
 
         uint256 amountAvailable = totalAssets;

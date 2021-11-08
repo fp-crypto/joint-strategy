@@ -284,7 +284,7 @@ abstract contract Joint {
         view
         returns (uint256 _aBalance, uint256 _bBalance)
     {
-        uint256 rewardsPending = pendingReward();
+        uint256 rewardsPending = pendingReward().add(balanceOfReward());
 
         (_aBalance, _bBalance) = balanceOfTokensInLP();
 
