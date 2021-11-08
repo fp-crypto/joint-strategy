@@ -16,7 +16,8 @@ contract SushiJoint is HegicJoint {
 
     IMasterchef public masterchef;
     bool public dontWithdraw;
-    event Numbers(string name, uint256 number);
+
+    bool public isOriginal = true;
 
     constructor(
         address _providerA,
@@ -79,6 +80,7 @@ contract SushiJoint is HegicJoint {
         address _masterchef,
         uint256 _pid
     ) external returns (address newJoint) {
+        require(isOriginal, "!original");
         bytes20 addressBytes = bytes20(address(this));
 
         assembly {
