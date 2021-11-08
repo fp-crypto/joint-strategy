@@ -190,7 +190,7 @@ abstract contract HegicJoint is Joint {
     function closeHedge() internal override {
         uint256 exercisePrice;
         // only close hedge if a hedge is open
-        if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
+        if ((activeCallID != 0 && activePutID != 0) || !isHedgingDisabled) {
             (, , exercisePrice) = LPHedgingLib.closeHedge(
                 activeCallID,
                 activePutID
