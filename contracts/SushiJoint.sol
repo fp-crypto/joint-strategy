@@ -152,8 +152,9 @@ contract SushiJoint is HegicJoint {
     }
 
     function withdrawLP() internal override {
-        if (balanceOfStake() > 0 && !dontWithdraw) {
-            masterchef.withdraw(pid, balanceOfStake());
+        uint256 stakeBalance = balanceOfStake();
+        if (stakeBalance > 0 && !dontWithdraw) {
+            masterchef.withdraw(pid, stakeBalance);
         }
     }
 
