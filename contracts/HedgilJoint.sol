@@ -198,7 +198,7 @@ abstract contract HedgilJoint is Joint {
     function closeHedge() internal override {
         uint256 exercisePrice;
         // only close hedge if a hedge is open
-        if (activeHedgeID != 0 && !isHedgingDisabled) {
+        if (activeHedgeID != 0 || !isHedgingDisabled) {
             (, exercisePrice) = IHedgilPool(hedgilPool).closeHedge(
                 activeHedgeID
             );
