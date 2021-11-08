@@ -91,28 +91,28 @@ abstract contract HegicJoint is Joint {
 
     function setSkipManipulatedCheck(bool _skipManipulatedCheck)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         skipManipulatedCheck = _skipManipulatedCheck;
     }
 
     function setMaxSlippageClose(uint256 _maxSlippageClose)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         maxSlippageClose = _maxSlippageClose;
     }
 
     function setMaxSlippageOpen(uint256 _maxSlippageOpen)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         maxSlippageOpen = _maxSlippageOpen;
     }
 
     function setMinTimeToMaturity(uint256 _minTimeToMaturity)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         require(_minTimeToMaturity <= period); // avoid incorrect settings
         minTimeToMaturity = _minTimeToMaturity;
@@ -120,7 +120,7 @@ abstract contract HegicJoint is Joint {
 
     function setIsHedgingDisabled(bool _isHedgingDisabled, bool force)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         // if there is an active hedge, we need to force the disabling
         if (force || (activeCallID == 0 && activePutID == 0)) {
@@ -128,19 +128,19 @@ abstract contract HegicJoint is Joint {
         }
     }
 
-    function setHedgeBudget(uint256 _hedgeBudget) external onlyAuthorized {
+    function setHedgeBudget(uint256 _hedgeBudget) external onlyVaultManagers {
         require(_hedgeBudget < RATIO_PRECISION);
         hedgeBudget = _hedgeBudget;
     }
 
-    function setHedgingPeriod(uint256 _period) external onlyAuthorized {
+    function setHedgingPeriod(uint256 _period) external onlyVaultManagers {
         require(_period < 90 days);
         period = _period;
     }
 
     function setProtectionRange(uint256 _protectionRange)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         require(_protectionRange < RATIO_PRECISION);
         protectionRange = _protectionRange;
@@ -155,7 +155,7 @@ abstract contract HegicJoint is Joint {
         return LPHedgingLib.getHedgeStrike(activeCallID, activePutID);
     }
 
-    function closeHedgeManually() external onlyAuthorized {
+    function closeHedgeManually() external onlyVaultManagers {
         closeHedge();
     }
 

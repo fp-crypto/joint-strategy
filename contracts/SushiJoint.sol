@@ -139,7 +139,7 @@ contract SushiJoint is HegicJoint {
         masterchef.deposit(pid, 0);
     }
 
-    function setDontWithdraw(bool _dontWithdraw) external onlyAuthorized {
+    function setDontWithdraw(bool _dontWithdraw) external onlyVaultManagers {
         dontWithdraw = _dontWithdraw;
     }
 
@@ -155,7 +155,7 @@ contract SushiJoint is HegicJoint {
         }
     }
 
-    function withdrawLPManually() external onlyAuthorized {
+    function withdrawLPManually() external onlyVaultManagers {
         withdrawLP();
     }
 }

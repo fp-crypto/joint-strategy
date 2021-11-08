@@ -157,10 +157,10 @@ contract ProviderStrategy is BaseStrategyInitializable {
         override
         returns (uint256 _liquidatedAmount, uint256 _loss)
     {
-        uint256 totalAssets = want.balanceOf(address(this));
-        if (_amountNeeded > totalAssets) {
-            _liquidatedAmount = totalAssets;
-            _loss = _amountNeeded.sub(totalAssets);
+        uint256 availableAssets = want.balanceOf(address(this));
+        if (_amountNeeded > availableAssets) {
+            _liquidatedAmount = availableAssets;
+            _loss = _amountNeeded.sub(availableAssets);
         } else {
             _liquidatedAmount = _amountNeeded;
         }

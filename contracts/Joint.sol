@@ -64,8 +64,8 @@ abstract contract Joint {
         _;
     }
 
-    modifier onlyAuthorized {
-        checkAuthorized();
+    modifier onlyVaultManagers {
+        checkVaultManagers();
         _;
     }
 
@@ -80,8 +80,8 @@ abstract contract Joint {
         require(isGovernance());
     }
 
-    function checkAuthorized() internal {
-        require(isGovernance() || isStrategist());
+    function checkVaultManagers() internal {
+        require(isGovernance() || isVaultManager());
     }
 
     function checkProvider() internal {
@@ -94,10 +94,10 @@ abstract contract Joint {
             msg.sender == providerB.vault().governance();
     }
 
-    function isStrategist() internal returns (bool) {
+    function isVaultManager() internal returns (bool) {
         return
-            msg.sender == providerA.strategist() ||
-            msg.sender == providerB.strategist();
+            msg.sender == providerA.vault().management() ||
+            msg.sender == providerB.vault().management();
     }
 
     function isProvider() internal returns (bool) {
@@ -150,27 +150,30 @@ abstract contract Joint {
 
     function _autoProtect() internal view virtual returns (bool);
 
-    function setDontInvestWant(bool _dontInvestWant) external onlyAuthorized {
+    function setDontInvestWant(bool _dontInvestWant)
+        external
+        onlyVaultManagers
+    {
         dontInvestWant = _dontInvestWant;
     }
 
     function setMinAmountToSell(uint256 _minAmountToSell)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         minAmountToSell = _minAmountToSell;
     }
 
     function setAutoProtectionDisabled(bool _autoProtectionDisabled)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         autoProtectionDisabled = _autoProtectionDisabled;
     }
 
     function setMaxPercentageLoss(uint256 _maxPercentageLoss)
         external
-        onlyAuthorized
+        onlyVaultManagers
     {
         require(_maxPercentageLoss <= RATIO_PRECISION);
         maxPercentageLoss = _maxPercentageLoss;
@@ -638,13 +641,13 @@ abstract contract Joint {
     function liquidatePositionManually(
         uint256 expectedBalanceA,
         uint256 expectedBalanceB
-    ) external onlyAuthorized {
+    ) external onlyVaultManagers {
         (uint256 balanceA, uint256 balanceB) = _closePosition();
         require(expectedBalanceA <= balanceA, "!sandwidched");
         require(expectedBalanceB <= balanceB, "!sandwidched");
     }
 
-    function returnLooseToProvidersManually() external onlyAuthorized {
+    function returnLooseToProvidersManually() external onlyVaultManagers {
         _returnLooseToProviders();
     }
 
@@ -652,7 +655,7 @@ abstract contract Joint {
         uint256 amount,
         uint256 expectedBalanceA,
         uint256 expectedBalanceB
-    ) external onlyAuthorized {
+    ) external onlyVaultManagers {
         IUniswapV2Router02(router).removeLiquidity(
             tokenA,
             tokenB,
