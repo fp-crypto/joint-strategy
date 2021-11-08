@@ -157,8 +157,17 @@ abstract contract HegicJoint is Joint {
         return LPHedgingLib.getHedgeStrike(activeCallID, activePutID);
     }
 
-    function closeHedgeManually() external onlyVaultManagers {
-        closeHedge();
+    function closeHedgeManually(uint256 callID, uint256 putID)
+        external
+        onlyVaultManagers
+    {
+        (, , exercisePrice) = LPHedgingLib.closeHedge(callID, putID);
+        require(
+            _isWithinRange(exercisePrice, maxSlippageClose) ||
+                skipManipulatedCheck
+        ); // dev: !close-price
+        activeCallID = 0;
+        activePutID = 0;
     }
 
     function hedgeLP()

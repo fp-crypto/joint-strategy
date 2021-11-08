@@ -158,7 +158,7 @@ contract SushiJoint is HegicJoint {
         }
     }
 
-    function withdrawLPManually() external onlyVaultManagers {
-        withdrawLP();
+    function withdrawLPManually(uint256 amount) external onlyVaultManagers {
+        masterchef.withdraw(pid, amount);
     }
 }

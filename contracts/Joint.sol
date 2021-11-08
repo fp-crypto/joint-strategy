@@ -671,14 +671,15 @@ abstract contract Joint {
 
     function swapTokenForTokenManually(
         address[] memory swapPath,
-        uint256 swapInAmount
+        uint256 swapInAmount,
+        uint256 minOutAmount
     ) external onlyGovernance returns (uint256) {
         address swapTo = swapPath[swapPath.length - 1];
         require(swapTo == tokenA || swapTo == tokenB); // swapTo must be tokenA or tokenB
         uint256[] memory amounts =
             IUniswapV2Router02(router).swapExactTokensForTokens(
                 swapInAmount,
-                0,
+                minOutAmount,
                 swapPath,
                 address(this),
                 now
