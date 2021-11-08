@@ -185,8 +185,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
         require(
             JointAPI(_joint).providerA() == address(this) ||
                 JointAPI(_joint).providerB() == address(this)
-        );
-
+        ); // dev: providers uncorrectly set
+        require(healthCheck != address(0)); // dev: healthCheck
         joint = _joint;
     }
 

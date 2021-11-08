@@ -100,6 +100,7 @@ abstract contract HegicJoint is Joint {
         external
         onlyVaultManagers
     {
+        require(_maxSlippageClose <= RATIO_PRECISION); // dev: !boundary
         maxSlippageClose = _maxSlippageClose;
     }
 
@@ -107,6 +108,7 @@ abstract contract HegicJoint is Joint {
         external
         onlyVaultManagers
     {
+        require(_maxSlippageOpen <= RATIO_PRECISION); // dev: !boundary
         maxSlippageOpen = _maxSlippageOpen;
     }
 
@@ -170,16 +172,15 @@ abstract contract HegicJoint is Joint {
             uint256 initialBalanceA = balanceOfA();
             uint256 initialBalanceB = balanceOfB();
             // Only able to open a new position if no active options
-            require(activeCallID == 0 && activePutID == 0);
+            require(activeCallID == 0 && activePutID == 0); // dev: opened
             uint256 strikePrice;
             (activeCallID, activePutID, strikePrice) = LPHedgingLib
                 .hedgeLPToken(address(_pair), protectionRange, period);
 
             require(
                 _isWithinRange(strikePrice, maxSlippageOpen) ||
-                    skipManipulatedCheck,
-                "!open price looks manipulated"
-            );
+                    skipManipulatedCheck
+            ); // dev: !open-price
 
             costA = initialBalanceA.sub(balanceOfA());
             costB = initialBalanceB.sub(balanceOfB());
@@ -196,9 +197,8 @@ abstract contract HegicJoint is Joint {
             );
             require(
                 _isWithinRange(exercisePrice, maxSlippageClose) ||
-                    skipManipulatedCheck,
-                "!close price looks manipulated"
-            );
+                    skipManipulatedCheck
+            ); // dev: !close-price
         }
 
         activeCallID = 0;
