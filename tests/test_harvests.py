@@ -41,7 +41,7 @@ def test_profitable_harvest(
     assert pytest.approx(total_assets_tokenB, rel=1e-2) == amountB
 
     # TODO: Add some code before harvest #2 to simulate earning yield
-    profit_amount_percentage = 0.02
+    profit_amount_percentage = 0.0095
     profit_amount_tokenA, profit_amount_tokenB = actions.generate_profit(
         profit_amount_percentage,
         joint,
@@ -117,6 +117,9 @@ def test_lossy_harvest(
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
+
+    providerA.setDoHealthCheck(False, {'from': gov})
+    providerB.setDoHealthCheck(False, {'from': gov})
 
     # We will have a loss when closing the epoch because we have spent money on Hedging
     chain.sleep(1)

@@ -27,7 +27,7 @@ abstract contract HegicJoint is Joint {
     uint256 private minTimeToMaturity;
 
     bool public skipManipulatedCheck;
-    bool public isHedgingDisabled;
+    bool public isHedgingEnabled;
 
     uint256 private constant PRICE_DECIMALS = 1e8;
     uint256 public maxSlippageOpen;
@@ -61,6 +61,8 @@ abstract contract HegicJoint is Joint {
         minTimeToMaturity = 3600; // 1 hour
         maxSlippageOpen = 100; // 1%
         maxSlippageClose = 100; // 1%
+
+        isHedgingEnabled = true;
     }
 
     function onERC721Received(
@@ -120,13 +122,13 @@ abstract contract HegicJoint is Joint {
         minTimeToMaturity = _minTimeToMaturity;
     }
 
-    function setIsHedgingDisabled(bool _isHedgingDisabled, bool force)
+    function setIsHedgingEnabled(bool _isHedgingEnabled, bool force)
         external
         onlyVaultManagers
     {
         // if there is an active hedge, we need to force the disabling
         if (force || (activeCallID == 0 && activePutID == 0)) {
-            isHedgingDisabled = _isHedgingDisabled;
+            isHedgingEnabled = _isHedgingEnabled;
         }
     }
 
@@ -175,7 +177,7 @@ abstract contract HegicJoint is Joint {
         override
         returns (uint256 costA, uint256 costB)
     {
-        if (hedgeBudget > 0 && !isHedgingDisabled) {
+        if (hedgeBudget > 0 && isHedgingEnabled) {
             // take into account that if hedgeBudget is not enough, it will revert
             IERC20 _pair = IERC20(getPair());
             uint256 initialBalanceA = balanceOfA();
@@ -199,7 +201,7 @@ abstract contract HegicJoint is Joint {
     function closeHedge() internal override {
         uint256 exercisePrice;
         // only close hedge if a hedge is open
-        if (activeCallID != 0 && activePutID != 0 && !isHedgingDisabled) {
+        if (activeCallID != 0 && activePutID != 0 && isHedgingEnabled) {
             (, , exercisePrice) = LPHedgingLib.closeHedge(
                 activeCallID,
                 activePutID

@@ -287,6 +287,8 @@ def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultA)
     strategy.setKeeper(keeper, {"from": gov})
     vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {'from': gov})
+    strategy.setDoHealthCheck(False, {'from': gov})
     yield strategy
 
 
@@ -295,6 +297,8 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultB)
     strategy.setKeeper(keeper, {"from": gov})
     vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {'from': gov})
+    strategy.setDoHealthCheck(False, {'from': gov})
     yield strategy
 
 

@@ -239,7 +239,7 @@ abstract contract Joint {
                     .totalDebt()
                     .mul(RATIO_PRECISION.sub(maxPercentageLoss))
                     .div(RATIO_PRECISION),
-            "!wrong-balance"
+            "!wrong-balanceA"
         );
         require(
             IERC20(tokenB).balanceOf(address(providerB)) >=
@@ -247,7 +247,7 @@ abstract contract Joint {
                     .totalDebt()
                     .mul(RATIO_PRECISION.sub(maxPercentageLoss))
                     .div(RATIO_PRECISION),
-            "!wrong-balance"
+            "!wrong-balanceB"
         );
     }
 
