@@ -198,7 +198,7 @@ abstract contract HedgilJoint is Joint {
     function closeHedge() internal override {
         uint256 exercisePrice;
         // only close hedge if a hedge is open
-        if (activeHedgeID != 0 || !isHedgingDisabled) {
+        if (activeHedgeID != 0 && !isHedgingDisabled) {
             (, exercisePrice) = IHedgilPool(hedgilPool).closeHedge(
                 activeHedgeID
             );
@@ -207,9 +207,8 @@ abstract contract HedgilJoint is Joint {
                     skipManipulatedCheck,
                 "!close price looks manipulated"
             );
+            activeHedgeID = 0;
         }
-
-        activeHedgeID = 0;
     }
 
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
