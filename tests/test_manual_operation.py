@@ -49,7 +49,7 @@ def test_manual_unwind(
     # manual unstake
     joint.withdrawLPManually(joint.balanceOfStake(), {"from": gov})
     # manual close hedge
-    joint.closeHedgeManually(joint.activeCallID(), joint.activePutID(),{"from": gov})
+    joint.closeHedgeManually(joint.activeCallID(), joint.activePutID(), {"from": gov})
     # manual remove liquidity
     joint.removeLiquidityManually(joint.balanceOfPair(), 0, 0, {"from": gov})
     # manual rebalance

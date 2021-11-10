@@ -2,8 +2,7 @@ import pytest
 from utils import actions, checks
 
 
-def test_revoke_strategy_from_vault(
-):
+def test_revoke_strategy_from_vault():
     print(f"to be implemeneted")
     # start epoch
 
@@ -19,8 +18,7 @@ def test_revoke_strategy_from_vault(
     # assert pytest.approx(token.balanceOf(vault.address), rel=RELATIVE_APPROX) == amount
 
 
-def test_revoke_strategy_from_strategy(
-):
+def test_revoke_strategy_from_strategy():
     print(f"to be implemeneted")
     # start epoch
 
@@ -31,8 +29,7 @@ def test_revoke_strategy_from_strategy(
     # revoke using set emergency exit
 
 
-def test_revoke_with_profit(
-):
+def test_revoke_with_profit():
 
     print(f"to be implemeneted")
 

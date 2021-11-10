@@ -135,5 +135,3 @@ def test_lossy_harvest(
     # User will withdraw accepting losses
     assert tokenA.balanceOf(vaultA) + lossA == amountA
     assert tokenB.balanceOf(vaultB) + lossB == amountB
-
-

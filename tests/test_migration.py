@@ -6,8 +6,7 @@ import pytest
 from utils import actions
 
 
-def test_provider_migration_during_epoch(
-):
+def test_provider_migration_during_epoch():
     print(f"Not implemented")
     # Start epoch
 

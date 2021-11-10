@@ -5,8 +5,7 @@ from utils import checks, actions, utils
 #       Make sure to demonstrate the "worst case losses" as well as the time it takes
 
 
-def test_shutdown(
-        ):
+def test_shutdown():
     print("NOT IMPLEMENTED")
     # start epoch
 
