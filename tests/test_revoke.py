@@ -3,7 +3,6 @@ from utils import actions, checks
 
 
 def test_revoke_strategy_from_vault(
-    chain, token, vault, strategy, amount, user, gov, RELATIVE_APPROX
 ):
     print(f"to be implemeneted")
     # start epoch
@@ -21,7 +20,6 @@ def test_revoke_strategy_from_vault(
 
 
 def test_revoke_strategy_from_strategy(
-    chain, token, vault, strategy, amount, gov, user, RELATIVE_APPROX
 ):
     print(f"to be implemeneted")
     # start epoch
@@ -34,7 +32,6 @@ def test_revoke_strategy_from_strategy(
 
 
 def test_revoke_with_profit(
-    chain, token, vault, strategy, amount, user, gov, RELATIVE_APPROX
 ):
 
     print(f"to be implemeneted")
@@ -48,7 +45,3 @@ def test_revoke_with_profit(
     # generate profit
 
     # Revoke strategy
-    vault.revokeStrategy(strategy.address, {"from": gov})
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    checks.check_revoked_strategy(vault, strategy)

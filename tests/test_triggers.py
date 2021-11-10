@@ -38,8 +38,8 @@ def test_harvest_trigger_within_period(
     assert providerB.harvestTrigger(1) == True
     assert joint.shouldEndEpoch() == True
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     assert providerA.harvestTrigger(1) == False
@@ -79,8 +79,8 @@ def test_harvest_trigger_after_period(
     assert providerB.harvestTrigger(1) == True
     assert joint.shouldEndEpoch() == True
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
     # harvesting should close the epoch
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
@@ -132,8 +132,6 @@ def test_harvest_trigger_below_range(
     assert joint.shouldEndEpoch() == True
     # harvesting should close the epoch
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     assert providerA.harvestTrigger(1) == False
@@ -183,8 +181,8 @@ def test_harvest_trigger_above_range(
     assert providerB.harvestTrigger(1) == True
     assert joint.shouldEndEpoch() == True
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
     # harvesting should close the epoch
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 

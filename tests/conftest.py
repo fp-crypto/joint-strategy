@@ -11,6 +11,16 @@ def shared_setup(fn_isolation):
     pass
 
 
+@pytest.fixture(scope="session", autouse=True)
+def reset_chain(chain):
+    print(f"Initial Height: {chain.height}")
+    yield
+    print(f"\nEnd Height: {chain.height}")
+    print(f"Reset chain")
+    chain.reset()
+    print(f"Reset Height: {chain.height}")
+
+
 @pytest.fixture
 def gov(accounts):
     yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
@@ -287,8 +297,10 @@ def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultA)
     strategy.setKeeper(keeper, {"from": gov})
     vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {'from': gov})
-    strategy.setDoHealthCheck(False, {'from': gov})
+    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {"from": gov})
+    strategy.setDoHealthCheck(False, {"from": gov})
+    Contract(strategy.healthCheck()).setlossLimitRatio(1000, {'from': gov})
+    Contract(strategy.healthCheck()).setProfitLimitRatio(2000, {'from': gov})
     yield strategy
 
 
@@ -297,8 +309,10 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
     strategy = strategist.deploy(ProviderStrategy, vaultB)
     strategy.setKeeper(keeper, {"from": gov})
     vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {'from': gov})
-    strategy.setDoHealthCheck(False, {'from': gov})
+    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {"from": gov})
+    strategy.setDoHealthCheck(False, {"from": gov})
+    Contract(strategy.healthCheck()).setlossLimitRatio(1000, {'from': gov})
+    Contract(strategy.healthCheck()).setProfitLimitRatio(2000, {'from': gov})
     yield strategy
 
 

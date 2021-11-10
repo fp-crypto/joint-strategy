@@ -94,17 +94,17 @@ def test_increase_debt_ratio(
     vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
     vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
-    
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
+
     # restart epoch
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
-    
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
+
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
@@ -144,19 +144,18 @@ def test_decrease_debt_ratio(
     vaultA.updateStrategyDebtRatio(providerA, 5_000, {"from": gov})
     vaultB.updateStrategyDebtRatio(providerB, 5_000, {"from": gov})
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
-    
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
+
     # restart epoch
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA / 2, amountB / 2
     )
 
-    providerA.setDoHealthCheck(False, {'from': gov})
-    providerB.setDoHealthCheck(False, {'from': gov})
-    
+    providerA.setDoHealthCheck(False, {"from": gov})
+    providerB.setDoHealthCheck(False, {"from": gov})
+
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
     assert vaultB.strategies(providerB).dict()["totalDebt"] == 0
-

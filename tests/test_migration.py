@@ -7,16 +7,6 @@ from utils import actions
 
 
 def test_provider_migration_during_epoch(
-    chain,
-    token,
-    vault,
-    strategy,
-    amount,
-    Strategy,
-    strategist,
-    gov,
-    user,
-    RELATIVE_APPROX,
 ):
     print(f"Not implemented")
     # Start epoch

@@ -47,11 +47,11 @@ def test_manual_unwind(
 
     # manual end of epoch
     # manual unstake
-    joint.withdrawLPManually({"from": gov})
+    joint.withdrawLPManually(joint.balanceOfStake(), {"from": gov})
     # manual close hedge
-    joint.closeHedgeManually({"from": gov})
+    joint.closeHedgeManually(joint.activeCallID(), joint.activePutID(),{"from": gov})
     # manual remove liquidity
-    joint.removeLiquidityManually(joint.balanceOfPair(), {"from": gov})
+    joint.removeLiquidityManually(joint.balanceOfPair(), 0, 0, {"from": gov})
     # manual rebalance
 
     # manual return funds to providers

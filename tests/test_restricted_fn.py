@@ -2,7 +2,8 @@ import pytest
 from brownie import reverts
 
 
-def test_restricted_fn_user(strategy, user):
+def test_restricted_fn_user():
+    print("NOT IMPLEMENTED")
     # TODO: add all the external functions that should not be callable by a user (if any)
     # with reverts("!authorized"):
     #     strategy.setter(arg1, arg2, {'from': user})
@@ -14,7 +15,8 @@ def test_restricted_fn_user(strategy, user):
     return
 
 
-def test_restricted_fn_management(strategy, management):
+def test_restricted_fn_management():
+    print("NOT IMPLEMENTED")
     # ONLY FUNCTIONS THAT DO NOT HAVE RUG POTENTIAL SHOULD BE CALLABLE BY MANAGEMENT
     # (e.g. a change of 3rd party contract => rug potential)
     # (e.g. a change in leverage ratio => no rug potential)
@@ -28,7 +30,8 @@ def test_restricted_fn_management(strategy, management):
     return
 
 
-def test_restricted_fn_governance(strategy, gov):
+def test_restricted_fn_governance(gov):
+    print("NOT IMPLEMENTED")
     # OPTIONAL: No functions are required to not be callable from governance so this may not be used
     # TODO: add all the external functions that should not be callable by governance (if any)
     # with reverts("!authorized"):

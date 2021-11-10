@@ -22,10 +22,12 @@ def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, a
     checks.epoch_started(providerA, providerB, joint, amountA, amountB)
 
 
-def gov_start_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB):
+def gov_start_non_hedged_epoch(
+    gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+):
     # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
     # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
-    joint.setIsHedgingDisabled(True, True, {'from': gov})
+    joint.setIsHedgingEnabled(False, True, {"from": gov})
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
     # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
@@ -76,8 +78,12 @@ def generate_profit(
     profitA = providerA.estimatedTotalAssets() * amount_percentage
     profitB = providerB.estimatedTotalAssets() * amount_percentage
 
-    tokenA.transfer(joint, profitA, {"from": tokenA_whale, "gas": 6_000_000, "gas_price": 0})
-    tokenB.transfer(joint, profitB, {"from": tokenB_whale, "gas": 6_000_000, "gas_price": 0})
+    tokenA.transfer(
+        joint, profitA, {"from": tokenA_whale, "gas": 6_000_000, "gas_price": 0}
+    )
+    tokenB.transfer(
+        joint, profitB, {"from": tokenB_whale, "gas": 6_000_000, "gas_price": 0}
+    )
 
     return profitA, profitB
 
