@@ -700,9 +700,9 @@ abstract contract Joint {
 
     function migrateProvider(address _newProvider) external onlyProviders {
         ProviderStrategy newProvider = ProviderStrategy(_newProvider);
-        if (newProvider.want() == tokenA) {
+        if (address(newProvider.want()) == tokenA) {
             providerA = newProvider;
-        } else if (newProvider.want() == tokenB) {
+        } else if (address(newProvider.want()) == tokenB) {
             providerB = newProvider;
         } else {
             revert("Unsupported token");

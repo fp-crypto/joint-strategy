@@ -118,11 +118,12 @@ contract SushiJoint is HegicJoint {
             string(
                 abi.encodePacked(
                     IERC20Extended(address(tokenA)).symbol(),
+                    "-",
                     IERC20Extended(address(tokenB)).symbol()
                 )
             );
 
-        return string(abi.encodePacked("SushiJointOf", ab));
+        return string(abi.encodePacked("HegicSushiJoint(", ab, ")"));
     }
 
     function balanceOfStake() public view override returns (uint256) {

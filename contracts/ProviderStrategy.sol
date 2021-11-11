@@ -55,7 +55,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         return
             string(
                 abi.encodePacked(
-                    "ProviderOf",
+                    "Strategy_ProviderOf",
                     IERC20Extended(address(want)).symbol(),
                     "To",
                     IERC20Extended(address(joint)).name()
