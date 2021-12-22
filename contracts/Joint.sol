@@ -240,8 +240,6 @@ abstract contract Joint {
         // TODO: improve gas efficiency by merging with previous block !!
         currentBalanceB = IERC20(tokenB).balanceOf(address(this));
         uint256 requiredBalanceB = providerA.updatedBalanceOfDebt();
-        emit Numbers("currentBalanceB", currentBalanceB);
-        emit Numbers("currentDebt", providerB.balanceOfDebt());
         if(requiredBalanceB > currentBalanceB) {
             uint256[] memory inAmounts =
                 IUniswapV2Router02(router).getAmountsIn(
@@ -267,16 +265,12 @@ abstract contract Joint {
                     .div(RATIO_PRECISION),
             "!wrong-balanceA"
         );
-        emit Numbers("currentBalanceB", currentBalanceB);
-        emit Numbers("currentDebt", providerB.balanceOfDebt());
         require(
             IERC20(tokenB).balanceOf(address(providerA)) >=
                 providerA.balanceOfDebt(),
             "!wrong-balanceB"
         );
     }
-
-    event Numbers(string name, uint number);
 
     function openPosition() external onlyProviders {
         // No capital, nothing to do

@@ -322,11 +322,7 @@ contract LevProviderStrategy is BaseStrategyInitializable {
     }
 
     function repayFullDebt() internal {
-        emit Numbers("balanceOfB", balanceOfBorrowedToken());
-        emit Numbers("balanceOfDebt", balanceOfDebt());
         repayBorrow(balanceOfDebt());
-        emit Numbers("balanceOfB", balanceOfBorrowedToken());
-        emit Numbers("balanceOfDebt", balanceOfDebt());
     }
 
 
@@ -334,7 +330,6 @@ contract LevProviderStrategy is BaseStrategyInitializable {
     function borrowRequiredAmountTokenB() internal {
         // TODO: make this generic
     uint256 amountBToBorrow = balanceOfWant().mul(priceProvider.latestAnswer()).mul(uint(10)**IERC20Extended(borrowedToken()).decimals()).div(1e26);
-        emit Numbers("amountBToBorrow", amountBToBorrow);
         borrow(amountBToBorrow);
     }
 
@@ -342,13 +337,9 @@ contract LevProviderStrategy is BaseStrategyInitializable {
         uint256 currentBorrow = updatedBalanceOfDebt();
         uint256 creditLimit =
             getCreditLimitInBorrowedToken(address(this));
-        emit Numbers("creditLimit", creditLimit);
         uint256 availableLimit = creditLimit > currentBorrow ? creditLimit - currentBorrow : 0;
-        emit Numbers("availableLimit", availableLimit);
         uint256 maxBorrow = Math.min(ibToken.getCash(), availableLimit);
-        emit Numbers("maxBorrow", maxBorrow);
         uint256 borrowAmount = Math.min(amount, maxBorrow);
-        emit Numbers("borrowAmount", borrowAmount);
         require(ibToken.borrow(borrowAmount) == 0);
         return borrowAmount;
     }
