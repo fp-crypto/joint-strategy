@@ -15,6 +15,16 @@ import {
     BaseStrategyInitializable
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
+import "../interfaces/ironbank/CErc20Interface.sol";
+import "../interfaces/ironbank/ComptrollerInterface.sol";
+
+interface IPriceOracle {
+    function getUnderlyingPrice(CErc20Interface ibToken)
+        external
+        view
+        returns (uint256);
+}
+
 interface JointAPI {
     function closePositionReturnFunds() external;
 
@@ -40,16 +50,32 @@ interface JointAPI {
     function dontInvestWant() external view returns (bool);
 }
 
-contract ProviderStrategy is BaseStrategyInitializable {
+interface IPriceProvider {
+    function latestAnswer() external view returns (uint);
+}
+
+contract LevProviderStrategy is BaseStrategyInitializable {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
+
+    CErc20Interface public ibToken;
+    ComptrollerInterface public comptrollerIB;
+
+    IPriceProvider public priceProvider = IPriceProvider(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
 
     address public joint;
 
     bool public forceLiquidate;
 
-    constructor(address _vault) public BaseStrategyInitializable(_vault) {}
+    uint256 internal constant BLOCKS_PER_YEAR = 2_102_400;
+
+    constructor(address _vault, CErc20Interface _ibToken, ComptrollerInterface _comptrollerIB) public BaseStrategyInitializable(_vault) {
+        comptrollerIB = _comptrollerIB;
+        ibToken = _ibToken;
+        IERC20 _borrowedToken = IERC20(_ibToken.underlying());
+        _borrowedToken.safeApprove(address(_ibToken), type(uint256).max);
+    }
 
     function name() external view override returns (string memory) {
         return
@@ -86,6 +112,11 @@ contract ProviderStrategy is BaseStrategyInitializable {
         // NOTE: this strategy is operated following epochs. These begin during adjustPosition and end during prepareReturn
         // The Provider will always ask the joint to close the position before harvesting
         JointAPI(joint).closePositionReturnFunds();
+
+        // Repay debt
+        if(balanceOfDebt() > 0) {
+            repayFullDebt();
+        }
 
         // After closePosition, the provider will always have funds in its own balance (not in joint)
         uint256 _totalDebt = totalDebt();
@@ -144,12 +175,20 @@ contract ProviderStrategy is BaseStrategyInitializable {
             return;
         }
 
+        // Take debt: this function will borrow an equivalent amount to the amount of want
+        borrowRequiredAmountTokenB();
+        uint256 bTokenBalance = balanceOfBorrowedToken();
+        if(bTokenBalance > 0) {
+            IERC20(borrowedToken()).transfer(joint, bTokenBalance);
+        }
+
         // Using a push approach (instead of pull)
         uint256 wantBalance = balanceOfWant();
         if (wantBalance > 0) {
             want.transfer(joint, wantBalance);
         }
         JointAPI(joint).openPosition();
+
     }
 
     function liquidatePosition(uint256 _amountNeeded)
@@ -167,6 +206,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     }
 
     function prepareMigration(address _newStrategy) internal override {
+        // TODO: return debt! (handle levered balance before migrating)
         JointAPI(joint).migrateProvider(_newStrategy);
     }
 
@@ -180,6 +220,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
     function balanceOfWant() public view returns (uint256) {
         return IERC20(want).balanceOf(address(this));
     }
+
+    
 
     function setJoint(address _joint) external onlyGovernance {
         require(
@@ -205,6 +247,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     {
         uint256 expectedBalance = estimatedTotalAssets();
         JointAPI(joint).closePositionReturnFunds();
+        
         _amountFreed = balanceOfWant();
         // NOTE: we accept a 1% difference before reverting
         require(
@@ -261,4 +304,101 @@ contract ProviderStrategy is BaseStrategyInitializable {
             _path[2] = _token_out;
         }
     }
+
+    function borrowedToken() public view returns(address) {
+        return ibToken.underlying();
+    }
+
+    function balanceOfBorrowedToken() public view returns (uint) {
+        return IERC20(borrowedToken()).balanceOf(address(this));
+    }
+
+    function updatedBalanceOfDebt() public returns (uint256) {
+        return ibToken.borrowBalanceCurrent(address(this));
+    }
+
+    function balanceOfDebt() public view returns (uint256) {
+        return ibToken.borrowBalanceStored(address(this));
+    }
+
+    function repayFullDebt() internal {
+        emit Numbers("balanceOfB", balanceOfBorrowedToken());
+        emit Numbers("balanceOfDebt", balanceOfDebt());
+        repayBorrow(balanceOfDebt());
+        emit Numbers("balanceOfB", balanceOfBorrowedToken());
+        emit Numbers("balanceOfDebt", balanceOfDebt());
+    }
+
+
+    event Numbers(string name, uint number);
+    function borrowRequiredAmountTokenB() internal {
+        // TODO: make this generic
+    uint256 amountBToBorrow = balanceOfWant().mul(priceProvider.latestAnswer()).mul(uint(10)**IERC20Extended(borrowedToken()).decimals()).div(1e26);
+        emit Numbers("amountBToBorrow", amountBToBorrow);
+        borrow(amountBToBorrow);
+    }
+
+    function borrow(uint256 amount) internal returns (uint256) {
+        uint256 currentBorrow = updatedBalanceOfDebt();
+        uint256 creditLimit =
+            getCreditLimitInBorrowedToken(address(this));
+        emit Numbers("creditLimit", creditLimit);
+        uint256 availableLimit = creditLimit > currentBorrow ? creditLimit - currentBorrow : 0;
+        emit Numbers("availableLimit", availableLimit);
+        uint256 maxBorrow = Math.min(ibToken.getCash(), availableLimit);
+        emit Numbers("maxBorrow", maxBorrow);
+        uint256 borrowAmount = Math.min(amount, maxBorrow);
+        emit Numbers("borrowAmount", borrowAmount);
+        require(ibToken.borrow(borrowAmount) == 0);
+        return borrowAmount;
+    }
+
+    function repayBorrow(uint256 amount) internal returns (uint256) {
+        uint256 maxRepay = Math.min(balanceOfBorrowedToken(), balanceOfDebt());
+        uint256 repayAmount = Math.min(amount, maxRepay);
+        require(ibToken.repayBorrow(repayAmount) == 0);
+        return repayAmount;
+    }
+
+    function currentBorrowingCosts() public view returns (uint256) {
+        return ironBankBorrowRateAfterChange(0, false);
+    }
+
+    function ironBankBorrowRateAfterChange(uint256 amount, bool repay)
+        public
+        view
+        returns (uint256 annualBorrowingCost)
+    {
+        uint256 borrowRatePerBlock =
+            ibToken.estimateBorrowRatePerBlockAfterChange(amount, repay);
+
+        // calculate estimated annual costs
+        annualBorrowingCost = borrowRatePerBlock * BLOCKS_PER_YEAR;
+    }
+
+    function getCreditLimitInBorrowedToken(address account)
+        public
+        view
+        returns (uint256)
+    {
+        // returns USD value in mantissa (1e18)
+        uint256 usdCreditLimit = comptrollerIB.creditLimits(account);
+        // if credit limit is infinite, we don't need to check anything else (otherwise, we will get an overflow)
+        if (usdCreditLimit == type(uint256).max) {
+            return type(uint256).max;
+        }
+        uint256 priceUSD = getBorrowedTokenPriceUSD();
+        // we need to adjust price AND decimals
+        // Using simplified version of:
+        // uint256 wantCreditLimit = usdCreditLimit * 1e18 * (10 ** want.decimals()) / priceUSD / 1e18;
+        uint256 wantCreditLimit =
+            (usdCreditLimit * (uint256(10) ** IERC20Extended(borrowedToken()).decimals())) / priceUSD;
+        return wantCreditLimit;
+    }
+
+    function getBorrowedTokenPriceUSD() public view returns (uint256) {
+        return IPriceOracle(comptrollerIB.oracle()).getUnderlyingPrice(ibToken);
+    }
+
+
 }

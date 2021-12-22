@@ -132,7 +132,7 @@ def tokenB_whale(tokenB):
 
 token_prices = {
     "WBTC": 60_000,
-    "WETH": 4_500,
+    "WETH": 4_000,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
@@ -293,8 +293,8 @@ def joint(
 
 
 @pytest.fixture
-def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
-    strategy = strategist.deploy(ProviderStrategy, vaultA)
+def providerA(strategist, keeper, vaultA, LevProviderStrategy, gov, comptrollerIB, ibToken):
+    strategy = strategist.deploy(LevProviderStrategy, vaultA, ibToken, comptrollerIB)
     strategy.setKeeper(keeper, {"from": gov})
     vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
     strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {"from": gov})
@@ -305,16 +305,16 @@ def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
 
 
 @pytest.fixture
-def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
-    strategy = strategist.deploy(ProviderStrategy, vaultB)
-    strategy.setKeeper(keeper, {"from": gov})
-    vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {"from": gov})
-    strategy.setDoHealthCheck(False, {"from": gov})
-    Contract(strategy.healthCheck()).setlossLimitRatio(1000, {"from": gov})
-    Contract(strategy.healthCheck()).setProfitLimitRatio(2000, {"from": gov})
-    yield strategy
-
+def providerB(strategist, keeper, vaultB, LevProviderStrategy, gov, providerA):
+    yield providerA
+    #     strategy = strategist.deploy(LevProviderStrategy, vaultB)
+#     strategy.setKeeper(keeper, {"from": gov})
+#     vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+#     strategy.setHealthCheck("0xDDCea799fF1699e98EDF118e0629A974Df7DF012", {"from": gov})
+#     strategy.setDoHealthCheck(False, {"from": gov})
+#     Contract(strategy.healthCheck()).setlossLimitRatio(1000, {"from": gov})
+#     Contract(strategy.healthCheck()).setProfitLimitRatio(2000, {"from": gov})
+#     yield strategy
 
 putPool_addresses = {
     "WETH": "0x790e96E7452c3c2200bbCAA58a468256d482DD8b",
@@ -324,7 +324,6 @@ callPool_addresses = {
     "WETH": "0xb9ed94c6d594b2517c4296e24A8c517FF133fb6d",
     "WBTC": "0xfA77f713901a840B3DF8F2Eb093d95fAC61B215A",
 }
-
 
 @pytest.fixture(autouse=True)
 def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
@@ -445,3 +444,35 @@ def reset_tenderly_fork():
     gas_price(0)
     # web3.manager.request_blocking("evm_revert", [1])
     yield
+
+
+ibToken_addresses = {
+    "WBTC": "",  # WBTC
+    "YFI": "",  # YFI
+    "WETH": "",  # WETH
+    "LINK": "",  # LINK
+    "USDT": "",  # USDT
+    "DAI": "",  # DAI
+    "USDC": "0x76Eb2FE28b36B3ee97F3Adae0C69606eeDB2A37c",  # cyUSDC
+    "SUSHI": "",  # SUSHI
+}
+
+@pytest.fixture
+def ibToken(tokenB):
+    yield Contract(ibToken_addresses[tokenB.symbol()])
+
+
+@pytest.fixture
+def comptrollerIB():
+    comptroller_address = "0xAB1c342C7bf5Ec5F02ADEA1c2270670bCa144CbB"
+    yield Contract(comptroller_address)
+
+
+@pytest.fixture(autouse=True)
+def whitelist_borrower(comptrollerIB, providerA, tokenB_whale, amountB):
+    admin = comptrollerIB.admin()
+    comptrollerIB._setCreditLimit(providerA, 2 ** 256/2 - 1, {"from": admin})
+    comptrollerIB._setCreditLimit(tokenB_whale, 2 ** 256 - 1, {"from": admin})
+    yield
+
+

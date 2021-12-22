@@ -29,6 +29,12 @@ interface ProviderStrategy {
     function want() external view returns (address);
 
     function totalDebt() external view returns (uint256);
+
+    function borrowedToken() external view returns (address);
+
+    function updatedBalanceOfDebt() external returns (uint256);
+
+    function balanceOfDebt() external view returns (uint256);
 }
 
 abstract contract Joint {
@@ -124,17 +130,18 @@ abstract contract Joint {
         address _reward
     ) internal virtual {
         require(address(providerA) == address(0), "Joint already initialized");
+        require(_providerA == _providerB, "!lev-providers");// should be the same for this version
         providerA = ProviderStrategy(_providerA);
-        providerB = ProviderStrategy(_providerB);
+        providerB = ProviderStrategy(_providerB); 
         router = _router;
         WETH = _weth;
         reward = _reward;
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
-        maxPercentageLoss = 500; // 0.1%
+        maxPercentageLoss = 500; // 0.5%
 
         tokenA = address(providerA.want());
-        tokenB = address(providerB.want());
+        tokenB = address(providerB.borrowedToken());
         require(tokenA != tokenB, "!same-want");
         pair = IUniswapV2Pair(getPair());
 
@@ -227,12 +234,31 @@ abstract contract Joint {
                 );
         }
 
+        // Poorman's rebalance
+        // if we ended up with more tokenB than required, we sell it for tokenA
+        // if we ended up with less tokenB than required, we buy it with tokenA
+        // TODO: improve gas efficiency by merging with previous block !!
+        currentBalanceB = IERC20(tokenB).balanceOf(address(this));
+        uint256 requiredBalanceB = providerA.updatedBalanceOfDebt();
+        emit Numbers("currentBalanceB", currentBalanceB);
+        emit Numbers("currentDebt", providerB.balanceOfDebt());
+        if(requiredBalanceB > currentBalanceB) {
+            uint256[] memory inAmounts =
+                IUniswapV2Router02(router).getAmountsIn(
+                    requiredBalanceB.sub(currentBalanceB),
+                    getTokenOutPath(tokenA, tokenB)
+                );
+            sellCapital(tokenA, tokenB, inAmounts[0]);
+        } else if (currentBalanceB > requiredBalanceB){
+            sellCapital(tokenB, tokenA, currentBalanceB.sub(requiredBalanceB));
+        }
+
         // reset invested balances
         investedA = investedB = 0;
 
         _returnLooseToProviders();
+
         // Check that we have returned with no losses
-        //
         require(
             IERC20(tokenA).balanceOf(address(providerA)) >=
                 providerA
@@ -241,15 +267,16 @@ abstract contract Joint {
                     .div(RATIO_PRECISION),
             "!wrong-balanceA"
         );
+        emit Numbers("currentBalanceB", currentBalanceB);
+        emit Numbers("currentDebt", providerB.balanceOfDebt());
         require(
-            IERC20(tokenB).balanceOf(address(providerB)) >=
-                providerB
-                    .totalDebt()
-                    .mul(RATIO_PRECISION.sub(maxPercentageLoss))
-                    .div(RATIO_PRECISION),
+            IERC20(tokenB).balanceOf(address(providerA)) >=
+                providerA.balanceOfDebt(),
             "!wrong-balanceB"
         );
     }
+
+    event Numbers(string name, uint number);
 
     function openPosition() external onlyProviders {
         // No capital, nothing to do
