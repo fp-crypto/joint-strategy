@@ -326,7 +326,6 @@ contract LevProviderStrategy is BaseStrategyInitializable {
     }
 
 
-    event Numbers(string name, uint number);
     function borrowRequiredAmountTokenB() internal {
         // TODO: make this generic
     uint256 amountBToBorrow = balanceOfWant().mul(priceProvider.latestAnswer()).mul(uint(10)**IERC20Extended(borrowedToken()).decimals()).div(1e26);
