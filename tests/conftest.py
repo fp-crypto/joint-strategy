@@ -356,7 +356,7 @@ hedgil_pools = {
 def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
     hedgil = Contract(hedgil_pools[tokenA.symbol()][tokenB.symbol()])
     tokenB.approve(hedgil, 2 ** 256 - 1, {'from': tokenB_whale, 'gas_price': '0'})
-    hedgil.provideLiquidity(100000 * 1e18, 0, tokenB_whale, {'from': tokenB_whale, 'gas_price': '0'})
+    hedgil.provideLiquidity(100000 * 10 ** tokenB.decimals(), 0, tokenB_whale, {'from': tokenB_whale, 'gas_price': '0'})
 
 # @pytest.fixture
 # def cloned_strategy(Strategy, vault, strategy, strategist, gov):
@@ -417,7 +417,7 @@ def first_sync(joint):
     imp = Contract("0x5bfab94edE2f4d911A6CC6d06fdF2d43aD3c7068")
     lp_token = Contract(joint.pair())
     (reserve0, reserve1, a) = lp_token.getReserves()
-    ftm_price = reserve1 / reserve0 *  10 ** 9
+    ftm_price = reserve0 / reserve1 *  10 ** 9
     print(f"Current price is: {ftm_price/1e9}")
     imp.relay(["FTM"], [ftm_price], [chain.time()], [4281375], {'from': relayer})
 
