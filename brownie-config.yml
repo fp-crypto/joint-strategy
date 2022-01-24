@@ -4,7 +4,7 @@ networks:
   default: mainnet-fork
 
 # automatically fetch contract sources from Etherscan
-autofetch_sources: False
+autofetch_sources: True
 
 # require OpenZepplin Contracts
 dependencies:

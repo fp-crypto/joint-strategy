@@ -71,11 +71,12 @@ token_addresses = {
     "LINK": "0x514910771AF9Ca656af840dff83E8264EcF986CA",  # LINK
     "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",  # USDT
     "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
-    "USDC": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+    "USDC": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",  # USDC
     "SUSHI": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",  # SUSHI
     "MIM": "0x82f0b8b456c1a451378467398982d4834b6829c1", # MIM
     "WFTM": "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83", # WFTM
     "SPIRIT": "0x5Cc61A78F164885776AA610fb0FE1257df78E59B", # SPIRIT
+    "BOO": "0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE", # BOO
 }
 
 # TODO: uncomment those tokens you want to test as want
@@ -106,8 +107,8 @@ def tokenA(request):
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
-        # "USDC",  # USDC
-        "MIM",
+        "USDC",  # USDC
+        # "MIM",
     ],
     scope="session",
     autouse=True,
@@ -122,7 +123,7 @@ whale_addresses = {
     "LINK": "0x28c6c06298d514db089934071355e5743bf21d60",
     "YFI": "0x28c6c06298d514db089934071355e5743bf21d60",
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
+    "USDC": "0xa7821C3e9fC1bF961e280510c471031120716c3d",
     "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
     "SUSHI": "0xf977814e90da44bfa03b6295a0616a897441acec",
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
@@ -184,7 +185,8 @@ def amountB(tokenB, tokenB_whale, user):
 
 mc_pids = {
         "WFTM": {
-            "MIM": 30
+            "MIM": 24,
+            "USDC": 2,
             }
         }
 
@@ -197,6 +199,7 @@ router_addresses = {
     "SUSHI": "",
     "SPIRIT": "0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52",
     "SPOOKY": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
+    "BOO": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
 }
 
 
@@ -215,7 +218,7 @@ def wftm():
     token_address = token_addresses['WFTM']
     yield Contract(token_address)
 
-@pytest.fixture(params=["SPIRIT"], scope="session", autouse=True)
+@pytest.fixture(params=["BOO"], scope="session", autouse=True)
 def rewards(request):
     rewards_address = token_addresses[request.param]  # sushi
     yield Contract(rewards_address)
@@ -229,6 +232,7 @@ def rewards_whale(rewards):
 masterchef_addresses = {
     "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
     "SPIRIT": "0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093",
+    "BOO": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
 }
 
 
@@ -285,7 +289,7 @@ def joint(
     keeper,
     providerA,
     providerB,
-    SpiritJoint,
+    SpookyJoint,
     router,
     masterchef,
     rewards,
@@ -299,7 +303,7 @@ def joint(
     gas_price(0)
 
     joint = gov.deploy(
-        SpiritJoint,
+        SpookyJoint,
         providerA,
         providerB,
         router,
@@ -343,7 +347,8 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
 hedgil_pools = {
         "WFTM" :
             {
-                "MIM": "0x150C42e9CB21354030967579702e0f010e208E86"
+                "MIM": "0x150C42e9CB21354030967579702e0f010e208E86",
+                "USDC": "0x8C2cC5ff69Bc3760d7Ce81812A2848421495972A",
             }
     }
 
