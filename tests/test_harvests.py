@@ -71,9 +71,10 @@ def test_profitable_harvest(
     gov_solid_pre = solid_token.balanceOf(gov)
     gov_sex_pre = sex_token.balanceOf(gov)
     joint.sweep(solid_token,{"from":gov})
+    joint.sweep(sex_token,{"from":gov})
     
     assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
-    assert (sex_token.balanceOf(gov) - gov_solid_pre) == gov_sex_pre
+    assert (sex_token.balanceOf(gov) - gov_sex_pre) == sex_pre
 
     utils.sleep()  # sleep for 6 hours
 
@@ -163,9 +164,10 @@ def test_manual_exit(
     gov_solid_pre = solid_token.balanceOf(gov)
     gov_sex_pre = sex_token.balanceOf(gov)
     joint.sweep(solid_token,{"from":gov})
+    joint.sweep(sex_token,{"from":gov})
     
     assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
-    assert (sex_token.balanceOf(gov) - gov_solid_pre) == gov_sex_pre
+    assert (sex_token.balanceOf(gov) - gov_sex_pre) == sex_pre
 
     assert tokenA.balanceOf(providerA) > amountA
     assert tokenB.balanceOf(providerB) > amountB
