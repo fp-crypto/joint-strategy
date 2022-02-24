@@ -38,6 +38,9 @@ def strat_ms(accounts):
 def user(accounts):
     yield accounts[0]
 
+@pytest.fixture
+def stable():
+    yield True
 
 @pytest.fixture
 def rewards(accounts):
@@ -63,6 +66,29 @@ def strategist(accounts):
 def keeper(accounts):
     yield accounts[5]
 
+@pytest.fixture
+def solid_token():
+    yield Contract("0x888EF71766ca594DED1F0FA3AE64eD2941740A20")
+
+@pytest.fixture
+def sex_token():
+    yield Contract("0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7")
+
+@pytest.fixture
+def solid_router():
+    yield Contract("0xa38cd27185a464914D3046f0AB9d43356B34829D")
+
+@pytest.fixture
+def lp_token():
+    yield Contract("0x41adAc6C1Ff52C5e27568f27998d747F7b69795B")
+
+@pytest.fixture
+def lp_depositor_solidex():
+    yield Contract("0x26E1A0d851CF28E697870e1b7F053B605C8b060F")
+
+@pytest.fixture
+def solidex_factory():
+    yield Contract("0x3fAaB499b519fdC5819e3D7ed0C26111904cbc28")
 
 token_addresses = {
     "WBTC": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",  # WBTC
@@ -77,6 +103,8 @@ token_addresses = {
     "WFTM": "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83", # WFTM
     "SPIRIT": "0x5Cc61A78F164885776AA610fb0FE1257df78E59B", # SPIRIT
     "BOO": "0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE", # BOO
+    "SEX": "0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7", # SEX
+    "SOLID": "0x888EF71766ca594DED1F0FA3AE64eD2941740A20", # SOLID
 }
 
 # TODO: uncomment those tokens you want to test as want
@@ -88,8 +116,8 @@ token_addresses = {
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
-        # 'USDC', # USDC
-        "WFTM", 
+        'USDC', # USDC
+        # "WFTM", 
     ],
     scope="session",
     autouse=True,
@@ -107,8 +135,8 @@ def tokenA(request):
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
-        "USDC",  # USDC
-        # "MIM",
+        # "USDC",  # USDC
+        "MIM",
     ],
     scope="session",
     autouse=True,
@@ -123,11 +151,13 @@ whale_addresses = {
     "LINK": "0x28c6c06298d514db089934071355e5743bf21d60",
     "YFI": "0x28c6c06298d514db089934071355e5743bf21d60",
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "USDC": "0xa7821C3e9fC1bF961e280510c471031120716c3d",
+    "USDC": "0x93C08a3168fC469F3fC165cd3A471D19a37ca19e",
     "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
     "SUSHI": "0xf977814e90da44bfa03b6295a0616a897441acec",
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
     "MIM": "0x2dd7C9371965472E5A5fD28fbE165007c61439E1",
+    "SOLID": "0x1d1A1871d1830D4b5087212c820E5f1252379c2c",
+    "SEX": "0x1434f19804789e494E271F9CeF8450e51790fcD2"
 }
 
 
@@ -192,7 +222,7 @@ mc_pids = {
 
 @pytest.fixture
 def mc_pid(tokenA, tokenB):
-    yield mc_pids[tokenA.symbol()][tokenB.symbol()]
+    yield mc_pids["WFTM"][tokenB.symbol()]
 
 
 router_addresses = {
@@ -210,7 +240,7 @@ def router(rewards):
 
 @pytest.fixture
 def weth():
-    token_address = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    token_address = "0x74b23882a30290451A17c44f4F05243b6b58C76d"
     yield Contract(token_address)
 
 @pytest.fixture
@@ -218,7 +248,17 @@ def wftm():
     token_address = token_addresses['WFTM']
     yield Contract(token_address)
 
-@pytest.fixture(params=["BOO"], scope="session", autouse=True)
+@pytest.fixture
+def usdc():
+    token_address = token_addresses['USDC']
+    yield Contract(token_address)
+
+@pytest.fixture
+def mim():
+    token_address = token_addresses['MIM']
+    yield Contract(token_address)
+
+@pytest.fixture(params=["SEX"], scope="session", autouse=True)
 def rewards(request):
     rewards_address = token_addresses[request.param]  # sushi
     yield Contract(rewards_address)
@@ -233,6 +273,8 @@ masterchef_addresses = {
     "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
     "SPIRIT": "0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093",
     "BOO": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
+    "SOLID": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
+    "SEX": "0x2b2929E785374c651a81A63878Ab22742656DcDd"
 }
 
 
@@ -289,29 +331,33 @@ def joint(
     keeper,
     providerA,
     providerB,
-    SpookyJoint,
-    router,
+    SolidexJoint,
+    solid_router,
     masterchef,
     rewards,
     wftm,
+    weth,
     mc_pid,
     LPHedgingLibrary,
     gov,
     tokenA,
     tokenB,
+    lp_depositor_solidex,
+    solid_token,
+    sex_token,
+    stable
 ):
     gas_price(0)
 
     joint = gov.deploy(
-        SpookyJoint,
+        SolidexJoint,
         providerA,
         providerB,
-        router,
+        solid_router,
         wftm,
-        rewards,
-        hedgil_pools[tokenA.symbol()][tokenB.symbol()],
-        masterchef,
-        mc_pid,
+        sex_token,
+        lp_depositor_solidex,
+        stable
     )
 
     providerA.setJoint(joint, {"from": gov})
@@ -347,13 +393,13 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
 hedgil_pools = {
         "WFTM" :
             {
-                "MIM": "0xC0176FAa0e20dFf3CB6B810aEaE64ef271B1b64b"
+                "MIM": "0xC0176FAa0e20dFf3CB6B810aEaE64ef271B1b64b",
                 "MIM": "0x150C42e9CB21354030967579702e0f010e208E86",
                 "USDC": "0x8C2cC5ff69Bc3760d7Ce81812A2848421495972A",
             }
     }
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
     hedgil = Contract(hedgil_pools[tokenA.symbol()][tokenB.symbol()])
     tokenB.approve(hedgil, 2 ** 256 - 1, {'from': tokenB_whale, 'gas_price': '0'})
@@ -412,7 +458,7 @@ def mock_chainlink(AggregatorMock, gov):
     #yield aggregator
     return
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def first_sync(joint):
     relayer = "0x33E0E07cA86c869adE3fc9DE9126f6C73DAD105e"
     imp = Contract("0x5bfab94edE2f4d911A6CC6d06fdF2d43aD3c7068")
@@ -422,7 +468,7 @@ def first_sync(joint):
     print(f"Current price is: {ftm_price/1e9}")
     imp.relay(["FTM"], [ftm_price], [chain.time()], [4281375], {'from': relayer})
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def short_period(gov, joint):
     print(f"Current HedgingPeriod: {joint.period()} seconds")
     joint.setHedgingPeriod(86400, {"from": gov})

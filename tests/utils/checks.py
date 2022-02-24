@@ -16,7 +16,7 @@ def epoch_started(providerA, providerB, joint, amountA, amountB):
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
 
-    assert joint.activeHedgeID() != 0
+    # assert joint.activeHedgeID() != 0
     # assert joint.activeCallID() != 0
     # assert joint.activePutID() != 0
 
@@ -33,7 +33,7 @@ def non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB):
 def epoch_ended(providerA, providerB, joint):
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
-    assert joint.activeHedgeID() == 0
+    # assert joint.activeHedgeID() == 0
     # assert joint.activeCallID() == 0
     # assert joint.activePutID() == 0
     assert joint.balanceOfStake() == 0

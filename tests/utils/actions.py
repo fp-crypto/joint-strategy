@@ -84,6 +84,7 @@ def generate_profit(
     tokenB.transfer(
         joint, profitB, {"from": tokenB_whale, "gas": 6_000_000, "gas_price": 0}
     )
+    chain.mine(1, timedelta=86_400*5)
 
     return profitA, profitB
 

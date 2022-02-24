@@ -22,7 +22,13 @@ def test_profitable_harvest(
     tokenA_whale,
     tokenB_whale,
     mock_chainlink,
+    solid_token,
+    sex_token,
+    solid_router,
+    lp_token,
+    lp_depositor_solidex
 ):
+    
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -40,7 +46,6 @@ def test_profitable_harvest(
     assert pytest.approx(total_assets_tokenA, rel=1e-2) == amountA
     assert pytest.approx(total_assets_tokenB, rel=1e-2) == amountB
 
-    # TODO: Add some code before harvest #2 to simulate earning yield
     profit_amount_percentage = 0.0095
     profit_amount_tokenA, profit_amount_tokenB = actions.generate_profit(
         profit_amount_percentage,
@@ -50,23 +55,25 @@ def test_profitable_harvest(
         tokenA_whale,
         tokenB_whale,
     )
-
-    # check that estimatedTotalAssets estimates correctly
-    assert (
-        pytest.approx(total_assets_tokenA + profit_amount_tokenA, rel=5 * 1e-3)
-        == providerA.estimatedTotalAssets()
-    )
-    assert (
-        pytest.approx(total_assets_tokenB + profit_amount_tokenB, rel=5 * 1e-3)
-        == providerB.estimatedTotalAssets()
-    )
-
+    
     before_pps_tokenA = vaultA.pricePerShare()
     before_pps_tokenB = vaultB.pricePerShare()
     # Harvest 2: Realize profit
     chain.sleep(1)
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+
+    gov_solid_pre = solid_token.balanceOf(gov)
+    gov_sex_pre = sex_token.balanceOf(gov)
+    joint.sweep(solid_token,{"from":gov})
+    
+    assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
+    assert (sex_token.balanceOf(gov) - gov_solid_pre) == gov_sex_pre
 
     utils.sleep()  # sleep for 6 hours
 
@@ -84,10 +91,8 @@ def test_profitable_harvest(
     assert vaultA.pricePerShare() > before_pps_tokenA
     assert vaultB.pricePerShare() > before_pps_tokenB
 
-
-# TODO: implement this
-# tests harvesting a strategy that reports losses
-def test_lossy_harvest(
+# tests harvesting manually
+def test_manual_exit(
     chain,
     accounts,
     tokenA,
@@ -106,6 +111,11 @@ def test_lossy_harvest(
     tokenA_whale,
     tokenB_whale,
     mock_chainlink,
+    solid_token,
+    sex_token,
+    solid_router,
+    lp_token,
+    lp_depositor_solidex
 ):
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -118,20 +128,58 @@ def test_lossy_harvest(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
 
-    providerA.setDoHealthCheck(False, {"from": gov})
-    providerB.setDoHealthCheck(False, {"from": gov})
+    total_assets_tokenA = providerA.estimatedTotalAssets()
+    total_assets_tokenB = providerB.estimatedTotalAssets()
 
-    # We will have a loss when closing the epoch because we have spent money on Hedging
+    assert pytest.approx(total_assets_tokenA, rel=1e-2) == amountA
+    assert pytest.approx(total_assets_tokenB, rel=1e-2) == amountB
+
+    profit_amount_percentage = 0.0095
+    profit_amount_tokenA, profit_amount_tokenB = actions.generate_profit(
+        profit_amount_percentage,
+        joint,
+        providerA,
+        providerB,
+        tokenA_whale,
+        tokenB_whale,
+    )
+    
+    before_pps_tokenA = vaultA.pricePerShare()
+    before_pps_tokenB = vaultB.pricePerShare()
+    # Harvest 2: Realize profit
     chain.sleep(1)
-    tx = providerA.harvest({"from": strategist})
-    lossA = tx.events["Harvested"]["loss"]
-    assert lossA > 0
-    tx = providerB.harvest({"from": strategist})
-    lossB = tx.events["Harvested"]["loss"]
-    assert lossB > 0
-    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
-    chain.mine(1)
 
-    # User will withdraw accepting losses
-    assert tokenA.balanceOf(vaultA) + lossA == amountA
-    assert tokenB.balanceOf(vaultB) + lossB == amountB
+    joint.claimRewardManually()
+    joint.withdrawLPManually(joint.balanceOfStake())
+
+    joint.removeLiquidityManually(joint.balanceOfPair(), 0, 0, {"from":gov})
+    joint.returnLooseToProvidersManually({"from":gov})
+
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+
+    gov_solid_pre = solid_token.balanceOf(gov)
+    gov_sex_pre = sex_token.balanceOf(gov)
+    joint.sweep(solid_token,{"from":gov})
+    
+    assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
+    assert (sex_token.balanceOf(gov) - gov_solid_pre) == gov_sex_pre
+
+    assert tokenA.balanceOf(providerA) > amountA
+    assert tokenB.balanceOf(providerB) > amountB
+
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+
+    providerA.harvest()
+    providerB.harvest()
+
+    assert vaultA.strategies(providerA).dict()["totalGain"] > 0
+    assert vaultA.strategies(providerA).dict()["totalLoss"] == 0
+    assert vaultA.strategies(providerA).dict()["totalDebt"] == 0
+
+    assert vaultB.strategies(providerB).dict()["totalGain"] > 0
+    assert vaultB.strategies(providerB).dict()["totalLoss"] == 0
+    assert vaultB.strategies(providerB).dict()["totalDebt"] == 0
