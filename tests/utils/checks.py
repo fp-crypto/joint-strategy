@@ -8,9 +8,8 @@ def check_vault_empty(vault):
     assert vault.totalSupply() == 0
 
 
-def epoch_started(providerA, providerB, joint, amountA, amountB):
+def epoch_started(providerA, joint, amountA):
     assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
@@ -19,17 +18,15 @@ def epoch_started(providerA, providerB, joint, amountA, amountB):
     assert joint.activeCallID() != 0
     assert joint.activePutID() != 0
 
-
-def non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB):
+def non_hedged_epoch_started(providerA, joint, amountA):
     assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
 
 
-def epoch_ended(providerA, providerB, joint):
+def epoch_ended(providerA, joint):
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.activeCallID() == 0
@@ -38,7 +35,7 @@ def epoch_ended(providerA, providerB, joint):
     assert joint.balanceOfPair() == 0
 
 
-def non_hedged_epoch_ended(providerA, providerB, joint):
+def non_hedged_epoch_ended(providerA, joint):
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() == 0

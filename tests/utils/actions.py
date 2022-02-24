@@ -10,31 +10,27 @@ def user_deposit(user, vault, token, amount):
     assert token.balanceOf(vault.address) == amount
 
 
-def gov_start_epoch(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB):
+def gov_start_epoch(gov, providerA, joint, vaultA, amountA):
     # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
     # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
     providerA.harvest({"from": gov})
-    providerB.harvest({"from": gov})
     # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
 
-    checks.epoch_started(providerA, providerB, joint, amountA, amountB)
+    checks.epoch_started(providerA, joint, amountA )
 
 
 def gov_start_non_hedged_epoch(
-    gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    gov, providerA, joint, vaultA, amountA
 ):
     # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
     # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
     joint.setIsHedgingEnabled(False, True, {"from": gov})
     providerA.harvest({"from": gov})
-    providerB.harvest({"from": gov})
     # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
 
-    checks.non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB)
+    checks.non_hedged_epoch_started(providerA, joint, amountA, amountB)
 
 
 def wait_period_fraction(joint, percentage_of_period):
@@ -43,49 +39,40 @@ def wait_period_fraction(joint, percentage_of_period):
     utils.sleep_mine(seconds)
 
 
-def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
+def gov_end_epoch(gov, providerA, joint, vaultA):
     # first harvest uninvests (withdraws, closes hedge and removes liquidity) and takes funds (tokenA)
     # second harvest takes funds (tokenB) from joint
     providerA.harvest({"from": gov})
-    providerB.harvest({"from": gov})
     # we set debtRatio to 10_000 in tests because the two vaults have the same amount.
     # in prod we need to set these manually to represent the same value
     vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
 
-    checks.epoch_ended(providerA, providerB, joint)
+    checks.epoch_ended(providerA, joint)
 
 
-def gov_end_non_hedged_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
+def gov_end_non_hedged_epoch(gov, providerA, joint, vaultA):
     # first harvest uninvests (withdraws and removes liquidity) and takes funds (tokenA)
     # second harvest takes funds (tokenB) from joint
     providerA.harvest({"from": gov})
-    providerB.harvest({"from": gov})
     # we set debtRatio to 10_000 in tests because the two vaults have the same amount.
     # in prod we need to set these manually to represent the same value
     vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 10_000, {"from": gov})
 
-    checks.non_hedged_epoch_ended(providerA, providerB, joint)
+    checks.non_hedged_epoch_ended(providerA, joint)
 
 
 def generate_profit(
-    amount_percentage, joint, providerA, providerB, tokenA_whale, tokenB_whale
+    amount_percentage, joint, providerA, tokenA_whale
 ):
     # we just airdrop tokens to the joint
     tokenA = Contract(joint.tokenA())
-    tokenB = Contract(joint.tokenB())
     profitA = providerA.estimatedTotalAssets() * amount_percentage
-    profitB = providerB.estimatedTotalAssets() * amount_percentage
 
     tokenA.transfer(
         joint, profitA, {"from": tokenA_whale, "gas": 6_000_000, "gas_price": 0}
     )
-    tokenB.transfer(
-        joint, profitB, {"from": tokenB_whale, "gas": 6_000_000, "gas_price": 0}
-    )
 
-    return profitA, profitB
+    return profitA
 
 
 def swap(tokenFrom, tokenTo, amountFrom, tokenFrom_whale, joint, mock_chainlink):
