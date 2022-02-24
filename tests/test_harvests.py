@@ -71,6 +71,7 @@ def test_profitable_harvest(
     gov_solid_pre = solid_token.balanceOf(gov)
     gov_sex_pre = sex_token.balanceOf(gov)
     joint.sweep(solid_token,{"from":gov})
+
     joint.sweep(sex_token,{"from":gov})
     
     assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
@@ -164,6 +165,7 @@ def test_manual_exit(
     gov_solid_pre = solid_token.balanceOf(gov)
     gov_sex_pre = sex_token.balanceOf(gov)
     joint.sweep(solid_token,{"from":gov})
+
     joint.sweep(sex_token,{"from":gov})
     
     assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
