@@ -526,15 +526,10 @@ def reset_tenderly_fork():
 @pytest.fixture(autouse=True)
 def trade_factory(joint, yMechs_multisig):
     tf = Contract(joint.tradeFactory())
-    tf.grantRole(
-        tf.STRATEGY(), joint, {"from": yMechs_multisig, "gas_price": 0}
-    )
+    tf.grantRole(tf.STRATEGY(), joint, {"from": yMechs_multisig, "gas_price": 0})
     yield tf
 
 
 @pytest.fixture(scope="session")
 def yMechs_multisig():
-    yield accounts.at(
-        "0x9f2A061d6fEF20ad3A656e23fd9C814b75fd5803", force=True
-    )
-
+    yield accounts.at("0x9f2A061d6fEF20ad3A656e23fd9C814b75fd5803", force=True)

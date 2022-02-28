@@ -45,10 +45,6 @@ def test_profitable_harvest(
     total_assets_tokenA = providerA.estimatedTotalAssets()
     total_assets_tokenB = providerB.estimatedTotalAssets()
 
-    print(f"{tokenA.symbol()} assets: {total_assets_tokenA/10**tokenA.decimals():.6f}")
-    print(f"{tokenB.symbol()} assets: {total_assets_tokenB/10**tokenB.decimals():.6f}")
-    print(f"ETA after balance: {joint.estimatedTotalAssetsAfterBalance()}")
-
     assert pytest.approx(total_assets_tokenA, rel=1e-2) == amountA
     assert pytest.approx(total_assets_tokenB, rel=1e-2) == amountB
 
@@ -408,7 +404,7 @@ def test_profitable_harvest_yswaps(
 
         amount_in = id.balanceOf(joint)
         print(
-            f"Executing trade {id}, tokenIn: {token_in.symbol()} -> tokenOut {token_out.symbol()} amount {amount_in/1e18}"
+            f"Executing trade {id}, tokenIn: {token_in.symbol()} -> tokenOut {token_out.symbol()} w/ amount in {amount_in/1e18}"
         )
 
         asyncTradeExecutionDetails = [joint, token_in, token_out, amount_in, 1]
@@ -427,7 +423,7 @@ def test_profitable_harvest_yswaps(
             amount_in,
             0,
             [(token_in.address, wftm, False), (wftm, joint.tokenA(), False)],
-            receiver, #"0xB2F65F254Ab636C96fb785cc9B4485cbeD39CDAA",
+            receiver,  # "0xB2F65F254Ab636C96fb785cc9B4485cbeD39CDAA",
             2**256 - 1,
         )
         t = createTx(solid_router, calldata)
@@ -446,7 +442,9 @@ def test_profitable_harvest_yswaps(
             transaction,
             {"from": yMechs_multisig, "gas_price": 0},
         )
-        print(f"Joint {token_out.symbol()} balance: {token_out.balanceOf(joint)/10**token_out.decimals():.6f}")
+        print(
+            f"Joint {token_out.symbol()} balance: {token_out.balanceOf(joint)/10**token_out.decimals():.6f}"
+        )
 
     solid_post = solid_token.balanceOf(joint)
     sex_post = sex_token.balanceOf(joint)
