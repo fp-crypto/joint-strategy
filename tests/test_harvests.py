@@ -464,7 +464,7 @@ def test_profitable_harvest_yswaps(
     print(f"Return A: {returnA:.4%}")
     print(f"Return B: {returnB:.4%}")
     assert profitA > 0
-    assert profitB == 0
+    assert profitB > 0
 
     # Return approximately equal
     assert pytest.approx(returnA, rel=RELATIVE_APPROX) == returnB
