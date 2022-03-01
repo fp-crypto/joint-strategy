@@ -147,7 +147,7 @@ abstract contract Joint is ySwapper {
         reward = _reward;
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
-        maxPercentageLoss = 500; // 0.1%
+        maxPercentageLoss = 10; // 0.10%
 
         tokenA = address(providerA.want());
         tokenB = address(providerB.want());
