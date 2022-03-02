@@ -62,22 +62,22 @@ abstract contract Joint is ySwapper {
     uint256 public maxPercentageLoss;
     uint256 public minRewardToHarvest;
 
-    modifier onlyGovernance {
+    modifier onlyGovernance() {
         checkGovernance();
         _;
     }
 
-    modifier onlyVaultManagers {
+    modifier onlyVaultManagers() {
         checkVaultManagers();
         _;
     }
 
-    modifier onlyProviders {
+    modifier onlyProviders() {
         checkProvider();
         _;
     }
 
-    modifier onlyKeepers {
+    modifier onlyKeepers() {
         checkKeepers();
         _;
     }
