@@ -482,8 +482,8 @@ def test_profitable_harvest_yswaps(
         pytest.approx(total_balance_tokenB, rel=5 * 1e-3)
         == amountB + profit_amount_tokenB
     )
-    assert vaultA.pricePerShare() > before_pps_tokenA
-    assert vaultB.pricePerShare() > before_pps_tokenB
+    assert vaultA.pricePerShare() >= before_pps_tokenA
+    assert vaultB.pricePerShare() >= before_pps_tokenB
 
 
 def createTx(to, data):
