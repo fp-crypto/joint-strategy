@@ -146,6 +146,8 @@ abstract contract Joint is ySwapper {
         WETH = _weth;
         reward = _reward;
 
+        tradeFactory = address(0xD3f89C21719Ec5961a3E6B0f9bBf9F9b4180E9e9);
+
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
         maxPercentageLoss = 10; // 0.10%
 
