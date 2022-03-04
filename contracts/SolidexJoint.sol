@@ -21,6 +21,10 @@ contract SolidexJoint is NoHedgeJoint {
 
     bool public isOriginal = true;
 
+    address public constant SEX = 0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7;
+    address public constant SOLID_SEX =
+        0x888EF71766ca594DED1F0FA3AE64eD2941740A20;
+
     constructor(
         address _providerA,
         address _providerB,
@@ -122,9 +126,12 @@ contract SolidexJoint is NoHedgeJoint {
         uint256 pendingSEX = pendings[0].sex;
         uint256 pendingSOLID = pendings[0].solid;
 
-        // TODO: convert SEX to SOLID and sum to pendingSOLID
+        ISolidRouter.route[] memory path = getTokenOutPathSolid(SEX, SOLID_SEX);
+        pendingSOLID = pendingSOLID.add(
+            ISolidRouter(router).getAmountsOut(pendingSEX, path)[1]
+        );
 
-        return pendingSEX;
+        return pendingSOLID;
     }
 
     function getReward() internal override {
@@ -439,10 +446,10 @@ contract SolidexJoint is NoHedgeJoint {
         address[] memory tokens = new address[](2);
         address[] memory toTokens = new address[](2);
 
-        tokens[0] = 0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7; // sex
+        tokens[0] = SEX;
         toTokens[0] = address(tokenA); // swap to tokenA
 
-        tokens[1] = 0x888EF71766ca594DED1F0FA3AE64eD2941740A20; // solid
+        tokens[1] = SOLID_SEX;
         toTokens[1] = address(tokenA); // swap to tokenA
 
         return (tokens, toTokens);
