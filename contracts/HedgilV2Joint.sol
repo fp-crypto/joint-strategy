@@ -17,10 +17,6 @@ interface IHedgilPool {
 
     function getTimeToMaturity(uint256 hedgeID) external view returns (uint256);
 
-    function getHedgeProfit(uint256 hedgeID) external view returns (uint256);
-
-    function getHedgeStrike(uint256 hedgeID) external view returns (uint256);
-
     function getCurrentPayout(uint256 hedgeID) external view returns (uint256);
 
     function hedgeLPToken(
@@ -171,10 +167,6 @@ abstract contract HedgilV2Joint is Joint {
 
     function resetHedge() external onlyGovernance {
         activeHedgeID = 0;
-    }
-
-    function getHedgeStrike() internal view returns (uint256) {
-        return IHedgilPool(hedgilPool).getHedgeStrike(activeHedgeID);
     }
 
     function hedgeLP()

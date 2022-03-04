@@ -2,7 +2,7 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./HedgilJoint.sol";
+import "./HedgilV2Joint.sol";
 
 interface ISpookyMasterchef is IMasterchef {
     function pendingBOO(uint256 _pid, address _user)
@@ -11,7 +11,7 @@ interface ISpookyMasterchef is IMasterchef {
         returns (uint256);
 }
 
-contract SpookyJoint is HedgilJoint {
+contract SpookyJoint is HedgilV2Joint {
     uint256 public pid;
 
     IMasterchef public masterchef;
@@ -30,7 +30,7 @@ contract SpookyJoint is HedgilJoint {
         uint256 _pid
     )
         public
-        HedgilJoint(
+        HedgilV2Joint(
             _providerA,
             _providerB,
             _router,
