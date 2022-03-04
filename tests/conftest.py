@@ -63,6 +63,10 @@ def strategist(accounts):
 def keeper(accounts):
     yield accounts[5]
 
+@pytest.fixture
+def hedgilV2():
+    yield Contract("0x2bBA5035AeBED1d0f546e31C07c462C1ed9B7597")
+
 
 token_addresses = {
     "WBTC": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",  # WBTC
@@ -88,8 +92,8 @@ token_addresses = {
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
-        # 'USDC', # USDC
-        "WFTM", 
+        'USDC', # USDC
+        # "WFTM", 
     ],
     scope="session",
     autouse=True,
@@ -107,7 +111,8 @@ def tokenA(request):
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
-        "USDC",  # USDC
+        # "USDC",  # USDC
+        'WFTM',
         # "MIM",
     ],
     scope="session",
@@ -123,7 +128,7 @@ whale_addresses = {
     "LINK": "0x28c6c06298d514db089934071355e5743bf21d60",
     "YFI": "0x28c6c06298d514db089934071355e5743bf21d60",
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
-    "USDC": "0xa7821C3e9fC1bF961e280510c471031120716c3d",
+    "USDC": "0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682",
     "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
     "SUSHI": "0xf977814e90da44bfa03b6295a0616a897441acec",
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
@@ -192,7 +197,7 @@ mc_pids = {
 
 @pytest.fixture
 def mc_pid(tokenA, tokenB):
-    yield mc_pids[tokenA.symbol()][tokenB.symbol()]
+    yield mc_pids[tokenB.symbol()][tokenA.symbol()]
 
 
 router_addresses = {
@@ -295,6 +300,7 @@ def joint(
     rewards,
     wftm,
     mc_pid,
+    hedgilV2,
     LPHedgingLibrary,
     gov,
     tokenA,
@@ -309,7 +315,7 @@ def joint(
         router,
         wftm,
         rewards,
-        hedgil_pools[tokenA.symbol()][tokenB.symbol()],
+        hedgilV2,
         masterchef,
         mc_pid,
     )
@@ -347,17 +353,16 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
 hedgil_pools = {
         "WFTM" :
             {
-                "MIM": "0xC0176FAa0e20dFf3CB6B810aEaE64ef271B1b64b"
+                "MIM": "0xC0176FAa0e20dFf3CB6B810aEaE64ef271B1b64b",
                 "MIM": "0x150C42e9CB21354030967579702e0f010e208E86",
                 "USDC": "0x8C2cC5ff69Bc3760d7Ce81812A2848421495972A",
             }
     }
 
 @pytest.fixture(autouse=True)
-def provideLiquidity(tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
-    hedgil = Contract(hedgil_pools[tokenA.symbol()][tokenB.symbol()])
-    tokenB.approve(hedgil, 2 ** 256 - 1, {'from': tokenB_whale, 'gas_price': '0'})
-    hedgil.provideLiquidity(100000 * 10 ** tokenB.decimals(), 0, tokenB_whale, {'from': tokenB_whale, 'gas_price': '0'})
+def provideLiquidity(hedgilV2, tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB):
+    tokenB.approve(hedgilV2, 2 ** 256 - 1, {'from': tokenB_whale, 'gas_price': '0'})
+    hedgilV2.provideLiquidity(100_000 * 10 ** tokenB.decimals(), 0, tokenB_whale, {'from': tokenB_whale, 'gas_price': '0'})
 
 # @pytest.fixture
 # def cloned_strategy(Strategy, vault, strategy, strategist, gov):
