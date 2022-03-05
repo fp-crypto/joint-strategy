@@ -67,6 +67,14 @@ def keeper(accounts):
 def hedgilV2():
     yield Contract("0x2bBA5035AeBED1d0f546e31C07c462C1ed9B7597")
 
+@pytest.fixture
+def chainlink_owner():
+    yield accounts.at("0x9ba4c51512752E79317b59AB4577658e12a43f55", force=True)
+
+@pytest.fixture
+def deployer(accounts):
+    yield accounts.at("0xcc4c922db2ef8c911f37e73c03b632dd1585ad0e", force=True)
+
 
 token_addresses = {
     "WBTC": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",  # WBTC
@@ -212,6 +220,20 @@ router_addresses = {
 def router(rewards):
     yield Contract(router_addresses[rewards.symbol()])
 
+# Non-comprehensive, find the full list here to add your own: https://docs.chain.link/docs/fantom-price-feeds/
+oracle_addresses = {
+    "WFTM": "0xf4766552D15AE4d256Ad41B6cf2933482B0680dc",
+    "USDC": "0x2553f4eeb82d5A26427b8d1106C51499CBa5D99c",
+    "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD"
+}
+
+@pytest.fixture
+def tokenA_oracle(tokenA):
+    yield Contract(oracle_addresses[tokenA.symbol()])
+
+@pytest.fixture
+def tokenB_oracle(tokenB):
+    yield Contract(oracle_addresses[tokenB.symbol()])
 
 @pytest.fixture
 def weth():

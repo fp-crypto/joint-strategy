@@ -1,3 +1,4 @@
+from functools import _lru_cache_wrapper
 from utils import actions, checks, utils
 import pytest
 from brownie import Contract, chain
@@ -82,5 +83,53 @@ def test_setup_positions(
     assert balA == hedgil_position["initialQ"]
     # Check that strike is current price
     assert hedgil_position["strike"] == hedgilV2.getCurrentPrice(tokenA)
+
+def test_open_position_price_change(
+    chain,
+    accounts,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    strategist,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
+    hedgilV2,
+    tokenA_whale,
+    tokenB_whale,
+    chainlink_owner,
+    deployer,
+    tokenA_oracle,
+    tokenB_oracle,
+):  
+    # Deposit to the vault
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    lp_token = Contract(joint.pair())
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.gov_start_epoch(
+        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
+    )
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
     
+    # Get the hedgil open position
+    hedgil_id = joint.activeHedgeID()
+    # Get position details
+    hedgil_position = hedgilV2.getHedgilByID(hedgil_id)
+
+    utils.print_joint_status(joint, tokenA, tokenB, lp_token)
+    utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
+
+    # Let's move prices
     
+
+    assert 0
