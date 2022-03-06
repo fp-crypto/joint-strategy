@@ -99,6 +99,11 @@ abstract contract HedgilV2Joint is Joint {
     }
 
     function getHedgeProfit() public view override returns (uint256, uint256) {
+        // Handle the case where hedgil is closed but estimatedTotalAssets is called in any of the
+        // Provider strats (happens when closing epoch and vault.report calls estimatedTotalAssets)
+        if(activeHedgeID == 0) {
+            return(0, 0);
+        }
         return (0, IHedgilPool(hedgilPool).getCurrentPayout(activeHedgeID));
     }
 
