@@ -48,6 +48,10 @@ def gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB):
     # second harvest takes funds (tokenB) from joint
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
+
+    checks.check_strategy_empty(providerA)
+    checks.check_strategy_empty(providerB)
+
     # we set debtRatio to 10_000 in tests because the two vaults have the same amount.
     # in prod we need to set these manually to represent the same value
     vaultA.updateStrategyDebtRatio(providerA, 10_000, {"from": gov})
@@ -176,12 +180,12 @@ def sync_price(token, lp_token, chainlink_owner, deployer, token_oracle):
     print(f"Current price is: {pairPrice/1e8}")
 
 def dump_token(token_whale, tokenFrom, tokenTo, router, amount):
-    tokenFrom.approve(router, 2 ** 256 - 1, {"from": token_whale})
+    tokenFrom.approve(router, 2 ** 256 - 1, {"from": token_whale, "gas_price":0})
     router.swapExactTokensForTokens(
         amount,
         0,
         [tokenFrom, tokenTo],
         token_whale,
         2 ** 256 - 1,
-        {"from": token_whale},
+        {"from": token_whale, "gas_price":0},
     )
