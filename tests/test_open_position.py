@@ -154,8 +154,12 @@ def test_open_position_price_change(
     tokenA_excess_to_tokenB = utils.swap_tokens_value(router, tokenA, tokenB, tokenA_excess)
     
     # TokenB checksum: initial amount = current amount + tokenA excess in token B + hedgil payout 
-    assert pytest.approx(current_amount_B + tokenA_excess_to_tokenB + hedgilV2.getCurrentPayout(hedgil_id), rel=1e-5) == initial_amount_B
-    
+    total_B_value_now = current_amount_B + tokenA_excess_to_tokenB + hedgilV2.getCurrentPayout(hedgil_id)
+    assert pytest.approx(total_B_value_now, rel=1e-5) == initial_amount_B
+    # Ensure that initial amounts are still intact taking all current data into account
+    assert pytest.approx(tokenA.balanceOf(providerA) + current_amount_A - tokenA_excess, rel=1e-5) == amountA
+    assert pytest.approx(tokenB.balanceOf(providerB) + total_B_value_now + hedgil_position["cost"], rel=1e-5) == amountB
+     
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     tokenA_loss = vaultA.strategies(providerA)["totalLoss"]
