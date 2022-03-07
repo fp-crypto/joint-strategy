@@ -142,6 +142,16 @@ whale_addresses = {
     "BOO": "0xE0c15e9Fe90d56472D8a43da5D3eF34ae955583C",
 }
 
+lp_whales = {
+    "BOO": {
+        "USDC": {
+            "WFTM": "0xE6939A804b3C7570Ff5f36c1f0d886dAD4b4A204"
+        }
+    }
+} 
+@pytest.fixture(scope="session", autouse=True)
+def lp_whale(rewards, tokenA, tokenB):
+    yield lp_whales[rewards.symbol()][tokenA.symbol()][tokenB.symbol()]
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenA_whale(tokenA):

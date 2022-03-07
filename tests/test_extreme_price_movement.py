@@ -170,11 +170,11 @@ def test_extreme_price_movement_tokenA_with_rewards(
     assert tokenA_loss == 0
     assert tokenB_loss == 0
 
-    vaultA.strategies(providerA)["totalDebt"]
-    vaultB.strategies(providerB)["totalDebt"]
+    vaultA.strategies(providerA)["totalDebt"] == 0
+    vaultB.strategies(providerB)["totalDebt"] == 0
     
-    vaultA.strategies(providerA)["totalGain"]
-    vaultB.strategies(providerB)["totalGain"]
+    vaultA.strategies(providerA)["totalGain"] > 0
+    vaultB.strategies(providerB)["totalGain"] > 0
 
 def test_extreme_price_movement_tokenB(
     chain,
@@ -342,8 +342,8 @@ def test_extreme_price_movement_tokenB_with_rewards(
     assert tokenA_loss == 0
     assert tokenB_loss == 0
 
-    vaultA.strategies(providerA)["totalDebt"]
-    vaultB.strategies(providerB)["totalDebt"]
+    vaultA.strategies(providerA)["totalDebt"] == 0
+    vaultB.strategies(providerB)["totalDebt"] == 0
     
-    vaultA.strategies(providerA)["totalGain"]
-    vaultB.strategies(providerB)["totalGain"]
+    vaultA.strategies(providerA)["totalGain"] > 0
+    vaultB.strategies(providerB)["totalGain"] > 0
