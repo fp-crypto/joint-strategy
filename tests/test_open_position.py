@@ -131,7 +131,7 @@ def test_open_position_price_change_tokenA(
     # Get position details
     hedgil_position = hedgilV2.getHedgilByID(hedgil_id)
 
-    utils.print_joint_status(joint, tokenA, tokenB, lp_token)
+    utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     # Let's move prices, 2% of tokenA reserves
@@ -140,7 +140,7 @@ def test_open_position_price_change_tokenA(
     actions.dump_token(tokenA_whale, tokenA, tokenB, router, tokenA_dump)
     actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
 
-    utils.print_joint_status(joint, tokenA, tokenB, lp_token)
+    utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     (current_amount_A, current_amount_B) = joint.balanceOfTokensInLP()
@@ -219,7 +219,7 @@ def test_open_position_price_change_tokenB(
     # Get position details
     hedgil_position = hedgilV2.getHedgilByID(hedgil_id)
 
-    utils.print_joint_status(joint, tokenA, tokenB, lp_token)
+    utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     # Let's move prices, 2% of tokenA reserves
@@ -228,7 +228,7 @@ def test_open_position_price_change_tokenB(
     actions.dump_token(tokenB_whale, tokenB, tokenA, router, tokenB_dump)
     actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
 
-    utils.print_joint_status(joint, tokenA, tokenB, lp_token)
+    utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     (current_amount_A, current_amount_B) = joint.balanceOfTokensInLP()

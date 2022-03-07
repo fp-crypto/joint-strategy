@@ -189,3 +189,8 @@ def dump_token(token_whale, tokenFrom, tokenTo, router, amount):
         2 ** 256 - 1,
         {"from": token_whale, "gas_price":0},
     )
+
+def dump_rewards(rewards_whale, amount_token, router, rewards, joint, token):
+    amount_rewards = utils.swap_tokens_value(router, token, rewards, amount_token)
+    print(f"Transferring {amount_rewards} {rewards.symbol()} rewards to joint")
+    rewards.transfer(joint, amount_rewards, {"from": rewards_whale})

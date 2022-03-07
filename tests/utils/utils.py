@@ -110,7 +110,7 @@ def sleep_mine(seconds=13.15):
     chain.sleep(seconds - (end - start))
     chain.mine(1)
 
-def print_joint_status(joint, tokenA, tokenB, lp_token):
+def print_joint_status(joint, tokenA, tokenB, lp_token, rewards):
     token0 = lp_token.token0()
     (balA, balB) = joint.balanceOfTokensInLP()
     (res0, res1, _) = lp_token.getReserves()
@@ -126,6 +126,7 @@ def print_joint_status(joint, tokenA, tokenB, lp_token):
     print(f"Existing reserves in pool: {resA} {tokenA.symbol()} and {resB} {tokenB.symbol()}")
     print(f"Ratio of joint to pool: {balA / resA} {tokenA.symbol()} and {balB / resB} {tokenB.symbol()}")
     print(f"Staked LP tokens: {joint.balanceOfStake()} {lp_token.symbol()}")
+    print(f"Total rewards gained: {joint.balanceOfReward() + joint.pendingReward()}")
     print("######################################")
 
 def swap_tokens_value(router, tokenIn, tokenOut, amountIn):
