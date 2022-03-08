@@ -123,6 +123,8 @@ def test_lp_token_airdrop_joint_closed(
     # Dump some lp_tokens into the strat while positions are closed
     lp_token = Contract(joint.pair())
     lp_token.transfer(joint, lp_token.balanceOf(lp_whale), {"from": lp_whale})
+    # Make sure joint has lp balance
+    assert joint.balanceOfPair() > 0
 
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -132,22 +134,25 @@ def test_lp_token_airdrop_joint_closed(
     chain.sleep(1)
     actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
     
-    assert 0
+    # Start the epoch but providerB reverts as there is balanceOfPair()
     providerA.harvest({"from": gov})
     with reverts(): 
         providerB.harvest({"from": gov})
-
-    # As there is profit beforehand, remove healthchecks
-    providerA.setDoHealthCheck(False, {"from": gov})
-    providerB.setDoHealthCheck(False, {"from": gov})
-
+    
     # Existing liquidity in LP is removed to make sure we start clean
     joint.removeLiquidityManually(lp_token.balanceOf(joint), 0, 0, {"from": gov})
+
+    # We can now harvest providerB
+    providerB.harvest({"from": gov})
+    # Set debt ratios to 0
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+
+    assert joint.investedA() > 0
+    assert joint.investedB() > 0
+    assert joint.activeHedgeID() > 0
     
     actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
-    actions.gov_start_epoch(
-        gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
-    )
 
     (initial_amount_A, initial_amount_B) = joint.balanceOfTokensInLP()
 
@@ -170,9 +175,9 @@ def test_lp_token_airdrop_joint_closed(
     
     (current_amount_A, current_amount_B) = joint.balanceOfTokensInLP()
 
-    # As we have dumped some lp tokens, both balances should be higher than initial values
+    # As we have dumped some A tokens, there is less liquidity of B
     assert current_amount_A > initial_amount_A
-    assert current_amount_B > initial_amount_B
+    assert current_amount_B < initial_amount_B
     
     # As there is quite a bit of profit, remove healthchecks
     providerA.setDoHealthCheck(False, {"from": gov})
