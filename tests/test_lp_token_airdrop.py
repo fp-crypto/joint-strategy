@@ -196,3 +196,23 @@ def test_lp_token_airdrop_joint_closed(
     
     vaultA.strategies(providerA)["totalGain"] > 0
     vaultB.strategies(providerB)["totalGain"] > 0
+
+def test_lp_token_airdrop_joint_closed_sweep(
+    joint,
+    gov,
+    lp_whale,
+):  
+
+    # Dump some lp_tokens into the strat while positions are closed
+    lp_token = Contract(joint.pair())
+    lp_token.transfer(joint, lp_token.balanceOf(lp_whale), {"from": lp_whale})
+    # Make sure joint has lp balance
+    pre_balance = joint.balanceOfPair()
+    assert pre_balance > 0
+    
+    # Sweep the strat lp_token
+    joint.sweep(lp_token, {"from": gov})
+    # Ensure there is no more balance in joint
+    assert joint.balanceOfPair() == 0
+    # Ensure that all balance has been swept
+    assert lp_token.balanceOf(gov) == pre_balance
