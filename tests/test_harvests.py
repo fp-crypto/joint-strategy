@@ -71,7 +71,7 @@ def test_profitable_harvest(
     print(f"Return B: {returnB:.4%}")
 
     # Return approximately equal
-    assert pytest.approx(returnA, rel=1e-4) == returnB
+    assert pytest.approx(returnA, rel=1e-3) == returnB
 
     utils.sleep()  # sleep for 6 hours
 
@@ -110,7 +110,6 @@ def test_manual_exit(
     tokenA_whale,
     tokenB_whale,
     mock_chainlink,
-    sex_token,
     lp_token,
 ):
     # Deposit to the vault

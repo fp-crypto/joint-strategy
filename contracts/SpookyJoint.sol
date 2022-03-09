@@ -157,4 +157,8 @@ contract SpookyJoint is HedgilV2Joint {
     function withdrawLPManually(uint256 amount) external onlyVaultManagers {
         masterchef.withdraw(pid, amount);
     }
+
+    function claimRewardManually() external onlyVaultManagers {
+        getReward();
+    }
 }
