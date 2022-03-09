@@ -9,8 +9,8 @@ def check_vault_empty(vault):
 
 
 def epoch_started(providerA, providerB, joint, amountA, amountB):
-    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
+    assert pytest.approx(providerA.estimatedTotalAssets(), rel=2e-3) == amountA
+    assert pytest.approx(providerB.estimatedTotalAssets(), rel=2e-3) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
@@ -22,8 +22,8 @@ def epoch_started(providerA, providerB, joint, amountA, amountB):
 
 
 def non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB):
-    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
+    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-5) == amountA
+    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-5) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
