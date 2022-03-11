@@ -31,7 +31,9 @@ def test_extreme_price_movement_tokenA(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -134,7 +136,9 @@ def test_extreme_price_movement_tokenA_with_rewards(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -227,7 +231,9 @@ def test_extreme_price_movement_tokenB(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -328,7 +334,9 @@ def test_extreme_price_movement_tokenB_with_rewards(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)

@@ -7,7 +7,6 @@ from eth_abi.packed import encode_abi_packed
 # tests harvesting a strategy that returns profits correctly
 def test_profitable_harvest(
     chain,
-    accounts,
     tokenA,
     tokenB,
     vaultA,
@@ -16,17 +15,17 @@ def test_profitable_harvest(
     providerB,
     joint,
     user,
-    strategist,
     amountA,
     amountB,
     RELATIVE_APPROX,
     gov,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    lp_token,
+    hedge_type
 ):
-
+    checks.check_run_test("nohedge", hedge_type)
+    solid_token = Contract(joint.SOLID_SEX())
+    sex_token = Contract(joint.SEX())
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -71,7 +70,21 @@ def test_profitable_harvest(
     print(f"Return B: {returnB:.4%}")
 
     # Return approximately equal
-    assert pytest.approx(returnA, rel=1e-3) == returnB
+    assert pytest.approx(returnA, rel=RELATIVE_APPROX) == returnB
+    # assert 0 
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+
+    gov_solid_pre = solid_token.balanceOf(gov)
+    gov_sex_pre = sex_token.balanceOf(gov)
+    joint.sweep(solid_token, {"from": gov})
+
+    joint.sweep(sex_token, {"from": gov})
+
+    assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
+    assert (sex_token.balanceOf(gov) - gov_sex_pre) == sex_pre
 
     utils.sleep()  # sleep for 6 hours
 
@@ -109,9 +122,11 @@ def test_manual_exit(
     gov,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    lp_token,
+    hedge_type
 ):
+    checks.check_run_test("nohedge", hedge_type)
+    solid_token = Contract(joint.SOLID_SEX())
+    sex_token = Contract(joint.SEX())
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -150,6 +165,20 @@ def test_manual_exit(
     joint.removeLiquidityManually(joint.balanceOfPair(), 0, 0, {"from": gov})
     joint.returnLooseToProvidersManually({"from": gov})
 
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+
+    gov_solid_pre = solid_token.balanceOf(gov)
+    gov_sex_pre = sex_token.balanceOf(gov)
+    joint.sweep(solid_token, {"from": gov})
+
+    joint.sweep(sex_token, {"from": gov})
+
+    assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
+    assert (sex_token.balanceOf(gov) - gov_sex_pre) == sex_pre
+
     assert tokenA.balanceOf(providerA) > amountA
     assert tokenB.balanceOf(providerB) > amountB
 
@@ -181,7 +210,6 @@ def test_profitable_with_big_imbalance_harvest(
     providerB,
     joint,
     user,
-    router,
     strategist,
     amountA,
     amountB,
@@ -189,10 +217,13 @@ def test_profitable_with_big_imbalance_harvest(
     gov,
     tokenA_whale,
     tokenB_whale,
-    mock_chainlink,
-    lp_token,
+    router,
     swap_from,
+    hedge_type
 ):
+    checks.check_run_test("nohedge", hedge_type)
+    solid_token = Contract(joint.SOLID_SEX())
+    sex_token = Contract(joint.SEX())
 
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -228,7 +259,7 @@ def test_profitable_with_big_imbalance_harvest(
 
     token_in = tokenA if swap_from == "a" else tokenB
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
-    token_in.approve(router, 2 ** 256 - 1, {"from": token_in_whale})
+    token_in.approve(router, 2**256 - 1, {"from": token_in_whale, "gas_price": 0})
     router.swapExactTokensForTokensSimple(
         10_000_000 * 10 ** token_in.decimals(),
         0,
@@ -236,8 +267,9 @@ def test_profitable_with_big_imbalance_harvest(
         tokenB if swap_from == "a" else tokenA,
         True,
         token_in_whale,
-        2 ** 256 - 1,
-        {"from": token_in_whale},
+        2**256 - 1,
+        {"from": token_in_whale,
+        "gas_price": 0}
     )
 
     investedA, investedB = joint.investedA(), joint.investedB()
@@ -252,7 +284,21 @@ def test_profitable_with_big_imbalance_harvest(
     print(f"Return B: {returnB:.4%}")
 
     # Return approximately equal
-    assert pytest.approx(returnA, rel=RELATIVE_APPROX) == returnB
+    assert pytest.approx(returnA, rel=1e-3) == returnB
+
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+
+    gov_solid_pre = solid_token.balanceOf(gov)
+    gov_sex_pre = sex_token.balanceOf(gov)
+    joint.sweep(solid_token, {"from": gov})
+
+    joint.sweep(sex_token, {"from": gov})
+
+    assert (solid_token.balanceOf(gov) - gov_solid_pre) == solid_pre
+    assert (sex_token.balanceOf(gov) - gov_sex_pre) == sex_pre
 
     utils.sleep()  # sleep for 6 hours
 
@@ -261,11 +307,11 @@ def test_profitable_with_big_imbalance_harvest(
     total_balance_tokenB = vaultB.totalAssets()
     assert (
         pytest.approx(total_balance_tokenA, rel=5 * 1e-3)
-        == amountA + profit_amount_tokenA
+        == amountA + profitA
     )
     assert (
         pytest.approx(total_balance_tokenB, rel=5 * 1e-3)
-        == amountB + profit_amount_tokenB
+        == amountB + profitB
     )
     assert vaultA.pricePerShare() > before_pps_tokenA
     assert vaultB.pricePerShare() > before_pps_tokenB
@@ -290,13 +336,16 @@ def test_profitable_harvest_yswaps(
     gov,
     tokenA_whale,
     tokenB_whale,
-    lp_token,
+    router,
     wftm,
     trade_factory,
     yMechs_multisig,
+    hedge_type
 ):
-    # TODO: get this ready for solidex
-    return
+    checks.check_run_test("nohedge", hedge_type)
+    solid_token = Contract(joint.SOLID_SEX())
+    sex_token = Contract(joint.SEX())
+
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -331,7 +380,11 @@ def test_profitable_harvest_yswaps(
 
     joint.claimRewardManually()
 
-    token_out = joint.tokenA()
+    solid_pre = solid_token.balanceOf(joint)
+    sex_pre = sex_token.balanceOf(joint)
+    assert sex_pre > 0
+    assert solid_pre > 0
+    token_out = tokenA
 
     receiver = joint.address
     multicall_swapper = Contract("0x590B3e12Ded77dE66CBF45050cD07a65d1F51dDD")
@@ -354,20 +407,19 @@ def test_profitable_harvest_yswaps(
         a = optimsations[0]
         b = optimsations[1]
 
-        calldata = token_in.approve.encode_input(solid_router, amount_in)
+        calldata = token_in.approve.encode_input(router, amount_in)
         t = createTx(token_in, calldata)
         a = a + t[0]
         b = b + t[1]
 
-        calldata = solid_router.swapExactTokensForTokens.encode_input(
+        calldata = router.swapExactTokensForTokens.encode_input(
             amount_in,
             0,
             [(token_in.address, wftm, False), (wftm, joint.tokenA(), False)],
             receiver,  # "0xB2F65F254Ab636C96fb785cc9B4485cbeD39CDAA",
-
-            2 ** 256 - 1,
+            2**256 - 1,
         )
-        t = createTx(solid_router, calldata)
+        t = createTx(router, calldata)
         a = a + t[0]
         b = b + t[1]
 

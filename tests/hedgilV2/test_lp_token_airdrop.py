@@ -32,7 +32,9 @@ def test_lp_token_airdrop_joint_open(
     rewards,
     rewards_whale,
     lp_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -126,7 +128,9 @@ def test_lp_token_airdrop_joint_closed(
     rewards,
     rewards_whale,
     lp_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
 
     # Dump some lp_tokens into the strat while positions are closed
     lp_token = Contract(joint.pair())
@@ -216,7 +220,9 @@ def test_lp_token_airdrop_joint_closed_sweep(
     joint,
     gov,
     lp_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
 
     # Dump some lp_tokens into the strat while positions are closed
     lp_token = Contract(joint.pair())

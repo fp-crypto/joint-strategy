@@ -21,10 +21,9 @@ def test_setup_positions(
     RELATIVE_APPROX,
     gov,
     hedgilV2,
-    tokenA_whale,
-    tokenB_whale,
-    mock_chainlink,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -116,8 +115,9 @@ def test_open_position_price_change_tokenA(
     router,
     dai,
     rewards,
-    rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -231,8 +231,9 @@ def test_open_position_price_change_tokenB(
     router,
     dai,
     rewards,
-    rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -345,7 +346,9 @@ def test_open_position_price_change_tokenA_rewards(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -438,7 +441,9 @@ def test_open_position_price_change_tokenB_rewards(
     dai,
     rewards,
     rewards_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)

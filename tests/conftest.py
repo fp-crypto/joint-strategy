@@ -1,6 +1,7 @@
 import pytest
 
-from brownie import accounts, chain, config, Contract, web3, Wei
+from brownie import accounts, chain, config, Contract, web3, Wei, \
+    SpookyJoint, SolidexJoint, SpiritJoint, SushiJoint
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -24,7 +25,7 @@ def tenderly_fork(web3):
     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
 @pytest.fixture(scope="session", autouse=True)
-def donate(wftm, accounts, gov):
+def donate(wftm, accounts, gov, tokenA_whale, tokenB_whale):
     donor = accounts.at(wftm, force=True)
     for i in range(10):
         donor.transfer(accounts[i], 100e18)
@@ -39,6 +40,7 @@ def reset_chain(chain):
     chain.reset()
     print(f"Reset Height: {chain.height}")
 
+######### ACCOUNTS & CONTRACTS
     
 @pytest.fixture(scope="session")
 def gov(accounts):
@@ -106,33 +108,68 @@ def dai():
 
 
 @pytest.fixture(scope="session")
-def lp_token():
-    yield Contract("0x41adAc6C1Ff52C5e27568f27998d747F7b69795B")
+def weth():
+    token_address = "0x74b23882a30290451A17c44f4F05243b6b58C76d"
+    yield Contract(token_address)
 
 
 @pytest.fixture(scope="session")
-def lp_depositor_solidex():
-    yield Contract("0x26E1A0d851CF28E697870e1b7F053B605C8b060F")
+def wftm():
+    token_address = token_addresses["WFTM"]
+    yield Contract(token_address)
 
 
 @pytest.fixture(scope="session")
-def solidex_factory():
-    yield Contract("0x3fAaB499b519fdC5819e3D7ed0C26111904cbc28")
+def usdc():
+    token_address = token_addresses["USDC"]
+    yield Contract(token_address)
 
 
-token_addresses = {
-    "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",  # YFI
-    "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",  # WETH
-    "DAI": "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E",  # DAI
-    "USDC": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",  # USDC
-    "SUSHI": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",  # SUSHI
-    "MIM": "0x82f0b8b456c1a451378467398982d4834b6829c1",  # MIM
-    "WFTM": "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83",  # WFTM
-    "SPIRIT": "0x5Cc61A78F164885776AA610fb0FE1257df78E59B",  # SPIRIT
-    "BOO": "0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE",  # BOO
-    "SEX": "0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7",  # SEX
-    "SOLID": "0x888EF71766ca594DED1F0FA3AE64eD2941740A20",  # SOLID
-}
+@pytest.fixture(scope="session")
+def mim():
+    token_address = token_addresses["MIM"]
+    yield Contract(token_address)
+
+@pytest.fixture(scope="session")
+def registry():
+    yield Contract("")
+
+
+@pytest.fixture(scope="session")
+def live_vaultA(registry, tokenA):
+    yield registry.latestVault(tokenA)
+
+
+@pytest.fixture(scope="session")
+def live_vaultB(registry, tokenB):
+    yield registry.latestVault(tokenB)
+
+######### PARAMETERS
+
+# Select the type of hedge to use for the joint
+@pytest.fixture(
+    params=[
+        # "nohedge",
+        "hedgilV2",
+        # "hegic"
+    ],
+    scope="session",
+    autouse=True,)
+def hedge_type(request):
+    yield request.param
+
+@pytest.fixture(
+    params=[
+        # "SUSHI",
+        # "SOLID",
+        # "SPIRIT",
+        # "UNI",
+        "SPOOKY"
+    ],
+    scope="session",
+    autouse=True,)
+def dex(request):
+    yield request.param
 
 # TODO: uncomment those tokens you want to test as want
 @pytest.fixture(
@@ -166,6 +203,7 @@ def tokenA(request):
         # "USDC",  # USDC
         "WFTM",
         # "MIM",
+        # "FRAX",
     ],
     scope="session",
     autouse=True,
@@ -173,6 +211,51 @@ def tokenA(request):
 def tokenB(request):
     yield Contract(token_addresses[request.param])
 
+@pytest.fixture(params=[
+    # "SEX",
+    "BOO"
+    ], scope="session", autouse=True)
+def rewards(request):
+    rewards_address = token_addresses[request.param]  # sushi
+    yield Contract(rewards_address)
+
+joint_type = {
+    "SPOOKY": {
+        "nohedge": "",
+        "hedgilV2": SpookyJoint
+    },
+    "SOLID": {
+        "nohedge": SolidexJoint,
+        "hedgilV2": ""
+    },
+    "SUSHI": {
+        "nohedge": "",
+        "hedgilV2": "",
+        "hegic": SushiJoint
+    },
+    "SPIRIT": {
+        "nohedge": "",
+        "hedgilV2": ""
+    }
+}
+@pytest.fixture()
+def joint_to_use(dex, hedge_type):
+    yield joint_type[dex][hedge_type]
+
+token_addresses = {
+    "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",  # YFI
+    "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",  # WETH
+    "DAI": "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E",  # DAI
+    "USDC": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",  # USDC
+    "SUSHI": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",  # SUSHI
+    "MIM": "0x82f0b8b456c1a451378467398982d4834b6829c1",  # MIM
+    "WFTM": "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83",  # WFTM
+    "SPIRIT": "0x5Cc61A78F164885776AA610fb0FE1257df78E59B",  # SPIRIT
+    "BOO": "0x841FAD6EAe12c286d1Fd18d1d525DFfA75C7EFFE",  # BOO
+    "SEX": "0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7",  # SEX
+    "SOLID": "0x888EF71766ca594DED1F0FA3AE64eD2941740A20",  # SOLID
+    "FRAX": "0xdc301622e621166BD8E82f2cA0A26c13Ad0BE355", #FRAX
+}
 
 whale_addresses = {
     "SOLID": "0x1d1A1871d1830D4b5087212c820E5f1252379c2c",
@@ -185,14 +268,29 @@ whale_addresses = {
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
     "MIM": "0x2dd7C9371965472E5A5fD28fbE165007c61439E1",
     "BOO": "0xE0c15e9Fe90d56472D8a43da5D3eF34ae955583C",
+    "FRAX": "0x7a656B342E14F745e2B164890E88017e27AE7320",
 }
 
-lp_whales = {"BOO": {"USDC": {"WFTM": "0xE6939A804b3C7570Ff5f36c1f0d886dAD4b4A204"}}}
+lp_whales = {
+    "SPOOKY": 
+        {
+            "USDC": {
+                "WFTM": "0xE6939A804b3C7570Ff5f36c1f0d886dAD4b4A204"
+                }
+        },
+    "SOLID": 
+        {
+            "USDC": {
+                "MIM": "0xC009BC33201A85800b3593A40a178521a8e60a02",
+                "FRAX": "0x6340dd65D9da8E39651229C1ba9F0ee069E7E4f8",
+                }
+        },
+}
 
 
 @pytest.fixture(scope="session", autouse=True)
-def lp_whale(rewards, tokenA, tokenB):
-    yield lp_whales[rewards.symbol()][tokenA.symbol()][tokenB.symbol()]
+def lp_whale(dex, tokenA, tokenB):
+    yield lp_whales[dex][tokenA.symbol()][tokenB.symbol()]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -204,6 +302,85 @@ def tokenA_whale(tokenA):
 def tokenB_whale(tokenB):
     yield whale_addresses[tokenB.symbol()]
 
+mc_pids = {
+    "WFTM": {
+        "MIM": 24,
+        "USDC": 2,
+    }
+}
+
+@pytest.fixture
+def mc_pid(tokenA, tokenB):
+    if tokenB.symbol() in mc_pids.keys():
+        yield mc_pids[tokenB.symbol()][tokenA.symbol()]
+    else:
+        yield ""
+
+router_addresses = {
+    "UNI": "",
+    "SUSHI": "",
+    "SPOOKY": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
+    "SOLID": "0xa38cd27185a464914D3046f0AB9d43356B34829D",
+    "SPIRIT": "0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52",
+}
+
+@pytest.fixture
+def router(dex):
+    yield Contract(router_addresses[dex])
+
+lp_depositor_addresses = {
+    "SOLID": "0x26E1A0d851CF28E697870e1b7F053B605C8b060F",
+}
+
+@pytest.fixture(scope="session")
+def lp_depositor(dex):
+    if dex in lp_depositor_addresses.keys():
+        yield Contract(lp_depositor_addresses[dex])
+    else: 
+        yield ""
+
+# Non-comprehensive, find the full list here to add your own: https://docs.chain.link/docs/fantom-price-feeds/
+oracle_addresses = {
+    "WFTM": "0xf4766552D15AE4d256Ad41B6cf2933482B0680dc",
+    "USDC": "0x2553f4eeb82d5A26427b8d1106C51499CBa5D99c",
+    "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD",
+    "FRAX": "0xBaC409D670d996Ef852056f6d45eCA41A8D57FbD",
+}
+
+
+@pytest.fixture(scope="session")
+def tokenA_oracle(tokenA):
+    yield Contract(oracle_addresses[tokenA.symbol()])
+
+
+@pytest.fixture(scope="session")
+def tokenB_oracle(tokenB):
+    yield Contract(oracle_addresses[tokenB.symbol()])
+
+@pytest.fixture
+def rewards_whale(rewards):
+    yield whale_addresses[rewards.symbol()]
+
+masterchef_addresses = {
+    "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
+    "SPIRIT": "0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093",
+    "BOO": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
+    "SOLID": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
+    "SEX": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
+}
+
+@pytest.fixture
+def masterchef(rewards):
+    yield Contract(masterchef_addresses[rewards.symbol()])
+
+hedgil_pools = {
+    "WFTM": {
+        "MIM": "0x150C42e9CB21354030967579702e0f010e208E86",
+        "USDC": "0x8C2cC5ff69Bc3760d7Ce81812A2848421495972A",
+    }
+}
+
+######### UTILITIES
 
 token_prices = {
     "WBTC": 60_000,
@@ -215,8 +392,8 @@ token_prices = {
     "DAI": 1,
     "WFTM": 3,
     "MIM": 1,
+    "FRAX": 1,
 }
-
 
 @pytest.fixture(autouse=True)
 def amountA(tokenA, tokenA_whale, user):
@@ -231,7 +408,6 @@ def amountA(tokenA, tokenA_whale, user):
         user, amount, {"from": tokenA_whale, "gas": 6_000_000, "gas_price": 0}
     )
     yield amount
-
 
 @pytest.fixture(autouse=True)
 def amountB(tokenB, tokenB_whale, user):
@@ -248,104 +424,13 @@ def amountB(tokenB, tokenB_whale, user):
     yield amount
 
 
-mc_pids = {
-    "WFTM": {
-        "MIM": 24,
-        "USDC": 2,
-    }
-}
-
-
-@pytest.fixture
-def mc_pid(tokenA, tokenB):
-    yield mc_pids[tokenB.symbol()][tokenA.symbol()]
-
-
-router_addresses = {
-    "SPIRIT": "0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52",
-    "SPOOKY": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
-    "BOO": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
-}
-
-
-@pytest.fixture
-def router(rewards):
-    yield Contract(router_addresses[rewards.symbol()])
-
-
-# Non-comprehensive, find the full list here to add your own: https://docs.chain.link/docs/fantom-price-feeds/
-oracle_addresses = {
-    "WFTM": "0xf4766552D15AE4d256Ad41B6cf2933482B0680dc",
-    "USDC": "0x2553f4eeb82d5A26427b8d1106C51499CBa5D99c",
-    "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD",
-}
-
-
-@pytest.fixture(scope="session")
-def tokenA_oracle(tokenA):
-    yield Contract(oracle_addresses[tokenA.symbol()])
-
-
-@pytest.fixture(scope="session")
-def tokenB_oracle(tokenB):
-    yield Contract(oracle_addresses[tokenB.symbol()])
-
-
-@pytest.fixture(scope="session")
-def weth():
-    token_address = "0x74b23882a30290451A17c44f4F05243b6b58C76d"
-    yield Contract(token_address)
-
-
-@pytest.fixture(scope="session")
-def wftm():
-    token_address = token_addresses["WFTM"]
-    yield Contract(token_address)
-
-
-@pytest.fixture(scope="session")
-def usdc():
-    token_address = token_addresses["USDC"]
-    yield Contract(token_address)
-
-
-@pytest.fixture(scope="session")
-def mim():
-    token_address = token_addresses["MIM"]
-    yield Contract(token_address)
-
-
-@pytest.fixture(params=["BOO"], scope="session", autouse=True)
-def rewards(request):
-    rewards_address = token_addresses[request.param]  # sushi
-    yield Contract(rewards_address)
-
-
-@pytest.fixture
-def rewards_whale(rewards):
-    yield whale_addresses[rewards.symbol()]
-
-
-masterchef_addresses = {
-    "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
-    "SPIRIT": "0x9083EA3756BDE6Ee6f27a6e996806FBD37F6F093",
-    "BOO": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
-    "SOLID": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
-    "SEX": "0x2b2929E785374c651a81A63878Ab22742656DcDd",
-}
-
-
-@pytest.fixture
-def masterchef(rewards):
-    yield Contract(masterchef_addresses[rewards.symbol()])
-
-
 @pytest.fixture
 def weth_amount(user, weth):
     weth_amount = 10 ** weth.decimals()
     user.transfer(weth, weth_amount)
     yield weth_amount
 
+######### DEPLOYMENTS
 
 @pytest.fixture(scope="function", autouse=True)
 def vaultA(pm, gov, rewards, guardian, management, tokenA):
@@ -366,53 +451,48 @@ def vaultB(pm, gov, rewards, guardian, management, tokenB):
     vault.setManagement(management, {"from": gov, "gas_price":0})
     yield vault
 
-
-@pytest.fixture(scope="session")
-def registry():
-    yield Contract("")
-
-
-@pytest.fixture(scope="session")
-def live_vaultA(registry, tokenA):
-    yield registry.latestVault(tokenA)
-
-
-@pytest.fixture(scope="session")
-def live_vaultB(registry, tokenB):
-    yield registry.latestVault(tokenB)
-
-
 @pytest.fixture
 def joint(
     providerA,
     providerB,
-    SpookyJoint,
+    joint_to_use,
     masterchef,
     rewards,
     router,
     wftm,
-    weth,
     mc_pid,
     hedgilV2,
     gov,
-    tokenA,
-    tokenB,
-    stable,
+    lp_depositor,
+    stable
 ):
-    gas_price(0)
-
-    joint = gov.deploy(
-        SpookyJoint,
-        providerA,
-        providerB,
-        router,
-        wftm,
-        rewards,
-        hedgilV2,
-        masterchef,
-        mc_pid,
-    )
-    joint.setMaxPercentageLoss(500, {"from": gov})
+    
+    if (joint_to_use == SpookyJoint): 
+        joint = gov.deploy(
+            joint_to_use,
+            providerA,
+            providerB,
+            router,
+            wftm,
+            rewards,
+            hedgilV2,
+            masterchef,
+            mc_pid,
+        )
+        joint.setMaxPercentageLoss(500, {"from": gov})
+    elif (joint_to_use == SolidexJoint):
+        joint = gov.deploy(
+            joint_to_use,
+            providerA,
+            providerB,
+            router,
+            wftm,
+            rewards,
+            lp_depositor,
+            stable
+        )
+        joint.setMaxPercentageLoss(500, {"from": gov})
+    
     providerA.setJoint(joint, {"from": gov})
     providerB.setJoint(joint, {"from": gov})
 
@@ -450,26 +530,18 @@ def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
     )
     yield strategy
 
-
-hedgil_pools = {
-    "WFTM": {
-        "MIM": "0x150C42e9CB21354030967579702e0f010e208E86",
-        "USDC": "0x8C2cC5ff69Bc3760d7Ce81812A2848421495972A",
-    }
-}
-
-
 @pytest.fixture(autouse=True)
 def provideLiquidity(
-    hedgilV2, tokenA, tokenB, tokenA_whale, tokenB_whale, amountA, amountB
+    hedgilV2, tokenB, tokenB_whale, hedge_type
 ):
-    tokenB.approve(hedgilV2, 2 ** 256 - 1, {"from": tokenB_whale, "gas_price": "0"})
-    hedgilV2.provideLiquidity(
-        100_000 * 10 ** tokenB.decimals(),
-        0,
-        tokenB_whale,
-        {"from": tokenB_whale, "gas_price": "0"},
-    )
+    if hedge_type == "hedgilV2":
+        tokenB.approve(hedgilV2, 2 ** 256 - 1, {"from": tokenB_whale, "gas_price": "0"})
+        hedgilV2.provideLiquidity(
+            100_000 * 10 ** tokenB.decimals(),
+            0,
+            tokenB_whale,
+            {"from": tokenB_whale, "gas_price": "0"},
+        )
 
 
 # @pytest.fixture

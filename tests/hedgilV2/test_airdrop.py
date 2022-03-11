@@ -18,7 +18,9 @@ def test_airdrop(
     RELATIVE_APPROX,
     tokenA_whale,
     tokenB_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -82,7 +84,8 @@ def test_airdrop(
     assert vaultB.pricePerShare() > before_ppsB
 
 
-def test_airdrop_provider(chain, gov, tokenA, vaultA, providerA, tokenA_whale):
+def test_airdrop_provider(chain, gov, tokenA, vaultA, providerA, tokenA_whale, hedge_type):
+    checks.check_run_test("hedgilV2", hedge_type)
     # set debtRatio of providerA to 0
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
     assert providerA.balanceOfWant() == 0
@@ -120,7 +123,9 @@ def test_airdrop_providers(
     RELATIVE_APPROX,
     tokenA_whale,
     tokenB_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # start epoch
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
