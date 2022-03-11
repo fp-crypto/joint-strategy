@@ -149,8 +149,8 @@ def live_vaultB(registry, tokenB):
 # Select the type of hedge to use for the joint
 @pytest.fixture(
     params=[
-        # "nohedge",
-        "hedgilV2",
+        "nohedge",
+        # "hedgilV2",
         # "hegic"
     ],
     scope="session",
@@ -161,10 +161,10 @@ def hedge_type(request):
 @pytest.fixture(
     params=[
         # "SUSHI",
-        # "SOLID",
+        "SOLID",
         # "SPIRIT",
         # "UNI",
-        "SPOOKY"
+        # "SPOOKY"
     ],
     scope="session",
     autouse=True,)
@@ -199,9 +199,9 @@ def tokenA(request):
         # "WETH",  # WETH
         # 'LINK', # LINK
         # 'USDT', # USDT
-        # 'DAI', # DAI
+        'DAI', # DAI
         # "USDC",  # USDC
-        "WFTM",
+        # "WFTM",
         # "MIM",
         # "FRAX",
     ],
@@ -212,8 +212,8 @@ def tokenB(request):
     yield Contract(token_addresses[request.param])
 
 @pytest.fixture(params=[
-    # "SEX",
-    "BOO"
+    "SEX",
+    # "BOO"
     ], scope="session", autouse=True)
 def rewards(request):
     rewards_address = token_addresses[request.param]  # sushi
@@ -263,7 +263,7 @@ whale_addresses = {
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",
     "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",
     "USDC": "0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682",
-    "DAI": "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E",
+    "DAI": "0x4188663a85C92EEa35b5AD3AA5cA7CeB237C6fe9",
     "SUSHI": "0xae75A438b2E0cB8Bb01Ec1E1e376De11D44477CC",
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
     "MIM": "0x2dd7C9371965472E5A5fD28fbE165007c61439E1",
@@ -283,6 +283,7 @@ lp_whales = {
             "USDC": {
                 "MIM": "0xC009BC33201A85800b3593A40a178521a8e60a02",
                 "FRAX": "0x6340dd65D9da8E39651229C1ba9F0ee069E7E4f8",
+                "DAI": "0x9C7EaC4b4a8d37fA9dE7e4cb81F0a99256C672d1",
                 }
         },
 }
