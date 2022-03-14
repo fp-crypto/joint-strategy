@@ -176,7 +176,7 @@ def dex(request):
     params=[
         # 'WBTC', # WBTC
         # "YFI",  # YFI
-        # "WETH",  # WETH
+        "ETH",  # WETH
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
@@ -184,7 +184,7 @@ def dex(request):
         # "USDC",  # USDC
         # "WFTM",
         # "BOO",
-        "BTC",
+        # "BTC",
     ],
     scope="session",
     autouse=True,
@@ -246,7 +246,7 @@ def joint_to_use(dex, hedge_type):
 
 token_addresses = {
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",  # YFI
-    "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",  # WETH
+    "ETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",  # WETH
     "DAI": "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E",  # DAI
     "USDC": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",  # USDC
     "SUSHI": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",  # SUSHI
@@ -264,7 +264,7 @@ whale_addresses = {
     "SOLID": "0x1d1A1871d1830D4b5087212c820E5f1252379c2c",
     "SEX": "0x1434f19804789e494E271F9CeF8450e51790fcD2",
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",
-    "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",
+    "ETH": "0x25c130B2624CF12A4Ea30143eF50c5D68cEFA22f",
     "USDC": "0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682",
     "DAI": "0x27E611FD27b276ACbd5Ffd632E5eAEBEC9761E40",
     "SUSHI": "0xae75A438b2E0cB8Bb01Ec1E1e376De11D44477CC",
@@ -283,6 +283,7 @@ lp_whales = {
                 "BOO": "0xc94A3Ff0bac12eeB9ff0CC4e08511E1FFaD6ba94",
                 "DAI": "0x7495f066Bb8a0f71908DeB8d4EFe39556f13f58A",
                 "BTC": "0xb78E3E8bd36B3228322d0a9d3271B5FbB7997fA3",
+                "ETH": "0x5a87E9A0A765fE5A69fA6492D3C7838DC1511805",
                 }
         },
     "SOLID": 
@@ -317,6 +318,7 @@ mc_pids = {
         "BOO": 0,
         "DAI": 3,
         "BTC": 4,
+        "ETH": 5,
     }
 }
 
@@ -358,6 +360,7 @@ oracle_addresses = {
     "FRAX": "0xBaC409D670d996Ef852056f6d45eCA41A8D57FbD",
     "DAI": "0x91d5DEFAFfE2854C7D02F50c80FA1fdc8A721e52",
     "BTC": "0x8e94C22142F4A64b99022ccDd994f4e9EC86E4B4",
+    "ETH": "0x11DdD3d147E5b83D01cee7070027092397d63658",
 }
 
 
@@ -398,7 +401,7 @@ hedgil_pools = {
 token_prices = {
     "WBTC": 60_000,
     "BTC": 38_000,
-    "WETH": 4_500,
+    "ETH": 4_500,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
