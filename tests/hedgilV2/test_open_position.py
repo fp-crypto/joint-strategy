@@ -117,11 +117,11 @@ def test_open_position_price_change_tokenA(
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
     lp_token = Contract(joint.pair())
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     (initial_amount_A, initial_amount_B) = joint.balanceOfTokensInLP()
 
     # Get the hedgil open position
@@ -142,7 +142,7 @@ def test_open_position_price_change_tokenA(
         f"Dumping some {tokenA.symbol()}. Selling {tokenA_dump / (10 ** tokenA.decimals())} {tokenA.symbol()}"
     )
     actions.dump_token(tokenA_whale, tokenA, tokenB, router, tokenA_dump)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
 
     utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
@@ -184,7 +184,7 @@ def test_open_position_price_change_tokenA(
     )
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     tokenA_loss = vaultA.strategies(providerA)["totalLoss"]
     tokenB_loss = vaultB.strategies(providerB)["totalLoss"]
 
@@ -233,11 +233,11 @@ def test_open_position_price_change_tokenB(
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
     lp_token = Contract(joint.pair())
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     (initial_amount_A, initial_amount_B) = joint.balanceOfTokensInLP()
 
     # Get the hedgil open position
@@ -258,7 +258,7 @@ def test_open_position_price_change_tokenB(
         f"Dumping some {tokenB.symbol()}. Selling {tokenB_dump / (10 ** tokenB.decimals())} {tokenB.symbol()}"
     )
     actions.dump_token(tokenB_whale, tokenB, tokenA, router, tokenB_dump)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
 
     utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
@@ -298,7 +298,7 @@ def test_open_position_price_change_tokenB(
     )
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     tokenA_loss = vaultA.strategies(providerA)["totalLoss"]
     tokenB_loss = vaultB.strategies(providerB)["totalLoss"]
 
@@ -348,11 +348,11 @@ def test_open_position_price_change_tokenA_rewards(
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
     lp_token = Contract(joint.pair())
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     (initial_amount_A, initial_amount_B) = joint.balanceOfTokensInLP()
 
     # Get the hedgil open position
@@ -373,7 +373,7 @@ def test_open_position_price_change_tokenA_rewards(
         f"Dumping some {tokenA.symbol()}. Selling {tokenA_dump / (10 ** tokenA.decimals())} {tokenA.symbol()}"
     )
     actions.dump_token(tokenA_whale, tokenA, tokenB, router, tokenA_dump)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
 
     utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
@@ -392,7 +392,7 @@ def test_open_position_price_change_tokenA_rewards(
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     tokenA_loss = vaultA.strategies(providerA)["totalLoss"]
     tokenB_loss = vaultB.strategies(providerB)["totalLoss"]
 
@@ -443,11 +443,11 @@ def test_open_position_price_change_tokenB_rewards(
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
     lp_token = Contract(joint.pair())
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     actions.gov_start_epoch(
         gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB
     )
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     (initial_amount_A, initial_amount_B) = joint.balanceOfTokensInLP()
 
     # Get the hedgil open position
@@ -468,7 +468,7 @@ def test_open_position_price_change_tokenB_rewards(
         f"Dumping some {tokenB.symbol()}. Selling {tokenB_dump / (10 ** tokenB.decimals())} {tokenB.symbol()}"
     )
     actions.dump_token(tokenB_whale, tokenB, tokenA, router, tokenB_dump)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
 
     utils.print_joint_status(joint, tokenA, tokenB, lp_token, rewards)
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
@@ -487,7 +487,7 @@ def test_open_position_price_change_tokenB_rewards(
     utils.print_hedgil_status(joint, hedgilV2, tokenA, tokenB)
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
-    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle)
+    actions.sync_price(tokenB, lp_token, chainlink_owner, deployer, tokenB_oracle, tokenA_oracle)
     tokenA_loss = vaultA.strategies(providerA)["totalLoss"]
     tokenB_loss = vaultB.strategies(providerB)["totalLoss"]
 

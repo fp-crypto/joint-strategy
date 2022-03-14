@@ -146,7 +146,7 @@ def first_deposit_and_harvest(
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
 
-def sync_price(token, lp_token, chainlink_owner, deployer, token_oracle):
+def sync_price(token, lp_token, chainlink_owner, deployer, token_oracle, tokenA_oracle):
     token_mock_oracle = deployer.deploy(AggregatorMock, 0)
 
     token_oracle.proposeAggregator(
@@ -176,7 +176,7 @@ def sync_price(token, lp_token, chainlink_owner, deployer, token_oracle):
 
     pairPrice = (
         reserveB / reserveA * 10 ** tokenA.decimals() / 10 ** tokenB.decimals() * 1e8
-    )
+    ) * tokenA_oracle.latestAnswer() / 1e8
 
     token_mock_oracle.setPrice(pairPrice, {"from": accounts[0]})
     print(f"Current price is: {pairPrice/1e8}")

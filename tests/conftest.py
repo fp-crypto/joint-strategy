@@ -181,9 +181,10 @@ def dex(request):
         # 'USDT', # USDT
         # 'DAI', # DAI
         # "WFTM",
-        "USDC",  # USDC
+        # "USDC",  # USDC
         # "WFTM",
         # "BOO",
+        "BTC",
     ],
     scope="session",
     autouse=True,
@@ -256,6 +257,7 @@ token_addresses = {
     "SEX": "0xD31Fcd1f7Ba190dBc75354046F6024A9b86014d7",  # SEX
     "SOLID": "0x888EF71766ca594DED1F0FA3AE64eD2941740A20",  # SOLID
     "FRAX": "0xdc301622e621166BD8E82f2cA0A26c13Ad0BE355", #FRAX
+    "BTC": "0x321162Cd933E2Be498Cd2267a90534A804051b11", #BTC
 }
 
 whale_addresses = {
@@ -270,6 +272,7 @@ whale_addresses = {
     "MIM": "0x2dd7C9371965472E5A5fD28fbE165007c61439E1",
     "BOO": "0x0D0707963952f2fBA59dD06f2b425ace40b492Fe",
     "FRAX": "0x7a656B342E14F745e2B164890E88017e27AE7320",
+    "BTC": "0x38aCa5484B8603373Acc6961Ecd57a6a594510A3",
 }
 
 lp_whales = {
@@ -279,6 +282,7 @@ lp_whales = {
                 "USDC": "0x7495f066Bb8a0f71908DeB8d4EFe39556f13f58A",
                 "BOO": "0xc94A3Ff0bac12eeB9ff0CC4e08511E1FFaD6ba94",
                 "DAI": "0x7495f066Bb8a0f71908DeB8d4EFe39556f13f58A",
+                "BTC": "0xb78E3E8bd36B3228322d0a9d3271B5FbB7997fA3",
                 }
         },
     "SOLID": 
@@ -312,6 +316,7 @@ mc_pids = {
         "USDC": 2,
         "BOO": 0,
         "DAI": 3,
+        "BTC": 4,
     }
 }
 
@@ -352,6 +357,7 @@ oracle_addresses = {
     "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD",
     "FRAX": "0xBaC409D670d996Ef852056f6d45eCA41A8D57FbD",
     "DAI": "0x91d5DEFAFfE2854C7D02F50c80FA1fdc8A721e52",
+    "BTC": "0x8e94C22142F4A64b99022ccDd994f4e9EC86E4B4",
 }
 
 
@@ -391,6 +397,7 @@ hedgil_pools = {
 
 token_prices = {
     "WBTC": 60_000,
+    "BTC": 38_000,
     "WETH": 4_500,
     "LINK": 20,
     "YFI": 30_000,
