@@ -55,17 +55,9 @@ def test_setup_positions(
     hedgil_position = hedgilV2.getHedgilByID(hedgil_id)
 
     # Get invested balances
-    (bal0, bal1) = joint.balanceOfTokensInLP()
+    (balA, balB) = joint.balanceOfTokensInLP()
     # Get lp_token
     lp_token = Contract(joint.pair())
-
-    # Ensure balances are comparable
-    if lp_token.token0() == tokenA:
-        balA = bal0
-        balB = bal1
-    else:
-        balA = bal1
-        balB = bal0
 
     # Check that total tokens still are accounted for:
     # TokenA (other token) are either in lp pool or provider A
@@ -79,12 +71,12 @@ def test_setup_positions(
     )
 
     # Check ratios
-    (reserve0, reserve1, _) = lp_token.getReserves()
+    (reserveA, reserveB) = joint.getReserves()
     # Check ratios between position and reserves are constant
-    assert pytest.approx(bal0 / reserve0, rel=1e-5) == bal1 / reserve1
+    assert pytest.approx(balA / reserveA, rel=1e-5) == balB / reserveB
 
     # Check that q for hedgil is the deposited amount of other token
-    assert balA == hedgil_position["initialQ"]
+    assert pytest.approx(balA, rel=1e-5) == hedgil_position["initialQ"]
     # Check that strike is current price
     assert hedgil_position["strike"] == hedgilV2.getCurrentPrice(tokenA)
 
@@ -173,12 +165,12 @@ def test_open_position_price_change_tokenA(
         + tokenA_excess_to_tokenB
         + hedgilV2.getCurrentPayout(hedgil_id)
     )
-    assert pytest.approx(total_B_value_now, rel=1e-5) == initial_amount_B
+    assert pytest.approx(total_B_value_now, rel=1e-3) == initial_amount_B
     # Ensure that initial amounts are still intact taking all current data into account
     # A tokens are either in the provider strat or excess
     assert (
         pytest.approx(
-            tokenA.balanceOf(providerA) + current_amount_A - tokenA_excess, rel=1e-5
+            tokenA.balanceOf(providerA) + current_amount_A - tokenA_excess, rel=1e-3
         )
         == amountA
     )
@@ -186,7 +178,7 @@ def test_open_position_price_change_tokenA(
     assert (
         pytest.approx(
             tokenB.balanceOf(providerB) + total_B_value_now + hedgil_position["cost"],
-            rel=1e-5,
+            rel=1e-3,
         )
         == amountB
     )

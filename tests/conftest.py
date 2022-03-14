@@ -149,8 +149,8 @@ def live_vaultB(registry, tokenB):
 # Select the type of hedge to use for the joint
 @pytest.fixture(
     params=[
-        "nohedge",
-        # "hedgilV2",
+        # "nohedge",
+        "hedgilV2",
         # "hegic"
     ],
     scope="session",
@@ -161,10 +161,10 @@ def hedge_type(request):
 @pytest.fixture(
     params=[
         # "SUSHI",
-        "SOLID",
+        # "SOLID",
         # "SPIRIT",
         # "UNI",
-        # "SPOOKY"
+        "SPOOKY"
     ],
     scope="session",
     autouse=True,)
@@ -183,6 +183,7 @@ def dex(request):
         # "WFTM",
         "USDC",  # USDC
         # "WFTM",
+        # "BOO",
     ],
     scope="session",
     autouse=True,
@@ -199,9 +200,9 @@ def tokenA(request):
         # "WETH",  # WETH
         # 'LINK', # LINK
         # 'USDT', # USDT
-        'DAI', # DAI
+        # 'DAI', # DAI
         # "USDC",  # USDC
-        # "WFTM",
+        "WFTM",
         # "MIM",
         # "FRAX",
     ],
@@ -212,8 +213,8 @@ def tokenB(request):
     yield Contract(token_addresses[request.param])
 
 @pytest.fixture(params=[
-    "SEX",
-    # "BOO"
+    # "SEX",
+    "BOO"
     ], scope="session", autouse=True)
 def rewards(request):
     rewards_address = token_addresses[request.param]  # sushi
@@ -263,19 +264,21 @@ whale_addresses = {
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",
     "WETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",
     "USDC": "0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682",
-    "DAI": "0x4188663a85C92EEa35b5AD3AA5cA7CeB237C6fe9",
+    "DAI": "0x27E611FD27b276ACbd5Ffd632E5eAEBEC9761E40",
     "SUSHI": "0xae75A438b2E0cB8Bb01Ec1E1e376De11D44477CC",
     "WFTM": "0x5AA53f03197E08C4851CAD8C92c7922DA5857E5d",
     "MIM": "0x2dd7C9371965472E5A5fD28fbE165007c61439E1",
-    "BOO": "0xE0c15e9Fe90d56472D8a43da5D3eF34ae955583C",
+    "BOO": "0x0D0707963952f2fBA59dD06f2b425ace40b492Fe",
     "FRAX": "0x7a656B342E14F745e2B164890E88017e27AE7320",
 }
 
 lp_whales = {
     "SPOOKY": 
         {
-            "USDC": {
-                "WFTM": "0xE6939A804b3C7570Ff5f36c1f0d886dAD4b4A204"
+            "WFTM": {
+                "USDC": "0x7495f066Bb8a0f71908DeB8d4EFe39556f13f58A",
+                "BOO": "0xc94A3Ff0bac12eeB9ff0CC4e08511E1FFaD6ba94",
+                "DAI": "0x7495f066Bb8a0f71908DeB8d4EFe39556f13f58A",
                 }
         },
     "SOLID": 
@@ -291,7 +294,7 @@ lp_whales = {
 
 @pytest.fixture(scope="session", autouse=True)
 def lp_whale(dex, tokenA, tokenB):
-    yield lp_whales[dex][tokenA.symbol()][tokenB.symbol()]
+    yield lp_whales[dex][tokenB.symbol()][tokenA.symbol()]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -307,6 +310,8 @@ mc_pids = {
     "WFTM": {
         "MIM": 24,
         "USDC": 2,
+        "BOO": 0,
+        "DAI": 3,
     }
 }
 
@@ -346,6 +351,7 @@ oracle_addresses = {
     "USDC": "0x2553f4eeb82d5A26427b8d1106C51499CBa5D99c",
     "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD",
     "FRAX": "0xBaC409D670d996Ef852056f6d45eCA41A8D57FbD",
+    "DAI": "0x91d5DEFAFfE2854C7D02F50c80FA1fdc8A721e52",
 }
 
 
@@ -394,6 +400,7 @@ token_prices = {
     "WFTM": 3,
     "MIM": 1,
     "FRAX": 1,
+    "BOO": 11,
 }
 
 @pytest.fixture(autouse=True)
