@@ -3,7 +3,7 @@ from brownie import Contract
 def main():
 
     # BOO - WFTM
-    lp_token_to_find = "0xf0702249F4D3A25cD3DED7859a165693685Ab577"
+    lp_token_to_find = "0x5965E53aa80a0bcF1CD6dbDd72e6A9b2AA047410"
 
     # SPOOKY
     masterchef = Contract("0x2b2929E785374c651a81A63878Ab22742656DcDd")
