@@ -9,8 +9,8 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import "./LPHedgingLib.sol";
-import "./Joint.sol";
+import "../libraries/LPHedgingLib.sol";
+import "../Joint.sol";
 
 interface IHedgilPool {
     function getTimeToMaturity(uint256 hedgeID) external view returns (uint256);
@@ -18,6 +18,8 @@ interface IHedgilPool {
     function getHedgeProfit(uint256 hedgeID) external view returns (uint256);
 
     function getHedgeStrike(uint256 hedgeID) external view returns (uint256);
+
+    function getCurrentPayout(uint256 hedgeID) external view returns (uint256);
 
     function hedgeLPToken(
         address pair,
@@ -35,8 +37,6 @@ abstract contract HedgilJoint is Joint {
     using Address for address;
     using SafeMath for uint256;
 
-    uint256 private constant PRICE_DECIMALS = 1e8;
-
     uint256 public activeHedgeID;
 
     uint256 public hedgeBudget;
@@ -46,8 +46,9 @@ abstract contract HedgilJoint is Joint {
     uint256 private minTimeToMaturity;
 
     bool public skipManipulatedCheck;
-    bool public isHedgingDisabled;
+    bool public isHedgingEnabled;
 
+    uint256 private constant PRICE_DECIMALS = 1e18;
     uint256 public maxSlippageOpen;
     uint256 public maxSlippageClose;
 
@@ -66,12 +67,17 @@ abstract contract HedgilJoint is Joint {
 
     function _initializeHedgilJoint(address _hedgilPool) internal {
         hedgilPool = _hedgilPool;
+
         hedgeBudget = 50; // 0.5% per hedging period
         protectionRange = 1000; // 10%
         period = 7 days;
         minTimeToMaturity = 3600; // 1 hour
         maxSlippageOpen = 100; // 1%
         maxSlippageClose = 100; // 1%
+
+        isHedgingEnabled = true;
+
+        IERC20(tokenB).approve(_hedgilPool, type(uint256).max);
     }
 
     function getHedgeBudget(address token)
@@ -93,7 +99,7 @@ abstract contract HedgilJoint is Joint {
     }
 
     function getHedgeProfit() public view override returns (uint256, uint256) {
-        return (IHedgilPool(hedgilPool).getHedgeProfit(activeHedgeID), 0);
+        return (0, IHedgilPool(hedgilPool).getCurrentPayout(activeHedgeID));
     }
 
     function setSkipManipulatedCheck(bool _skipManipulatedCheck)
@@ -107,6 +113,7 @@ abstract contract HedgilJoint is Joint {
         external
         onlyVaultManagers
     {
+        require(_maxSlippageClose <= RATIO_PRECISION); // dev: !boundary
         maxSlippageClose = _maxSlippageClose;
     }
 
@@ -114,6 +121,7 @@ abstract contract HedgilJoint is Joint {
         external
         onlyVaultManagers
     {
+        require(_maxSlippageOpen <= RATIO_PRECISION); // dev: !boundary
         maxSlippageOpen = _maxSlippageOpen;
     }
 
@@ -125,23 +133,23 @@ abstract contract HedgilJoint is Joint {
         minTimeToMaturity = _minTimeToMaturity;
     }
 
-    function setIsHedgingDisabled(bool _isHedgingDisabled, bool force)
+    function setIsHedgingEnabled(bool _isHedgingEnabled, bool force)
         external
         onlyVaultManagers
     {
         // if there is an active hedge, we need to force the disabling
         if (force || (activeHedgeID == 0)) {
-            isHedgingDisabled = _isHedgingDisabled;
+            isHedgingEnabled = _isHedgingEnabled;
         }
     }
 
     function setHedgeBudget(uint256 _hedgeBudget) external onlyVaultManagers {
-        require(_hedgeBudget < RATIO_PRECISION);
+        require(_hedgeBudget <= RATIO_PRECISION);
         hedgeBudget = _hedgeBudget;
     }
 
     function setHedgingPeriod(uint256 _period) external onlyVaultManagers {
-        require(_period < 90 days);
+        require(_period <= 90 days);
         period = _period;
     }
 
@@ -149,8 +157,12 @@ abstract contract HedgilJoint is Joint {
         external
         onlyVaultManagers
     {
-        require(_protectionRange < RATIO_PRECISION);
+        require(_protectionRange <= RATIO_PRECISION);
         protectionRange = _protectionRange;
+    }
+
+    function closeHedgeManually() external onlyVaultManagers {
+        _closeHedge();
     }
 
     function resetHedge() external onlyGovernance {
@@ -161,54 +173,55 @@ abstract contract HedgilJoint is Joint {
         return IHedgilPool(hedgilPool).getHedgeStrike(activeHedgeID);
     }
 
-    function closeHedgeManually() external onlyVaultManagers {
-        closeHedge();
-    }
-
     function hedgeLP()
         internal
         override
         returns (uint256 costA, uint256 costB)
     {
-        if (hedgeBudget > 0 && !isHedgingDisabled) {
-            // take into account that if hedgeBudget is not enough, it will revert
-            IERC20 _pair = IERC20(getPair());
-            uint256 initialBalanceA = balanceOfA();
-            uint256 initialBalanceB = balanceOfB();
-            // Only able to open a new position if no active options
-            require(activeHedgeID == 0);
-            uint256 strikePrice;
-            (activeHedgeID, strikePrice) = IHedgilPool(hedgilPool).hedgeLPToken(
-                address(_pair),
-                protectionRange,
-                period
-            );
-
-            require(
-                _isWithinRange(strikePrice, maxSlippageOpen) ||
-                    skipManipulatedCheck,
-                "!open price looks manipulated"
-            );
-
-            costA = initialBalanceA.sub(balanceOfA());
-            costB = initialBalanceB.sub(balanceOfB());
+        if (hedgeBudget == 0 || !isHedgingEnabled) {
+            return (0, 0);
         }
+
+        // take into account that if hedgeBudget is not enough, it will revert
+        IERC20 _pair = IERC20(getPair());
+        uint256 initialBalanceA = balanceOfA();
+        uint256 initialBalanceB = balanceOfB();
+        // Only able to open a new position if no active options
+        require(activeHedgeID == 0); // dev: already-open
+        uint256 strikePrice;
+        (activeHedgeID, strikePrice) = IHedgilPool(hedgilPool).hedgeLPToken(
+            address(_pair),
+            protectionRange,
+            period
+        );
+
+        require(
+            _isWithinRange(strikePrice, maxSlippageOpen) || skipManipulatedCheck
+        ); // dev: !open-price
+
+        // NOTE: hedge is always paid in tokenB, so costA is always = 0
+        // costA = initialBalanceA.sub(balanceOfA());
+        costB = initialBalanceB.sub(balanceOfB());
     }
 
     function closeHedge() internal override {
-        uint256 exercisePrice;
         // only close hedge if a hedge is open
-        if (activeHedgeID != 0 && !isHedgingDisabled) {
-            (, exercisePrice) = IHedgilPool(hedgilPool).closeHedge(
-                activeHedgeID
-            );
-            require(
-                _isWithinRange(exercisePrice, maxSlippageClose) ||
-                    skipManipulatedCheck,
-                "!close price looks manipulated"
-            );
-            activeHedgeID = 0;
+        if (activeHedgeID == 0 || !isHedgingEnabled) {
+            return;
         }
+
+        _closeHedge();
+    }
+
+    function _closeHedge() internal {
+        (, uint256 exercisePrice) =
+            IHedgilPool(hedgilPool).closeHedge(activeHedgeID);
+
+        require(
+            _isWithinRange(exercisePrice, maxSlippageClose) ||
+                skipManipulatedCheck
+        ); // dev: !close-price
+        activeHedgeID = 0;
     }
 
     function _isWithinRange(uint256 oraclePrice, uint256 maxSlippage)
@@ -242,42 +255,44 @@ abstract contract HedgilJoint is Joint {
 
     function shouldEndEpoch() public view override returns (bool) {
         // End epoch if price moved too much (above / below the protectionRange) or hedge is about to expire
-        if (activeHedgeID != 0) {
-            // if Time to Maturity of hedge is lower than min threshold, need to end epoch NOW
-            if (
-                IHedgilPool(hedgilPool).getTimeToMaturity(activeHedgeID) <=
-                minTimeToMaturity
-            ) {
-                return true;
-            }
-
-            // NOTE: the initial price is calculated using the added liquidity
-            uint256 tokenADecimals =
-                uint256(10)**uint256(IERC20Extended(tokenA).decimals());
-            uint256 tokenBDecimals =
-                uint256(10)**uint256(IERC20Extended(tokenB).decimals());
-            uint256 initPrice =
-                investedB
-                    .mul(tokenADecimals)
-                    .mul(PRICE_DECIMALS)
-                    .div(investedA)
-                    .div(tokenBDecimals);
-            return !_isWithinRange(initPrice, protectionRange);
+        if (activeHedgeID == 0) {
+            return false;
         }
+        // if Time to Maturity of hedge is lower than min threshold, need to end epoch NOW
+        if (
+            IHedgilPool(hedgilPool).getTimeToMaturity(activeHedgeID) <=
+            minTimeToMaturity
+        ) {
+            return true;
+        }
+
+        // NOTE: the initial price is calculated using the added liquidity
+        uint256 tokenADecimals =
+            uint256(10)**uint256(IERC20Extended(tokenA).decimals());
+        uint256 tokenBDecimals =
+            uint256(10)**uint256(IERC20Extended(tokenB).decimals());
+        uint256 initPrice =
+            investedB
+                .mul(tokenADecimals)
+                .mul(PRICE_DECIMALS)
+                .div(investedA)
+                .div(tokenBDecimals);
+        return !_isWithinRange(initPrice, protectionRange);
     }
 
     // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
     function _autoProtect() internal view override returns (bool) {
+        if (activeHedgeID == 0) {
+            return false;
+        }
+
         // if we are closing the position before 50% of hedge period has passed, we did something wrong so auto-init is stopped
         uint256 timeToMaturity = getTimeToMaturity();
-        if (activeHedgeID != 0) {
-            // NOTE: if timeToMaturity is 0, it means that the epoch has finished without being exercised
-            // Something might be wrong so we don't start new epochs
-            if (
-                timeToMaturity == 0 || timeToMaturity > period.mul(50).div(100)
-            ) {
-                return true;
-            }
+
+        // NOTE: if timeToMaturity is 0, it means that the epoch has finished without being exercised
+        // Something might be wrong so we don't start new epochs
+        if (timeToMaturity == 0 || timeToMaturity > period.mul(50).div(100)) {
+            return true;
         }
     }
 }

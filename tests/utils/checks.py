@@ -9,20 +9,22 @@ def check_vault_empty(vault):
 
 
 def epoch_started(providerA, providerB, joint, amountA, amountB):
-    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
+    assert pytest.approx(providerA.estimatedTotalAssets(), rel=2e-3) == amountA
+    # Less precision toa ccount for hedgil cost!
+    assert pytest.approx(providerB.estimatedTotalAssets(), rel=5e-2) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
     assert joint.balanceOfStake() > 0
 
-    assert joint.activeCallID() != 0
-    assert joint.activePutID() != 0
+    # assert joint.activeHedgeID() != 0
+    # assert joint.activeCallID() != 0
+    # assert joint.activePutID() != 0
 
 
 def non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB):
-    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-3) == amountA
-    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-3) == amountB
+    assert pytest.approx(providerA.estimatedTotalAssets(), rel=1e-5) == amountA
+    assert pytest.approx(providerB.estimatedTotalAssets(), rel=1e-5) == amountB
 
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
@@ -32,8 +34,9 @@ def non_hedged_epoch_started(providerA, providerB, joint, amountA, amountB):
 def epoch_ended(providerA, providerB, joint):
     assert joint.balanceOfA() == 0
     assert joint.balanceOfB() == 0
-    assert joint.activeCallID() == 0
-    assert joint.activePutID() == 0
+    # assert joint.activeHedgeID() == 0
+    # assert joint.activeCallID() == 0
+    # assert joint.activePutID() == 0
     assert joint.balanceOfStake() == 0
     assert joint.balanceOfPair() == 0
 
@@ -72,3 +75,7 @@ def check_accounting(vault, strategy, totalGain, totalLoss, totalDebt):
     assert status["totalLoss"] == totalLoss
     assert status["totalDebt"] == totalDebt
     return
+
+def check_run_test(test_type, hedge_type):
+    if hedge_type != test_type:
+        pytest.skip()

@@ -9,8 +9,8 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import "./LPHedgingLib.sol";
-import "./Joint.sol";
+import "../libraries/LPHedgingLib.sol";
+import "../Joint.sol";
 
 abstract contract HegicJoint is Joint {
     using SafeERC20 for IERC20;

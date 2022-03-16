@@ -18,7 +18,9 @@ def test_airdrop(
     RELATIVE_APPROX,
     tokenA_whale,
     tokenB_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -45,12 +47,10 @@ def test_airdrop(
     )
 
     # we airdrop tokens to strategy
-    # TODO: airdrop LP token to joint
     amount_percentage = 0.1  # 10% of current assets
     airdrop_amountA = providerA.estimatedTotalAssets() * amount_percentage
     airdrop_amountB = providerB.estimatedTotalAssets() * amount_percentage
 
-    # TODO: airdrop tokenA and tokenB to joint
     actions.generate_profit(
         amount_percentage, joint, providerA, providerB, tokenA_whale, tokenB_whale
     )
@@ -77,14 +77,15 @@ def test_airdrop(
     chain.mine(1)
     profitA = tokenA.balanceOf(vaultA.address) - amountA  # Profits go to vaultA
     profitB = tokenB.balanceOf(vaultB.address) - amountB  # Profits go to vaultB
-    # TODO: Uncomment the lines below
+
     assert tokenA.balanceOf(vaultA) > amountA
     assert tokenB.balanceOf(vaultB) > amountB
     assert vaultA.pricePerShare() > before_ppsA
     assert vaultB.pricePerShare() > before_ppsB
 
 
-def test_airdrop_provider(chain, gov, tokenA, vaultA, providerA, tokenA_whale):
+def test_airdrop_provider(chain, gov, tokenA, vaultA, providerA, tokenA_whale, hedge_type):
+    checks.check_run_test("hedgilV2", hedge_type)
     # set debtRatio of providerA to 0
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
     assert providerA.balanceOfWant() == 0
@@ -92,8 +93,8 @@ def test_airdrop_provider(chain, gov, tokenA, vaultA, providerA, tokenA_whale):
     # airdrop token
     airdrop_amountA = 1 * 10 ** tokenA.decimals()
 
-    tokenA.approve(providerA, airdrop_amountA, {"from": tokenA_whale})
-    tokenA.transfer(providerA, airdrop_amountA, {"from": tokenA_whale})
+    tokenA.approve(providerA, airdrop_amountA, {"from": tokenA_whale, "gas_price": 0})
+    tokenA.transfer(providerA, airdrop_amountA, {"from": tokenA_whale, "gas_price": 0})
 
     assert providerA.balanceOfWant() == airdrop_amountA
 
@@ -122,7 +123,9 @@ def test_airdrop_providers(
     RELATIVE_APPROX,
     tokenA_whale,
     tokenB_whale,
+    hedge_type
 ):
+    checks.check_run_test("hedgilV2", hedge_type)
     # start epoch
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
@@ -149,8 +152,8 @@ def test_airdrop_providers(
     amount_percentage = 0.1  # 10% of current assets
     airdrop_amountA = providerA.estimatedTotalAssets() * amount_percentage
 
-    tokenA.approve(providerA, airdrop_amountA, {"from": tokenA_whale})
-    tokenA.transfer(providerA, airdrop_amountA, {"from": tokenA_whale})
+    tokenA.approve(providerA, airdrop_amountA, {"from": tokenA_whale, "gas_price": 0})
+    tokenA.transfer(providerA, airdrop_amountA, {"from": tokenA_whale, "gas_price": 0})
 
     assert providerA.balanceOfWant() - before_providerA_balance == airdrop_amountA
 
@@ -165,11 +168,11 @@ def test_airdrop_providers(
         vaultA.strategies(providerA).dict()["totalGain"], rel=RELATIVE_APPROX
     ) == int(airdrop_amountA)
 
-    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
-    chain.mine(1)
+    chain.mine(1, timedelta=6 * 3600)
 
     ppsA = vaultA.pricePerShare()
     ppsB = vaultB.pricePerShare()
 
     assert ppsA > before_ppsA
-    assert ppsB == before_ppsB
+    assert pytest.approx(ppsB, rel=RELATIVE_APPROX) == before_ppsB
+    assert ppsB >= before_ppsB

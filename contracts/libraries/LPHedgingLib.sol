@@ -7,9 +7,9 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import "../interfaces/uni/IUniswapV2Pair.sol";
-import "../interfaces/hegic/IHegicOptions.sol";
-import "../interfaces/IERC20Extended.sol";
+import "../../interfaces/uni/IUniswapV2Pair.sol";
+import "../../interfaces/hegic/IHegicOptions.sol";
+import "../../interfaces/IERC20Extended.sol";
 
 interface IPriceProvider {
     function latestRoundData()

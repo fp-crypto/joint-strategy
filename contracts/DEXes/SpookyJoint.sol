@@ -2,16 +2,16 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./HegicJoint.sol";
+import "../Hedges/HedgilV2Joint.sol";
 
-interface ISushiMasterchef is IMasterchef {
-    function pendingSushi(uint256 _pid, address _user)
+interface ISpookyMasterchef is IMasterchef {
+    function pendingBOO(uint256 _pid, address _user)
         external
         view
         returns (uint256);
 }
 
-contract SushiJoint is HegicJoint {
+contract SpookyJoint is HedgilV2Joint {
     uint256 public pid;
 
     IMasterchef public masterchef;
@@ -25,23 +25,21 @@ contract SushiJoint is HegicJoint {
         address _router,
         address _weth,
         address _reward,
-        address _hegicCallOptionsPool,
-        address _hegicPutOptionsPool,
+        address _hedgilPool,
         address _masterchef,
         uint256 _pid
     )
         public
-        HegicJoint(
+        HedgilV2Joint(
             _providerA,
             _providerB,
             _router,
             _weth,
             _reward,
-            _hegicCallOptionsPool,
-            _hegicPutOptionsPool
+            _hedgilPool
         )
     {
-        _initalizeSushiJoint(_masterchef, _pid);
+        _initalizeSpookyJoint(_masterchef, _pid);
     }
 
     function initialize(
@@ -50,17 +48,16 @@ contract SushiJoint is HegicJoint {
         address _router,
         address _weth,
         address _reward,
-        address _hegicCallOptionsPool,
-        address _hegicPutOptionsPool,
+        address _hedgilPool,
         address _masterchef,
         uint256 _pid
     ) external {
         _initialize(_providerA, _providerB, _router, _weth, _reward);
-        _initializeHegicJoint(_hegicCallOptionsPool, _hegicPutOptionsPool);
-        _initalizeSushiJoint(_masterchef, _pid);
+        _initializeHedgilJoint(_hedgilPool);
+        _initalizeSpookyJoint(_masterchef, _pid);
     }
 
-    function _initalizeSushiJoint(address _masterchef, uint256 _pid) internal {
+    function _initalizeSpookyJoint(address _masterchef, uint256 _pid) internal {
         masterchef = IMasterchef(_masterchef);
         pid = _pid;
 
@@ -69,14 +66,13 @@ contract SushiJoint is HegicJoint {
 
     event Cloned(address indexed clone);
 
-    function cloneSushiJoint(
+    function cloneSpookyJoint(
         address _providerA,
         address _providerB,
         address _router,
         address _weth,
         address _reward,
-        address _hegicCallOptionsPool,
-        address _hegicPutOptionsPool,
+        address _hedgilPool,
         address _masterchef,
         uint256 _pid
     ) external returns (address newJoint) {
@@ -98,14 +94,13 @@ contract SushiJoint is HegicJoint {
             newJoint := create(0, clone_code, 0x37)
         }
 
-        SushiJoint(newJoint).initialize(
+        SpookyJoint(newJoint).initialize(
             _providerA,
             _providerB,
             _router,
             _weth,
             _reward,
-            _hegicCallOptionsPool,
-            _hegicPutOptionsPool,
+            _hedgilPool,
             _masterchef,
             _pid
         );
@@ -123,7 +118,7 @@ contract SushiJoint is HegicJoint {
                 )
             );
 
-        return string(abi.encodePacked("HegicSushiJoint(", ab, ")"));
+        return string(abi.encodePacked("HedgilSpookyJoint(", ab, ")"));
     }
 
     function balanceOfStake() public view override returns (uint256) {
@@ -132,7 +127,7 @@ contract SushiJoint is HegicJoint {
 
     function pendingReward() public view override returns (uint256) {
         return
-            ISushiMasterchef(address(masterchef)).pendingSushi(
+            ISpookyMasterchef(address(masterchef)).pendingBOO(
                 pid,
                 address(this)
             );
@@ -161,5 +156,9 @@ contract SushiJoint is HegicJoint {
 
     function withdrawLPManually(uint256 amount) external onlyVaultManagers {
         masterchef.withdraw(pid, amount);
+    }
+
+    function claimRewardManually() external onlyVaultManagers {
+        getReward();
     }
 }

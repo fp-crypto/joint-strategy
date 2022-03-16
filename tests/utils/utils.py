@@ -2,18 +2,17 @@ import brownie
 from brownie import interface, chain, accounts, web3, network, Contract
 
 
-def sync_price(joint, mock_chainlink):
+def sync_price(joint):
     # we update the price on the Oracle to simulate real market dynamics
     # otherwise, price of pair and price of oracle would be different and it would look manipulated
-    reserveA, reserveB = joint.getReserves()
-    pairPrice = (
-        reserveB
-        / reserveA
-        * 10 ** Contract(joint.tokenA()).decimals()
-        / 10 ** Contract(joint.tokenB()).decimals()
-        * 1e8
-    )
-    mock_chainlink.setPrice(pairPrice, {"from": accounts[0]})
+    relayer = "0x33E0E07cA86c869adE3fc9DE9126f6C73DAD105e"
+    imp = Contract("0x5bfab94edE2f4d911A6CC6d06fdF2d43aD3c7068")
+    lp_token = Contract(joint.pair())
+    (reserve0, reserve1, a) = lp_token.getReserves()
+    ftm_price = reserve1 / reserve0 * 10 ** 9
+
+    print(f"Current price is: {ftm_price/1e9}")
+    imp.relay(["FTM"], [ftm_price], [chain.time()], [4281375], {"from": relayer})
 
 
 def print_hedge_status(joint, tokenA, tokenB):
@@ -41,6 +40,28 @@ def print_hedge_status(joint, tokenA, tokenB):
     print(f"\tCost {costPut/1e6} {tokenB.symbol()}")
     print(f"\tPayout: {putPayout/1e6} {tokenB.symbol()}")
     return (costCall, costPut)
+
+
+def print_hedgil_status(joint, hedgil, tokenA, tokenB):
+    print("############ HEDGIL V2 STATUS ############")
+
+    hedgil_id = joint.activeHedgeID()
+    hedgil_position = hedgil.getHedgilByID(hedgil_id)
+
+    strike = hedgil_position["strike"]
+    print(f"Strike price: {strike} {tokenA.symbol()} / {tokenB.symbol()}")
+    current_price = hedgil.getCurrentPrice(tokenA)
+    print(f"Current price: {current_price} {tokenA.symbol()} / {tokenB.symbol()}")
+    price_movement = current_price / strike - 1
+    print(f"Price has moved {100 * price_movement} %")
+    max_price_change = hedgil_position["maxPriceChange"] / 1e4
+    print(f"Max price movement covered is {max_price_change * 100} %")
+    current_payout = hedgil.getCurrentPayout(hedgil_id)
+    print(f"Current hedgil payout is: {current_payout} {tokenB.symbol()}")
+    ttm = hedgil.getTimeToMaturity(hedgil_id)
+    print(f"Remaining time to maturity is {ttm} seconds, or {ttm / 60 / 60} hours")
+
+    print("######################################")
 
 
 def vault_status(vault):
@@ -91,3 +112,33 @@ def sleep_mine(seconds=13.15):
     print(f"Mined {blocks} blocks during {end-start} seconds")
     chain.sleep(seconds - (end - start))
     chain.mine(1)
+
+
+def print_joint_status(joint, tokenA, tokenB, lp_token, rewards):
+    token0 = lp_token.token0()
+    (balA, balB) = joint.balanceOfTokensInLP()
+    (res0, res1, _) = lp_token.getReserves()
+
+    resA = res0
+    resB = res1
+
+    if token0 == tokenB:
+        resA = res1
+        resB = res0
+    print("############ JOINT STATUS ############")
+    print(
+        f"Invested tokens in pool: {balA} {tokenA.symbol()} and {balB} {tokenB.symbol()}"
+    )
+    print(
+        f"Existing reserves in pool: {resA} {tokenA.symbol()} and {resB} {tokenB.symbol()}"
+    )
+    print(
+        f"Ratio of joint to pool: {balA / resA} {tokenA.symbol()} and {balB / resB} {tokenB.symbol()}"
+    )
+    print(f"Staked LP tokens: {joint.balanceOfStake()} {lp_token.symbol()}")
+    print(f"Total rewards gained: {joint.balanceOfReward() + joint.pendingReward()}")
+    print("######################################")
+
+
+def swap_tokens_value(router, tokenIn, tokenOut, amountIn):
+    return router.getAmountsOut(amountIn, [tokenIn, tokenOut])[1]
