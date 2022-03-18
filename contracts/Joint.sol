@@ -9,10 +9,6 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
-import "../interfaces/uni/IUniswapV2Router02.sol";
-import "../interfaces/uni/IUniswapV2Factory.sol";
-import "../interfaces/uni/IUniswapV2Pair.sol";
-import "../interfaces/IMasterChef.sol";
 import "../interfaces/IERC20Extended.sol";
 
 import "./ySwapper.sol";
@@ -33,7 +29,7 @@ interface ProviderStrategy {
     function totalDebt() external view returns (uint256);
 }
 
-abstract contract Joint is ySwapper {
+abstract contract Joint {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -47,10 +43,9 @@ abstract contract Joint is ySwapper {
     address public tokenB;
 
     address public WETH;
-    address public reward;
-    address public router;
+    address[] public rewardTokens;
 
-    IUniswapV2Pair public pair;
+    address public pool;
 
     uint256 public investedA;
     uint256 public investedB;
@@ -98,25 +93,25 @@ abstract contract Joint is ySwapper {
         require(isProvider());
     }
 
-    function isGovernance() internal returns (bool) {
+    function isGovernance() internal view returns (bool) {
         return
             msg.sender == providerA.vault().governance() ||
             msg.sender == providerB.vault().governance();
     }
 
-    function isVaultManager() internal returns (bool) {
+    function isVaultManager() internal view returns (bool) {
         return
             msg.sender == providerA.vault().management() ||
             msg.sender == providerB.vault().management();
     }
 
-    function isKeeper() internal returns (bool) {
+    function isKeeper() internal view returns (bool) {
         return
             (msg.sender == providerA.keeper()) ||
             (msg.sender == providerB.keeper());
     }
 
-    function isProvider() internal returns (bool) {
+    function isProvider() internal view returns (bool) {
         return
             msg.sender == address(providerA) ||
             msg.sender == address(providerB);
@@ -125,28 +120,22 @@ abstract contract Joint is ySwapper {
     constructor(
         address _providerA,
         address _providerB,
-        address _router,
         address _weth,
-        address _reward
+        address _pool
     ) public {
-        _initialize(_providerA, _providerB, _router, _weth, _reward);
+        _initialize(_providerA, _providerB, _weth, _pool);
     }
 
     function _initialize(
         address _providerA,
         address _providerB,
-        address _router,
         address _weth,
-        address _reward
+        address _pool
     ) internal virtual {
         require(address(providerA) == address(0), "Joint already initialized");
         providerA = ProviderStrategy(_providerA);
         providerB = ProviderStrategy(_providerB);
-        router = _router;
         WETH = _weth;
-        reward = _reward;
-
-        tradeFactory = address(0xD3f89C21719Ec5961a3E6B0f9bBf9F9b4180E9e9);
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
         maxPercentageLoss = 10; // 0.10%
@@ -154,12 +143,6 @@ abstract contract Joint is ySwapper {
         tokenA = address(providerA.want());
         tokenB = address(providerB.want());
         require(tokenA != tokenB, "!same-want");
-        pair = IUniswapV2Pair(getPair());
-
-        IERC20(tokenA).approve(address(_router), type(uint256).max);
-        IERC20(tokenB).approve(address(_router), type(uint256).max);
-        IERC20(_reward).approve(address(_router), type(uint256).max);
-        IERC20(address(pair)).approve(address(_router), type(uint256).max);
     }
 
     function name() external view virtual returns (string memory);
@@ -167,6 +150,16 @@ abstract contract Joint is ySwapper {
     function shouldEndEpoch() public view virtual returns (bool);
 
     function _autoProtect() internal view virtual returns (bool);
+
+    function _isReward(address token) internal view returns (bool) {
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
+            if (rewardTokens[i] == token) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     function shouldStartEpoch() public view returns (bool) {
         // return true if we have balance of A or balance of B while the position is closed
@@ -232,12 +225,15 @@ abstract contract Joint is ySwapper {
         (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
 
         // 2. SELL REWARDS FOR WANT
-        (address rewardSwappedTo, uint256 rewardSwapOutAmount) =
-            swapReward(balanceOfReward());
-        if (rewardSwappedTo == tokenA) {
-            currentBalanceA = currentBalanceA.add(rewardSwapOutAmount);
-        } else if (rewardSwappedTo == tokenB) {
-            currentBalanceB = currentBalanceB.add(rewardSwapOutAmount);
+        tokenAmount[] memory swappedToAmounts = swapRewardTokens();
+        for (uint256 i = 0; i < swappedToAmounts.length; i++) {
+            address rewardSwappedTo = swappedToAmounts[i].token;
+            uint256 rewardSwapOutAmount = swappedToAmounts[i].amount;
+            if (rewardSwappedTo == tokenA) {
+                currentBalanceA = currentBalanceA.add(rewardSwapOutAmount);
+            } else if (rewardSwappedTo == tokenB) {
+                currentBalanceB = currentBalanceB.add(rewardSwapOutAmount);
+            }
         }
 
         // 3. REBALANCE PORTFOLIO
@@ -253,7 +249,7 @@ abstract contract Joint is ySwapper {
 
         if (sellToken != address(0) && sellAmount > minAmountToSell) {
             uint256 buyAmount =
-                sellCapital(
+                swap(
                     sellToken,
                     sellToken == tokenA ? tokenB : tokenA,
                     sellAmount
@@ -292,7 +288,7 @@ abstract contract Joint is ySwapper {
 
         require(
             balanceOfStake() == 0 &&
-                balanceOfPair() == 0 &&
+                balanceOfPool() == 0 &&
                 investedA == 0 &&
                 investedB == 0
         ); // don't create LP if we are already invested
@@ -305,36 +301,10 @@ abstract contract Joint is ySwapper {
 
         depositLP();
 
-        if (tradesEnabled == false && tradeFactory != address(0)) {
-            _setUpTradeFactory();
-        }
-
-        if (balanceOfStake() != 0 || balanceOfPair() != 0) {
+        if (balanceOfStake() != 0 || balanceOfPool() != 0) {
             _returnLooseToProviders();
         }
     }
-
-    function getYSwapTokens()
-        internal
-        view
-        virtual
-        override
-        returns (address[] memory, address[] memory)
-    {}
-
-    function removeTradeFactoryPermissions()
-        external
-        virtual
-        override
-        onlyVaultManagers
-    {}
-
-    function updateTradeFactoryPermissions(address _newTradeFactory)
-        external
-        virtual
-        override
-        onlyGovernance
-    {}
 
     // Keepers will claim and sell rewards mid-epoch (otherwise we sell only in the end)
     function harvest() external onlyKeepers {
@@ -342,7 +312,7 @@ abstract contract Joint is ySwapper {
     }
 
     function harvestTrigger() external view returns (bool) {
-        return balanceOfReward() > minRewardToHarvest;
+        return balanceOfRewardToken(0) > minRewardToHarvest;
     }
 
     function getHedgeProfit() public view virtual returns (uint256, uint256);
@@ -350,11 +320,8 @@ abstract contract Joint is ySwapper {
     function estimatedTotalAssetsAfterBalance()
         public
         view
-        virtual
         returns (uint256 _aBalance, uint256 _bBalance)
     {
-        uint256 rewardsPending = pendingReward().add(balanceOfReward());
-
         (_aBalance, _bBalance) = balanceOfTokensInLP();
 
         _aBalance = _aBalance.add(balanceOfA());
@@ -364,50 +331,122 @@ abstract contract Joint is ySwapper {
         _aBalance = _aBalance.add(callProfit);
         _bBalance = _bBalance.add(putProfit);
 
-        if (reward == tokenA) {
-            _aBalance = _aBalance.add(rewardsPending);
-        } else if (reward == tokenB) {
-            _bBalance = _bBalance.add(rewardsPending);
-        } else if (rewardsPending != 0) {
-            address swapTo = findSwapTo(reward);
-            uint256[] memory outAmounts =
-                IUniswapV2Router02(router).getAmountsOut(
-                    rewardsPending,
-                    getTokenOutPath(reward, swapTo)
-                );
-            if (swapTo == tokenA) {
-                _aBalance = _aBalance.add(outAmounts[outAmounts.length - 1]);
-            } else if (swapTo == tokenB) {
-                _bBalance = _bBalance.add(outAmounts[outAmounts.length - 1]);
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
+            address reward = rewardTokens[i];
+            uint256 rewardsPending = pendingReward(i);
+            if (reward == tokenA) {
+                _aBalance = _aBalance.add(rewardsPending);
+            } else if (reward == tokenB) {
+                _bBalance = _bBalance.add(rewardsPending);
+            } else if (rewardsPending != 0) {
+                address swapTo = findSwapTo(reward);
+                uint256 outAmount =
+                    quote(
+                        reward,
+                        swapTo,
+                        rewardsPending.add(balanceOfRewardToken(i))
+                    );
+                if (swapTo == tokenA) {
+                    _aBalance = _aBalance.add(outAmount);
+                } else if (swapTo == tokenB) {
+                    _bBalance = _bBalance.add(outAmount);
+                }
             }
         }
 
         (address sellToken, uint256 sellAmount) =
             calculateSellToBalance(_aBalance, _bBalance, investedA, investedB);
 
-        (uint256 reserveA, uint256 reserveB) = getReserves();
-
         if (sellToken == tokenA) {
-            uint256 buyAmount =
-                UniswapV2Library.getAmountOut(sellAmount, reserveA, reserveB);
+            uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
             _aBalance = _aBalance.sub(sellAmount);
             _bBalance = _bBalance.add(buyAmount);
         } else if (sellToken == tokenB) {
-            uint256 buyAmount =
-                UniswapV2Library.getAmountOut(sellAmount, reserveB, reserveA);
+            uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
             _bBalance = _bBalance.sub(sellAmount);
             _aBalance = _aBalance.add(buyAmount);
         }
     }
 
-    function estimatedTotalAssetsInToken(address token)
+    function calculateSellToBalance(
+        uint256 currentA,
+        uint256 currentB,
+        uint256 startingA,
+        uint256 startingB
+    ) internal view returns (address _sellToken, uint256 _sellAmount) {
+        if (startingA == 0 || startingB == 0) return (address(0), 0);
+
+        (uint256 ratioA, uint256 ratioB) =
+            getRatios(currentA, currentB, startingA, startingB);
+
+        if (ratioA == ratioB) return (address(0), 0);
+
+        if (ratioA > ratioB) {
+            _sellToken = tokenA;
+            _sellAmount = _calculateSellToBalance(
+                _sellToken,
+                currentA,
+                currentB,
+                startingA,
+                startingB,
+                10**uint256(IERC20Extended(tokenA).decimals())
+            );
+        } else {
+            _sellToken = tokenB;
+            _sellAmount = _calculateSellToBalance(
+                _sellToken,
+                currentB,
+                currentA,
+                startingB,
+                startingA,
+                10**uint256(IERC20Extended(tokenB).decimals())
+            );
+        }
+    }
+
+    function _calculateSellToBalance(
+        address sellToken,
+        uint256 current0,
+        uint256 current1,
+        uint256 starting0,
+        uint256 starting1,
+        uint256 precision
+    ) internal view returns (uint256 _sellAmount) {
+        uint256 numerator =
+            current0.sub(starting0.mul(current1).div(starting1)).mul(precision);
+        uint256 exchangeRate =
+            quote(sellToken, sellToken == tokenA ? tokenB : tokenA, precision);
+
+        // First time to approximate
+        _sellAmount = numerator.div(
+            precision + starting0.mul(exchangeRate).div(starting1)
+        );
+        // Shortcut to avoid Uniswap amountIn == 0 revert
+        if (_sellAmount == 0) {
+            return 0;
+        }
+
+        // Second time to account for price impact
+        exchangeRate = quote(
+            sellToken,
+            sellToken == tokenA ? tokenB : tokenA,
+            _sellAmount
+        )
+            .mul(precision)
+            .div(_sellAmount);
+        _sellAmount = numerator.div(
+            precision + starting0.mul(exchangeRate).div(starting1)
+        );
+    }
+
+    function estimatedTotalProviderAssets(address _provider)
         public
         view
         returns (uint256 _balance)
     {
-        if (token == tokenA) {
+        if (_provider == address(providerA)) {
             (_balance, ) = estimatedTotalAssetsAfterBalance();
-        } else if (token == tokenB) {
+        } else if (_provider == address(providerB)) {
             (, _balance) = estimatedTotalAssetsAfterBalance();
         }
     }
@@ -422,82 +461,6 @@ abstract contract Joint is ySwapper {
 
     function closeHedge() internal virtual;
 
-    function calculateSellToBalance(
-        uint256 currentA,
-        uint256 currentB,
-        uint256 startingA,
-        uint256 startingB
-    ) internal view virtual returns (address _sellToken, uint256 _sellAmount) {
-        if (startingA == 0 || startingB == 0) return (address(0), 0);
-
-        (uint256 ratioA, uint256 ratioB) =
-            getRatios(currentA, currentB, startingA, startingB);
-
-        if (ratioA == ratioB) return (address(0), 0);
-
-        (uint256 reserveA, uint256 reserveB) = getReserves();
-
-        if (ratioA > ratioB) {
-            _sellToken = tokenA;
-            _sellAmount = _calculateSellToBalance(
-                currentA,
-                currentB,
-                startingA,
-                startingB,
-                reserveA,
-                reserveB,
-                10**uint256(IERC20Extended(tokenA).decimals())
-            );
-        } else {
-            _sellToken = tokenB;
-            _sellAmount = _calculateSellToBalance(
-                currentB,
-                currentA,
-                startingB,
-                startingA,
-                reserveB,
-                reserveA,
-                10**uint256(IERC20Extended(tokenB).decimals())
-            );
-        }
-    }
-
-    function _calculateSellToBalance(
-        uint256 current0,
-        uint256 current1,
-        uint256 starting0,
-        uint256 starting1,
-        uint256 reserve0,
-        uint256 reserve1,
-        uint256 precision
-    ) internal pure returns (uint256 _sellAmount) {
-        uint256 numerator =
-            current0.sub(starting0.mul(current1).div(starting1)).mul(precision);
-        uint256 denominator;
-        uint256 exchangeRate;
-
-        // First time to approximate
-        exchangeRate = UniswapV2Library.getAmountOut(
-            precision,
-            reserve0,
-            reserve1
-        );
-        denominator = precision + starting0.mul(exchangeRate).div(starting1);
-        _sellAmount = numerator.div(denominator);
-        // Shortcut to avoid Uniswap amountIn == 0 revert
-        if (_sellAmount == 0) {
-            return 0;
-        }
-
-        // Second time to account for price impact
-        exchangeRate = UniswapV2Library
-            .getAmountOut(_sellAmount, reserve0, reserve1)
-            .mul(precision)
-            .div(_sellAmount);
-        denominator = precision + starting0.mul(exchangeRate).div(starting1);
-        _sellAmount = numerator.div(denominator);
-    }
-
     function getRatios(
         uint256 currentA,
         uint256 currentB,
@@ -508,18 +471,6 @@ abstract contract Joint is ySwapper {
         _b = currentB.mul(RATIO_PRECISION).div(startingB);
     }
 
-    function getReserves()
-        public
-        view
-        returns (uint256 reserveA, uint256 reserveB)
-    {
-        if (tokenA == pair.token0()) {
-            (reserveA, reserveB, ) = pair.getReserves();
-        } else {
-            (reserveB, reserveA, ) = pair.getReserves();
-        }
-    }
-
     function createLP()
         internal
         virtual
@@ -527,33 +478,16 @@ abstract contract Joint is ySwapper {
             uint256,
             uint256,
             uint256
-        )
-    {
-        // **WARNING**: This call is sandwichable, care should be taken
-        //              to always execute with a private relay
-        return
-            IUniswapV2Router02(router).addLiquidity(
-                tokenA,
-                tokenB,
-                balanceOfA()
-                    .mul(RATIO_PRECISION.sub(getHedgeBudget(tokenA)))
-                    .div(RATIO_PRECISION),
-                balanceOfB()
-                    .mul(RATIO_PRECISION.sub(getHedgeBudget(tokenB)))
-                    .div(RATIO_PRECISION),
-                0,
-                0,
-                address(this),
-                now
-            );
-    }
+        );
+
+    function burnLP(uint256 amount) internal virtual;
 
     function findSwapTo(address token) internal view returns (address) {
         if (tokenA == token) {
             return tokenB;
         } else if (tokenB == token) {
             return tokenA;
-        } else if (reward == token) {
+        } else if (_isReward(token)) {
             if (tokenA == WETH || tokenB == WETH) {
                 return WETH;
             }
@@ -585,72 +519,69 @@ abstract contract Joint is ySwapper {
 
     function getReward() internal virtual;
 
-    function depositLP() internal virtual;
+    function depositLP() internal virtual {}
 
-    function withdrawLP() internal virtual;
+    function withdrawLP() internal virtual {}
 
-    function swapReward(uint256 _rewardBal)
-        internal
-        virtual
-        returns (address, uint256)
-    {
-        if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
-            return (reward, 0);
-        }
-
-        if (tokenA == WETH || tokenB == WETH) {
-            return (WETH, sellCapital(reward, WETH, _rewardBal));
-        }
-
-        // Assume that position has already been liquidated
-        (uint256 ratioA, uint256 ratioB) =
-            getRatios(balanceOfA(), balanceOfB(), investedA, investedB);
-        if (ratioA >= ratioB) {
-            return (tokenB, sellCapital(reward, tokenB, _rewardBal));
-        }
-        return (tokenA, sellCapital(reward, tokenA, _rewardBal));
+    struct tokenAmount {
+        address token;
+        uint256 amount;
     }
 
-    // If there is a lot of impermanent loss, some capital will need to be sold
-    // To make both sides even
-    function sellCapital(
+    function swapRewardTokens()
+        internal
+        virtual
+        returns (tokenAmount[] memory _swapToAmounts)
+    {
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
+            uint256 _rewardBal = balanceOfRewardToken(i);
+            address reward = rewardTokens[i];
+            if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
+                _swapToAmounts[i] = tokenAmount(reward, 0);
+            } else if (tokenA == WETH || tokenB == WETH) {
+                _swapToAmounts[i] = tokenAmount(
+                    WETH,
+                    swap(reward, WETH, _rewardBal)
+                );
+            } else {
+                // Assume that position has already been liquidated
+                (uint256 ratioA, uint256 ratioB) =
+                    getRatios(balanceOfA(), balanceOfB(), investedA, investedB);
+                address swapTo = (ratioA >= ratioB) ? tokenB : tokenA;
+                _swapToAmounts[i] = tokenAmount(
+                    swapTo,
+                    swap(reward, swapTo, _rewardBal)
+                );
+            }
+        }
+    }
+
+    function swap(
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal virtual returns (uint256 _amountOut) {
-        uint256[] memory amounts =
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amountIn,
-                0,
-                getTokenOutPath(_tokenFrom, _tokenTo),
-                address(this),
-                now
-            );
-        _amountOut = amounts[amounts.length - 1];
-    }
+    ) internal virtual returns (uint256 _amountOut);
 
-    function _closePosition() internal virtual returns (uint256, uint256) {
+    function quote(
+        address _tokenFrom,
+        address _tokenTo,
+        uint256 _amountIn
+    ) internal view virtual returns (uint256 _amountOut);
+
+    function _closePosition() internal returns (uint256, uint256) {
         // Unstake LP from staking contract
         withdrawLP();
 
         // Close the hedge
         closeHedge();
 
-        if (balanceOfPair() == 0) {
+        if (balanceOfPool() == 0) {
             return (0, 0);
         }
 
         // **WARNING**: This call is sandwichable, care should be taken
         //              to always execute with a private relay
-        IUniswapV2Router02(router).removeLiquidity(
-            tokenA,
-            tokenB,
-            balanceOfPair(),
-            0,
-            0,
-            address(this),
-            now
-        );
+        burnLP(balanceOfPool());
 
         return (balanceOfA(), balanceOfB());
     }
@@ -670,15 +601,6 @@ abstract contract Joint is ySwapper {
         }
     }
 
-    function getPair() internal view virtual returns (address) {
-        address factory = IUniswapV2Router02(router).factory();
-        return IUniswapV2Factory(factory).getPair(tokenA, tokenB);
-    }
-
-    function balanceOfPair() public view returns (uint256) {
-        return IERC20(getPair()).balanceOf(address(this));
-    }
-
     function balanceOfA() public view returns (uint256) {
         return IERC20(tokenA).balanceOf(address(this));
     }
@@ -687,26 +609,21 @@ abstract contract Joint is ySwapper {
         return IERC20(tokenB).balanceOf(address(this));
     }
 
-    function balanceOfReward() public view returns (uint256) {
-        return IERC20(reward).balanceOf(address(this));
+    function balanceOfPool() public view virtual returns (uint256);
+
+    function balanceOfRewardToken(uint256 i) public view returns (uint256) {
+        return IERC20(rewardTokens[i]).balanceOf(address(this));
     }
 
-    function balanceOfStake() public view virtual returns (uint256);
+    function balanceOfStake() public view virtual returns (uint256 _balance) {}
 
     function balanceOfTokensInLP()
         public
         view
-        returns (uint256 _balanceA, uint256 _balanceB)
-    {
-        (uint256 reserveA, uint256 reserveB) = getReserves();
-        uint256 lpBal = balanceOfStake().add(balanceOfPair());
-        uint256 pairPrecision = 10**uint256(pair.decimals());
-        uint256 percentTotal = lpBal.mul(pairPrecision).div(pair.totalSupply());
-        _balanceA = reserveA.mul(percentTotal).div(pairPrecision);
-        _balanceB = reserveB.mul(percentTotal).div(pairPrecision);
-    }
+        virtual
+        returns (uint256 _balanceA, uint256 _balanceB);
 
-    function pendingReward() public view virtual returns (uint256);
+    function pendingReward(uint256 i) public view virtual returns (uint256);
 
     // --- MANAGEMENT FUNCTIONS ---
     function liquidatePositionManually(
@@ -727,15 +644,7 @@ abstract contract Joint is ySwapper {
         uint256 expectedBalanceA,
         uint256 expectedBalanceB
     ) external virtual onlyVaultManagers {
-        IUniswapV2Router02(router).removeLiquidity(
-            tokenA,
-            tokenB,
-            amount,
-            0,
-            0,
-            address(this),
-            now
-        );
+        burnLP(amount);
         require(expectedBalanceA <= balanceOfA(), "!sandwidched");
         require(expectedBalanceB <= balanceOfB(), "!sandwidched");
     }
@@ -744,19 +653,7 @@ abstract contract Joint is ySwapper {
         address[] memory swapPath,
         uint256 swapInAmount,
         uint256 minOutAmount
-    ) external onlyGovernance returns (uint256) {
-        address swapTo = swapPath[swapPath.length - 1];
-        require(swapTo == tokenA || swapTo == tokenB); // swapTo must be tokenA or tokenB
-        uint256[] memory amounts =
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                swapInAmount,
-                minOutAmount,
-                swapPath,
-                address(this),
-                now
-            );
-        return amounts[amounts.length - 1];
-    }
+    ) external onlyGovernance returns (uint256) {}
 
     function sweep(address _token) external onlyGovernance {
         require(_token != address(tokenA));

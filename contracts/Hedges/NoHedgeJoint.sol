@@ -19,10 +19,9 @@ abstract contract NoHedgeJoint is Joint {
     constructor(
         address _providerA,
         address _providerB,
-        address _router,
         address _weth,
-        address _reward
-    ) public Joint(_providerA, _providerB, _router, _weth, _reward) {}
+        address _pool
+    ) public Joint(_providerA, _providerB, _weth, _pool) {}
 
     function getHedgeBudget(address token)
         public
