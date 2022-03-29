@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity ^0.8.12;
 pragma experimental ABIEncoderV2;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
-    SafeERC20,
-    SafeMath,
-    IERC20,
-    Address
-} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interfaces/uni/IUniswapV2Router02.sol";
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "../interfaces/IERC20Extended.sol";
-import "@openzeppelin/contracts/math/Math.sol";
 import {
     BaseStrategyInitializable
 } from "@yearnvaults/contracts/BaseStrategy.sol";
@@ -36,7 +34,7 @@ interface JointAPI {
     function migrateProvider(address _newProvider) external;
 
     function shouldEndEpoch() external view returns (bool);
-    
+
     function shouldStartEpoch() external view returns (bool);
 
     function dontInvestWant() external view returns (bool);
@@ -45,7 +43,6 @@ interface JointAPI {
 contract ProviderStrategy is BaseStrategyInitializable {
     using SafeERC20 for IERC20;
     using Address for address;
-    using SafeMath for uint256;
 
     address public joint;
 
@@ -67,9 +64,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
 
     function estimatedTotalAssets() public view override returns (uint256) {
         return
-            want.balanceOf(address(this)).add(
-                JointAPI(joint).estimatedTotalAssetsInToken(address(want))
-            );
+            want.balanceOf(address(this)) +
+            JointAPI(joint).estimatedTotalAssetsInToken(address(want));
     }
 
     function totalDebt() public view returns (uint256) {
@@ -95,14 +91,14 @@ contract ProviderStrategy is BaseStrategyInitializable {
 
         if (_totalDebt > totalAssets) {
             // we have losses
-            _loss = _totalDebt.sub(totalAssets);
+            _loss = _totalDebt - totalAssets;
         } else {
             // we have profit
-            _profit = totalAssets.sub(_totalDebt);
+            _profit = totalAssets - _totalDebt;
         }
 
         uint256 amountAvailable = totalAssets;
-        uint256 amountRequired = _debtOutstanding.add(_profit);
+        uint256 amountRequired = _debtOutstanding + _profit;
 
         if (amountRequired > amountAvailable) {
             if (_debtOutstanding > amountAvailable) {
@@ -115,13 +111,13 @@ contract ProviderStrategy is BaseStrategyInitializable {
                 // NOTE: amountRequired is always equal or greater than _debtOutstanding
                 // important to use amountAvailable just in case amountRequired is > amountAvailable
                 _debtPayment = _debtOutstanding;
-                _profit = amountAvailable.sub(_debtPayment);
+                _profit = amountAvailable - _debtPayment;
             }
         } else {
             _debtPayment = _debtOutstanding;
             // profit remains unchanged unless there is not enough to pay it
-            if (amountRequired.sub(_debtPayment) < _profit) {
-                _profit = amountRequired.sub(_debtPayment);
+            if (amountRequired - _debtPayment < _profit) {
+                _profit = amountRequired - _debtPayment;
             }
         }
     }
@@ -133,7 +129,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
         returns (bool)
     {
         // Delegating decision to joint
-        return (JointAPI(joint).shouldStartEpoch() && balanceOfWant() > 0) || JointAPI(joint).shouldEndEpoch();
+        return
+            (JointAPI(joint).shouldStartEpoch() && balanceOfWant() > 0) ||
+            JointAPI(joint).shouldEndEpoch();
     }
 
     function dontInvestWant() public view returns (bool) {
@@ -163,7 +161,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         uint256 availableAssets = want.balanceOf(address(this));
         if (_amountNeeded > availableAssets) {
             _liquidatedAmount = availableAssets;
-            _loss = _amountNeeded.sub(availableAssets);
+            _loss = _amountNeeded - availableAssets;
         } else {
             _liquidatedAmount = _amountNeeded;
         }
@@ -211,8 +209,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         _amountFreed = balanceOfWant();
         // NOTE: we accept a 1% difference before reverting
         require(
-            forceLiquidate ||
-                expectedBalance.mul(9_900).div(10_000) < _amountFreed,
+            forceLiquidate || (expectedBalance * 9_900) / 10_000 < _amountFreed,
             "!liquidation"
         );
     }
@@ -233,17 +230,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
         view
         returns (uint256)
     {
-        if (amount == 0 || address(want) == token) {
-            return amount;
-        }
-
-        uint256[] memory amounts =
-            IUniswapV2Router02(JointAPI(joint).router()).getAmountsOut(
-                amount,
-                getTokenOutPath(token, address(want))
-            );
-
-        return amounts[amounts.length - 1];
+        // if (amount == 0 || address(want) == token) {
+        return amount;
+        // }
     }
 
     function getTokenOutPath(address _token_in, address _token_out)

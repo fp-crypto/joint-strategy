@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.12;
 pragma experimental ABIEncoderV2;
 
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
-    SafeERC20,
-    SafeMath,
-    IERC20,
-    Address
-} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/math/Math.sol";
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+
 import "../interfaces/IERC20Extended.sol";
 
 import "./ySwapper.sol";
@@ -32,7 +32,6 @@ interface ProviderStrategy {
 abstract contract Joint {
     using SafeERC20 for IERC20;
     using Address for address;
-    using SafeMath for uint256;
 
     uint256 internal constant RATIO_PRECISION = 1e4;
 
@@ -122,7 +121,7 @@ abstract contract Joint {
         address _providerB,
         address _weth,
         address _pool
-    ) public {
+    ) {
         _initialize(_providerA, _providerB, _weth, _pool);
     }
 
@@ -230,9 +229,9 @@ abstract contract Joint {
             address rewardSwappedTo = swappedToAmounts[i].token;
             uint256 rewardSwapOutAmount = swappedToAmounts[i].amount;
             if (rewardSwappedTo == tokenA) {
-                currentBalanceA = currentBalanceA.add(rewardSwapOutAmount);
+                currentBalanceA = currentBalanceA + rewardSwapOutAmount;
             } else if (rewardSwappedTo == tokenB) {
-                currentBalanceB = currentBalanceB.add(rewardSwapOutAmount);
+                currentBalanceB = currentBalanceB + rewardSwapOutAmount;
             }
         }
 
@@ -264,18 +263,16 @@ abstract contract Joint {
         //
         require(
             IERC20(tokenA).balanceOf(address(providerA)) >=
-                providerA
-                    .totalDebt()
-                    .mul(RATIO_PRECISION.sub(maxPercentageLoss))
-                    .div(RATIO_PRECISION),
+                (providerA.totalDebt() *
+                    (RATIO_PRECISION - maxPercentageLoss)) /
+                    RATIO_PRECISION,
             "!wrong-balanceA"
         );
         require(
             IERC20(tokenB).balanceOf(address(providerB)) >=
-                providerB
-                    .totalDebt()
-                    .mul(RATIO_PRECISION.sub(maxPercentageLoss))
-                    .div(RATIO_PRECISION),
+                (providerB.totalDebt() *
+                    (RATIO_PRECISION - maxPercentageLoss)) /
+                    RATIO_PRECISION,
             "!wrong-balanceB"
         );
     }
@@ -296,8 +293,8 @@ abstract contract Joint {
         (uint256 amountA, uint256 amountB, ) = createLP();
         (uint256 costHedgeA, uint256 costHedgeB) = hedgeLP();
 
-        investedA = amountA.add(costHedgeA);
-        investedB = amountB.add(costHedgeB);
+        investedA = amountA + costHedgeA;
+        investedB = amountB + costHedgeB;
 
         depositLP();
 
@@ -324,32 +321,32 @@ abstract contract Joint {
     {
         (_aBalance, _bBalance) = balanceOfTokensInLP();
 
-        _aBalance = _aBalance.add(balanceOfA());
-        _bBalance = _bBalance.add(balanceOfB());
+        _aBalance = _aBalance + balanceOfA();
+        _bBalance = _bBalance + balanceOfB();
 
         (uint256 callProfit, uint256 putProfit) = getHedgeProfit();
-        _aBalance = _aBalance.add(callProfit);
-        _bBalance = _bBalance.add(putProfit);
+        _aBalance = _aBalance + callProfit;
+        _bBalance = _bBalance + putProfit;
 
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 rewardsPending = pendingReward(i);
             if (reward == tokenA) {
-                _aBalance = _aBalance.add(rewardsPending);
+                _aBalance = _aBalance + rewardsPending;
             } else if (reward == tokenB) {
-                _bBalance = _bBalance.add(rewardsPending);
+                _bBalance = _bBalance + rewardsPending;
             } else if (rewardsPending != 0) {
                 address swapTo = findSwapTo(reward);
                 uint256 outAmount =
                     quote(
                         reward,
                         swapTo,
-                        rewardsPending.add(balanceOfRewardToken(i))
+                        rewardsPending + balanceOfRewardToken(i)
                     );
                 if (swapTo == tokenA) {
-                    _aBalance = _aBalance.add(outAmount);
+                    _aBalance = _aBalance + outAmount;
                 } else if (swapTo == tokenB) {
-                    _bBalance = _bBalance.add(outAmount);
+                    _bBalance = _bBalance + outAmount;
                 }
             }
         }
@@ -359,12 +356,12 @@ abstract contract Joint {
 
         if (sellToken == tokenA) {
             uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
-            _aBalance = _aBalance.sub(sellAmount);
-            _bBalance = _bBalance.add(buyAmount);
+            _aBalance = _aBalance - sellAmount;
+            _bBalance = _bBalance + buyAmount;
         } else if (sellToken == tokenB) {
             uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
-            _bBalance = _bBalance.sub(sellAmount);
-            _aBalance = _aBalance.add(buyAmount);
+            _bBalance = _bBalance - sellAmount;
+            _aBalance = _aBalance + buyAmount;
         }
     }
 
@@ -413,30 +410,30 @@ abstract contract Joint {
         uint256 precision
     ) internal view returns (uint256 _sellAmount) {
         uint256 numerator =
-            current0.sub(starting0.mul(current1).div(starting1)).mul(precision);
+            (current0 - ((starting0 * current1) / starting1)) * precision;
         uint256 exchangeRate =
             quote(sellToken, sellToken == tokenA ? tokenB : tokenA, precision);
 
         // First time to approximate
-        _sellAmount = numerator.div(
-            precision + starting0.mul(exchangeRate).div(starting1)
-        );
+        _sellAmount =
+            numerator /
+            (precision + ((starting0 * exchangeRate) / starting1));
         // Shortcut to avoid Uniswap amountIn == 0 revert
         if (_sellAmount == 0) {
             return 0;
         }
 
         // Second time to account for price impact
-        exchangeRate = quote(
-            sellToken,
-            sellToken == tokenA ? tokenB : tokenA,
-            _sellAmount
-        )
-            .mul(precision)
-            .div(_sellAmount);
-        _sellAmount = numerator.div(
-            precision + starting0.mul(exchangeRate).div(starting1)
-        );
+        exchangeRate =
+            (quote(
+                sellToken,
+                sellToken == tokenA ? tokenB : tokenA,
+                _sellAmount
+            ) * precision) /
+            _sellAmount;
+        _sellAmount =
+            numerator /
+            (precision + ((starting0 * exchangeRate) / starting1));
     }
 
     function estimatedTotalProviderAssets(address _provider)
@@ -467,8 +464,8 @@ abstract contract Joint {
         uint256 startingA,
         uint256 startingB
     ) internal pure returns (uint256 _a, uint256 _b) {
-        _a = currentA.mul(RATIO_PRECISION).div(startingA);
-        _b = currentB.mul(RATIO_PRECISION).div(startingB);
+        _a = (currentA * RATIO_PRECISION) / startingA;
+        _b = (currentB * RATIO_PRECISION) / startingB;
     }
 
     function createLP()
@@ -566,7 +563,7 @@ abstract contract Joint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal virtual returns (uint256 _amountOut);
+    ) internal view virtual returns (uint256 _amountOut);
 
     function _closePosition() internal returns (uint256, uint256) {
         // Unstake LP from staking contract

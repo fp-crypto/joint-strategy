@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.12;
 pragma experimental ABIEncoderV2;
 
 import "../Hedges/NoHedgeJoint.sol";
 import "../../interfaces/uni/IUniswapV3Pool.sol";
 
 contract UniV3Joint is NoHedgeJoint {
+    using SafeERC20 for IERC20;
+
     bool public isOriginal = true;
     int24 public minTick;
     int24 public maxTick;
@@ -238,24 +240,10 @@ contract UniV3Joint is NoHedgeJoint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal override returns (uint256 _amountOut) {
+    ) internal view override returns (uint256 _amountOut) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
         require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
-
-        bool zeroForOne = _tokenFrom < _tokenTo;
-
-        try
-            IUniswapV3Pool(pool).swap(
-                address(this), // address(0) might cause issues with some tokens
-                zeroForOne,
-                int256(_amountIn),
-                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
-                abi.encodePacked(_tokenFrom, _tokenTo, true)
-            )
-        {} catch (bytes memory reason) {
-            return 0;
-        }
     }
 
     function _positionInfo()

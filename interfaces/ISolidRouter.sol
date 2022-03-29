@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.12;
 pragma experimental ABIEncoderV2;
 
 interface ISolidFactory {
-    function getPair(address token0, address token1, bool stable) external view returns (address);
+    function getPair(
+        address token0,
+        address token1,
+        bool stable
+    ) external view returns (address);
 }
 
 interface ISolidRouter {
@@ -14,6 +18,7 @@ interface ISolidRouter {
     }
 
     function factory() external view returns (address);
+
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -32,7 +37,6 @@ interface ISolidRouter {
             uint256 liquidity
         );
 
-
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -44,7 +48,6 @@ interface ISolidRouter {
         uint256 deadline
     ) external returns (uint256 amountA, uint256 amountB);
 
-
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -53,8 +56,8 @@ interface ISolidRouter {
         uint256 deadline
     ) external returns (uint256[] memory amounts);
 
-    function getAmountsOut(uint amountIn, route[] memory routes) external view returns (uint[] memory amounts);
-
+    function getAmountsOut(uint256 amountIn, route[] memory routes)
+        external
+        view
+        returns (uint256[] memory amounts);
 }
-
-
