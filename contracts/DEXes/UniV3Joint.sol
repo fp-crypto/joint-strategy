@@ -135,13 +135,58 @@ contract UniV3Joint is NoHedgeJoint {
         uint256 amount0Owed,
         uint256 amount1Owed,
         bytes calldata data
-    ) external {}
+    ) external {
+        require(msg.sender == pool); // dev: callback only called by pool
+
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        address _token0 = _pool.token0();
+        address _token1 = _pool.token1();
+
+        if (_token0 == tokenA && _token1 == tokenB) {
+            require(balanceOfA() >= amount0Owed);
+            require(balanceOfB() >= amount1Owed);
+        } else if (_pool.token0() == tokenB && _pool.token1() == tokenA) {
+            require(balanceOfB() >= amount0Owed);
+            require(balanceOfA() >= amount1Owed);
+        } else {
+            revert("TSNFH"); // dev: this should never happen
+        }
+
+        IERC20(_token0).safeTransfer(address(_pool), amount0Owed);
+        IERC20(_token1).safeTransfer(address(_pool), amount1Owed);
+    }
 
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
         bytes calldata data
-    ) external {}
+    ) external {
+        require(msg.sender == address(pool)); // dev: callback only called by pool
+
+        (address tokenIn, address tokenOut, bool quote) =
+            abi.decode(data, (address, address, bool));
+
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+
+        uint256 amountIn;
+        uint256 amountOut;
+
+        if (amount0Delta < 0) {
+            require(tokenIn == _pool.token0());
+            amountIn = uint256(-amount0Delta);
+            amountOut = uint256(amount1Delta);
+        } else {
+            require(tokenIn == _pool.token1());
+            amountIn = uint256(-amount1Delta);
+            amountOut = uint256(amount0Delta);
+        }
+
+        if (quote) {
+            revert(string(abi.encodePacked(amountOut)));
+        }
+
+        IERC20(tokenIn).safeTransfer(address(_pool), amountIn);
+    }
 
     function getReward() internal override {
         IUniswapV3Pool(pool).collect(
@@ -193,9 +238,24 @@ contract UniV3Joint is NoHedgeJoint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal view override returns (uint256 _amountOut) {
+    ) internal override returns (uint256 _amountOut) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
+        require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
+
+        bool zeroForOne = _tokenFrom < _tokenTo;
+
+        try
+            IUniswapV3Pool(pool).swap(
+                address(this), // address(0) might cause issues with some tokens
+                zeroForOne,
+                int256(_amountIn),
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+                abi.encodePacked(_tokenFrom, _tokenTo, true)
+            )
+        {} catch (bytes memory reason) {
+            return 0;
+        }
     }
 
     function _positionInfo()

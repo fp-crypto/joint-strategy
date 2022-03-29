@@ -566,7 +566,7 @@ abstract contract Joint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal view virtual returns (uint256 _amountOut);
+    ) internal virtual returns (uint256 _amountOut);
 
     function _closePosition() internal returns (uint256, uint256) {
         // Unstake LP from staking contract
