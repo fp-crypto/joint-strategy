@@ -3,14 +3,19 @@ pragma solidity 0.8.12;
 pragma experimental ABIEncoderV2;
 
 import "../Hedges/NoHedgeJoint.sol";
-import "../../interfaces/uni/IUniswapV3Pool.sol";
+import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
+import {SimulateSwap} from "../libraries/SimulateSwap.sol";
+import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
+import {TickMath} from "../libraries/TickMath.sol";
 
 contract UniV3Joint is NoHedgeJoint {
     using SafeERC20 for IERC20;
+    using SimulateSwap for IUniswapV3Pool;
 
     bool public isOriginal = true;
     int24 public minTick;
     int24 public maxTick;
+    uint24 public ticksFromCurrent;
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -23,10 +28,9 @@ contract UniV3Joint is NoHedgeJoint {
         address _providerB,
         address _weth,
         address _pool,
-        int24 _minTick,
-        int24 _maxTick
+        uint24 _ticksFromCurrent
     ) public NoHedgeJoint(_providerA, _providerB, _weth, _pool) {
-        _initalizeUniV3Joint(_minTick, _maxTick);
+        _initalizeUniV3Joint(_ticksFromCurrent);
     }
 
     function initialize(
@@ -34,16 +38,14 @@ contract UniV3Joint is NoHedgeJoint {
         address _providerB,
         address _weth,
         address _pool,
-        int24 _minTick,
-        int24 _maxTick
+        uint24 _ticksFromCurrent
     ) external {
         _initialize(_providerA, _providerB, _weth, _pool);
-        _initalizeUniV3Joint(_minTick, _maxTick);
+        _initalizeUniV3Joint(_ticksFromCurrent);
     }
 
-    function _initalizeUniV3Joint(int24 _minTick, int24 _maxTick) internal {
-        minTick = _minTick;
-        maxTick = _maxTick;
+    function _initalizeUniV3Joint(uint24 _ticksFromCurrent) internal {
+        ticksFromCurrent = _ticksFromCurrent;
         rewardTokens = new address[](2);
         rewardTokens[0] = tokenA;
         rewardTokens[1] = tokenB;
@@ -56,8 +58,7 @@ contract UniV3Joint is NoHedgeJoint {
         address _providerB,
         address _weth,
         address _pool,
-        int24 _minTick,
-        int24 _maxTick
+        uint24 _ticksFromCurrent
     ) external returns (address newJoint) {
         require(isOriginal, "!original");
         bytes20 addressBytes = bytes20(address(this));
@@ -82,22 +83,20 @@ contract UniV3Joint is NoHedgeJoint {
             _providerB,
             _weth,
             _pool,
-            _minTick,
-            _maxTick
+            _ticksFromCurrent
         );
 
         emit Cloned(newJoint);
     }
 
     function name() external view override returns (string memory) {
-        string memory ab =
-            string(
-                abi.encodePacked(
-                    IERC20Extended(address(tokenA)).symbol(),
-                    "-",
-                    IERC20Extended(address(tokenB)).symbol()
-                )
-            );
+        string memory ab = string(
+            abi.encodePacked(
+                IERC20Extended(address(tokenA)).symbol(),
+                "-",
+                IERC20Extended(address(tokenB)).symbol()
+            )
+        );
 
         return string(abi.encodePacked("NoHedgeUniV3Joint(", ab, ")"));
     }
@@ -112,25 +111,31 @@ contract UniV3Joint is NoHedgeJoint {
         view
         override
         returns (uint256 _balanceA, uint256 _balanceB)
-    {}
-
-    function pendingReward(uint256 i)
-        public
-        view
-        override
-        returns (uint256 _amountPending)
     {
+        IUniswapV3Pool.Slot0 memory _slot0 = IUniswapV3Pool(pool).slot0();
+        uint160 _sqrtPriceX96 = _slot0.sqrtPriceX96;
+        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
+        uint128 _liquidity = positionInfo.liquidity;
+
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts
+            .getAmountsForLiquidity(
+                _sqrtPriceX96,
+                TickMath.getSqrtRatioAtTick(minTick),
+                TickMath.getSqrtRatioAtTick(maxTick),
+                _liquidity
+            );
+
+        return tokenA < tokenB ? (amount0, amount1) : (amount1, amount0);
+    }
+
+    function pendingRewards() public view override returns (uint256[] memory) {
+        uint256[] memory _amountPending = new uint256[](rewardTokens.length);
+
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
 
-        if (i == 0) {
-            _amountPending = tokenA == IUniswapV3Pool(pool).token0()
-                ? positionInfo.tokensOwed0
-                : positionInfo.tokensOwed1;
-        } else if (i == 1) {
-            _amountPending = tokenA == IUniswapV3Pool(pool).token0()
-                ? positionInfo.tokensOwed1
-                : positionInfo.tokensOwed0;
-        }
+        (_amountPending[0], _amountPending[1]) = tokenA < tokenB
+            ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
+            : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
     }
 
     function uniswapV3MintCallback(
@@ -141,21 +146,8 @@ contract UniV3Joint is NoHedgeJoint {
         require(msg.sender == pool); // dev: callback only called by pool
 
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
-        address _token0 = _pool.token0();
-        address _token1 = _pool.token1();
-
-        if (_token0 == tokenA && _token1 == tokenB) {
-            require(balanceOfA() >= amount0Owed);
-            require(balanceOfB() >= amount1Owed);
-        } else if (_pool.token0() == tokenB && _pool.token1() == tokenA) {
-            require(balanceOfB() >= amount0Owed);
-            require(balanceOfA() >= amount1Owed);
-        } else {
-            revert("TSNFH"); // dev: this should never happen
-        }
-
-        IERC20(_token0).safeTransfer(address(_pool), amount0Owed);
-        IERC20(_token1).safeTransfer(address(_pool), amount1Owed);
+        IERC20(_pool.token0()).safeTransfer(address(_pool), amount0Owed);
+        IERC20(_pool.token1()).safeTransfer(address(_pool), amount1Owed);
     }
 
     function uniswapV3SwapCallback(
@@ -165,26 +157,17 @@ contract UniV3Joint is NoHedgeJoint {
     ) external {
         require(msg.sender == address(pool)); // dev: callback only called by pool
 
-        (address tokenIn, address tokenOut, bool quote) =
-            abi.decode(data, (address, address, bool));
-
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
 
         uint256 amountIn;
-        uint256 amountOut;
+        address tokenIn;
 
-        if (amount0Delta < 0) {
-            require(tokenIn == _pool.token0());
-            amountIn = uint256(-amount0Delta);
-            amountOut = uint256(amount1Delta);
+        if (amount0Delta > 0) {
+            amountIn = uint256(amount0Delta);
+            tokenIn = _pool.token0();
         } else {
-            require(tokenIn == _pool.token1());
-            amountIn = uint256(-amount1Delta);
-            amountOut = uint256(amount0Delta);
-        }
-
-        if (quote) {
-            revert(string(abi.encodePacked(amountOut)));
+            amountIn = uint256(amount1Delta);
+            tokenIn = _pool.token1();
         }
 
         IERC20(tokenIn).safeTransfer(address(_pool), amountIn);
@@ -209,11 +192,44 @@ contract UniV3Joint is NoHedgeJoint {
             uint256
         )
     {
-        return (0, 0, 0);
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
+
+        int24 _currentTick = _slot0.tick;
+        int24 _tickSpacing = _pool.tickSpacing();
+        int24 _ticksFromCurrent = int24(ticksFromCurrent);
+        minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
+        maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
+
+        uint160 sqrtPriceX96 = _slot0.sqrtPriceX96;
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(minTick);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(maxTick);
+        uint256 amount0;
+        uint256 amount1;
+
+        if (tokenA < tokenB) {
+            amount0 = balanceOfA();
+            amount1 = balanceOfB();
+        } else {
+            amount0 = balanceOfB();
+            amount1 = balanceOfA();
+        }
+
+        uint128 liquidityAmount = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            amount0,
+            amount1
+        );
+
+        _pool.mint(address(this), minTick, maxTick, liquidityAmount, "");
     }
 
     function burnLP(uint256 amount) internal override {
         IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
+        minTick = 0;
+        maxTick = 0;
     }
 
     function swap(
@@ -232,7 +248,7 @@ contract UniV3Joint is NoHedgeJoint {
             zeroForOne,
             int256(_amountIn),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
-            abi.encodePacked(_tokenFrom, _tokenTo, false)
+            ""
         );
     }
 
@@ -240,10 +256,20 @@ contract UniV3Joint is NoHedgeJoint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal view override returns (uint256 _amountOut) {
+    ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
         require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
+
+        bool zeroForOne = _tokenFrom < _tokenTo;
+
+        (, int256 _amountOut, , ) = IUniswapV3Pool(pool).simulateSwap(
+            zeroForOne,
+            int256(_amountIn),
+            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+        );
+
+        return uint256(_amountOut);
     }
 
     function _positionInfo()
@@ -251,8 +277,9 @@ contract UniV3Joint is NoHedgeJoint {
         view
         returns (IUniswapV3Pool.PositionInfo memory)
     {
-        bytes32 key =
-            keccak256(abi.encodePacked(address(this), minTick, maxTick));
+        bytes32 key = keccak256(
+            abi.encodePacked(address(this), minTick, maxTick)
+        );
         return IUniswapV3Pool(pool).positions(key);
     }
 }

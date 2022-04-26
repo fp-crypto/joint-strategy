@@ -4,14 +4,10 @@ pragma experimental ABIEncoderV2;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/IERC20Extended.sol";
-import {
-    BaseStrategyInitializable
-} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {BaseStrategyInitializable} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface JointAPI {
     function closePositionReturnFunds() external;
@@ -240,9 +236,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
         view
         returns (address[] memory _path)
     {
-        bool is_weth =
-            _token_in == address(JointAPI(joint).WETH()) ||
-                _token_out == address(JointAPI(joint).WETH());
+        bool is_weth = _token_in == address(JointAPI(joint).WETH()) ||
+            _token_out == address(JointAPI(joint).WETH());
         _path = new address[](is_weth ? 2 : 3);
         _path[0] = _token_in;
 

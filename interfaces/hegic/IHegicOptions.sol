@@ -55,8 +55,17 @@ interface IPriceCalculator {
  *   unlocks the expired options and distributes the premiums among the liquidity providers.
  **/
 interface IHegicPool is IERC721, IPriceCalculator {
-    enum OptionState {Invalid, Active, Exercised, Expired}
-    enum TrancheState {Invalid, Open, Closed}
+    enum OptionState {
+        Invalid,
+        Active,
+        Exercised,
+        Expired
+    }
+    enum TrancheState {
+        Invalid,
+        Open,
+        Closed
+    }
 
     /**
      * @param state The state of the option: Invalid, Active, Exercised, Expired

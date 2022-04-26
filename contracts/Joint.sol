@@ -4,16 +4,12 @@ pragma experimental ABIEncoderV2;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../interfaces/IERC20Extended.sol";
 
 import "./ySwapper.sol";
-
-import {UniswapV2Library} from "./libraries/UniswapV2Library.sol";
 
 import {VaultAPI} from "@yearnvaults/contracts/BaseStrategy.sol";
 
@@ -238,21 +234,19 @@ abstract contract Joint {
         // 3. REBALANCE PORTFOLIO
         // Calculate rebalance operation
         // It will return which of the tokens (A or B) we need to sell and how much of it to leave the position with the initial proportions
-        (address sellToken, uint256 sellAmount) =
-            calculateSellToBalance(
-                currentBalanceA,
-                currentBalanceB,
-                investedA,
-                investedB
-            );
+        (address sellToken, uint256 sellAmount) = calculateSellToBalance(
+            currentBalanceA,
+            currentBalanceB,
+            investedA,
+            investedB
+        );
 
         if (sellToken != address(0) && sellAmount > minAmountToSell) {
-            uint256 buyAmount =
-                swap(
-                    sellToken,
-                    sellToken == tokenA ? tokenB : tokenA,
-                    sellAmount
-                );
+            uint256 buyAmount = swap(
+                sellToken,
+                sellToken == tokenA ? tokenB : tokenA,
+                sellAmount
+            );
         }
 
         // reset invested balances
@@ -309,7 +303,7 @@ abstract contract Joint {
     }
 
     function harvestTrigger() external view returns (bool) {
-        return balanceOfRewardToken(0) > minRewardToHarvest;
+        return balanceOfRewardToken()[0] > minRewardToHarvest;
     }
 
     function getHedgeProfit() public view virtual returns (uint256, uint256);
@@ -328,21 +322,20 @@ abstract contract Joint {
         _aBalance = _aBalance + callProfit;
         _bBalance = _bBalance + putProfit;
 
+        uint256[] memory _rewardsPending = pendingRewards();
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
-            uint256 rewardsPending = pendingReward(i);
             if (reward == tokenA) {
-                _aBalance = _aBalance + rewardsPending;
+                _aBalance = _aBalance + _rewardsPending[i];
             } else if (reward == tokenB) {
-                _bBalance = _bBalance + rewardsPending;
-            } else if (rewardsPending != 0) {
+                _bBalance = _bBalance + _rewardsPending[i];
+            } else if (_rewardsPending[i] != 0) {
                 address swapTo = findSwapTo(reward);
-                uint256 outAmount =
-                    quote(
-                        reward,
-                        swapTo,
-                        rewardsPending + balanceOfRewardToken(i)
-                    );
+                uint256 outAmount = quote(
+                    reward,
+                    swapTo,
+                    _rewardsPending[i] + IERC20(reward).balanceOf(address(this))
+                );
                 if (swapTo == tokenA) {
                     _aBalance = _aBalance + outAmount;
                 } else if (swapTo == tokenB) {
@@ -351,8 +344,12 @@ abstract contract Joint {
             }
         }
 
-        (address sellToken, uint256 sellAmount) =
-            calculateSellToBalance(_aBalance, _bBalance, investedA, investedB);
+        (address sellToken, uint256 sellAmount) = calculateSellToBalance(
+            _aBalance,
+            _bBalance,
+            investedA,
+            investedB
+        );
 
         if (sellToken == tokenA) {
             uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
@@ -373,8 +370,12 @@ abstract contract Joint {
     ) internal view returns (address _sellToken, uint256 _sellAmount) {
         if (startingA == 0 || startingB == 0) return (address(0), 0);
 
-        (uint256 ratioA, uint256 ratioB) =
-            getRatios(currentA, currentB, startingA, startingB);
+        (uint256 ratioA, uint256 ratioB) = getRatios(
+            currentA,
+            currentB,
+            startingA,
+            startingB
+        );
 
         if (ratioA == ratioB) return (address(0), 0);
 
@@ -409,10 +410,13 @@ abstract contract Joint {
         uint256 starting1,
         uint256 precision
     ) internal view returns (uint256 _sellAmount) {
-        uint256 numerator =
-            (current0 - ((starting0 * current1) / starting1)) * precision;
-        uint256 exchangeRate =
-            quote(sellToken, sellToken == tokenA ? tokenB : tokenA, precision);
+        uint256 numerator = (current0 - ((starting0 * current1) / starting1)) *
+            precision;
+        uint256 exchangeRate = quote(
+            sellToken,
+            sellToken == tokenA ? tokenB : tokenA,
+            precision
+        );
 
         // First time to approximate
         _sellAmount =
@@ -499,11 +503,10 @@ abstract contract Joint {
         view
         returns (address[] memory _path)
     {
-        bool is_weth =
-            _token_in == address(WETH) || _token_out == address(WETH);
-        bool is_internal =
-            (_token_in == tokenA && _token_out == tokenB) ||
-                (_token_in == tokenB && _token_out == tokenA);
+        bool is_weth = _token_in == address(WETH) ||
+            _token_out == address(WETH);
+        bool is_internal = (_token_in == tokenA && _token_out == tokenB) ||
+            (_token_in == tokenB && _token_out == tokenA);
         _path = new address[](is_weth || is_internal ? 2 : 3);
         _path[0] = _token_in;
         if (is_weth || is_internal) {
@@ -531,8 +534,8 @@ abstract contract Joint {
         returns (tokenAmount[] memory _swapToAmounts)
     {
         for (uint256 i = 0; i < rewardTokens.length; i++) {
-            uint256 _rewardBal = balanceOfRewardToken(i);
             address reward = rewardTokens[i];
+            uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
             if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
                 _swapToAmounts[i] = tokenAmount(reward, 0);
             } else if (tokenA == WETH || tokenB == WETH) {
@@ -542,8 +545,12 @@ abstract contract Joint {
                 );
             } else {
                 // Assume that position has already been liquidated
-                (uint256 ratioA, uint256 ratioB) =
-                    getRatios(balanceOfA(), balanceOfB(), investedA, investedB);
+                (uint256 ratioA, uint256 ratioB) = getRatios(
+                    balanceOfA(),
+                    balanceOfB(),
+                    investedA,
+                    investedB
+                );
                 address swapTo = (ratioA >= ratioB) ? tokenB : tokenA;
                 _swapToAmounts[i] = tokenAmount(
                     swapTo,
@@ -608,8 +615,12 @@ abstract contract Joint {
 
     function balanceOfPool() public view virtual returns (uint256);
 
-    function balanceOfRewardToken(uint256 i) public view returns (uint256) {
-        return IERC20(rewardTokens[i]).balanceOf(address(this));
+    function balanceOfRewardToken() public view returns (uint256[] memory) {
+        uint256[] memory _balances = new uint256[](rewardTokens.length);
+        for (uint8 i = 0; i < rewardTokens.length; i++) {
+            _balances[i] = IERC20(rewardTokens[i]).balanceOf(address(this));
+        }
+        return _balances;
     }
 
     function balanceOfStake() public view virtual returns (uint256 _balance) {}
@@ -620,7 +631,7 @@ abstract contract Joint {
         virtual
         returns (uint256 _balanceA, uint256 _balanceB);
 
-    function pendingReward(uint256 i) public view virtual returns (uint256);
+    function pendingRewards() public view virtual returns (uint256[] memory);
 
     // --- MANAGEMENT FUNCTIONS ---
     function liquidatePositionManually(

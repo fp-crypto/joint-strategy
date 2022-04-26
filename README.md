@@ -3,7 +3,6 @@
 Read more at
 https://hackmd.io/rbPUCp47Sl2dSht6VTaiLg?both
 
-
 ## What you'll find here
 
 - Basic Solidity Smart Contract for creating your own Yearn Strategy ([`contracts/Strategy.sol`](contracts/Strategy.sol))
@@ -96,14 +95,14 @@ Transaction sent: 0xa70b90eb9a9899e8f6e709c53a436976315b4279c4b6797d0a293e169f94
 
 [`contracts/Strategy.sol`](contracts/Strategy.sol) is where you implement your own logic for your strategy. In particular:
 
-* Create a descriptive name for your strategy via `Strategy.name()`.
-* Invest your want tokens via `Strategy.adjustPosition()`.
-* Take profits and report losses via `Strategy.prepareReturn()`.
-* Unwind enough of your position to payback withdrawals via `Strategy.liquidatePosition()`.
-* Unwind all of your positions via `Strategy.exitPosition()`.
-* Fill in a way to estimate the total `want` tokens managed by the strategy via `Strategy.estimatedTotalAssets()`.
-* Migrate all the positions managed by your strategy via `Strategy.prepareMigration()`.
-* Make a list of all position tokens that should be protected against movements via `Strategy.protectedTokens()`.
+- Create a descriptive name for your strategy via `Strategy.name()`.
+- Invest your want tokens via `Strategy.adjustPosition()`.
+- Take profits and report losses via `Strategy.prepareReturn()`.
+- Unwind enough of your position to payback withdrawals via `Strategy.liquidatePosition()`.
+- Unwind all of your positions via `Strategy.exitPosition()`.
+- Fill in a way to estimate the total `want` tokens managed by the strategy via `Strategy.estimatedTotalAssets()`.
+- Migrate all the positions managed by your strategy via `Strategy.prepareMigration()`.
+- Make a list of all position tokens that should be protected against movements via `Strategy.protectedTokens()`.
 
 ## Testing
 

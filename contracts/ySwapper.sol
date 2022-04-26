@@ -4,9 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    SafeERC20
-} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ITradeFactory {
     function enable(address, address) external;
@@ -43,8 +41,10 @@ abstract contract ySwapper {
     function _setUpTradeFactory() internal {
         //approve and set up trade factory
         tradesEnabled = true;
-        (address[] memory tokensToEnable, address[] memory toTokens) =
-            getYSwapTokens();
+        (
+            address[] memory tokensToEnable,
+            address[] memory toTokens
+        ) = getYSwapTokens();
 
         for (uint256 i; i < tokensToEnable.length; i++) {
             _enableTradeFactoryForToken(tokensToEnable[i], toTokens[i]);
