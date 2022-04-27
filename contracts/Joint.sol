@@ -131,6 +131,7 @@ abstract contract Joint {
         providerA = ProviderStrategy(_providerA);
         providerB = ProviderStrategy(_providerB);
         WETH = _weth;
+        pool = _pool;
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
         maxPercentageLoss = 10; // 0.10%
