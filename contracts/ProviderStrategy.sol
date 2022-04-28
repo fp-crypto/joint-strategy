@@ -18,7 +18,7 @@ interface JointAPI {
 
     function providerB() external view returns (address);
 
-    function estimatedTotalProviderAssets(address provider)
+    function estimatedTotalAssetsInToken(address token)
         external
         view
         returns (uint256);
@@ -61,7 +61,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     function estimatedTotalAssets() public view override returns (uint256) {
         return
             want.balanceOf(address(this)) +
-            JointAPI(joint).estimatedTotalProviderAssets(address(this));
+            JointAPI(joint).estimatedTotalAssetsInToken(address(want));
     }
 
     function totalDebt() public view returns (uint256) {

@@ -21,11 +21,9 @@ def test_profitable_harvest(
     gov,
     tokenA_whale,
     tokenB_whale,
-    hedge_type,
-    dex
+    hedge_type
 ):
     checks.check_run_test("nohedge", hedge_type)
-    checks.check_run_test("SOLID", dex)
     solid_token = Contract(joint.SOLID_SEX())
     sex_token = Contract(joint.SEX())
     # Deposit to the vault
@@ -124,11 +122,9 @@ def test_manual_exit(
     gov,
     tokenA_whale,
     tokenB_whale,
-    hedge_type,
-    dex
+    hedge_type
 ):
     checks.check_run_test("nohedge", hedge_type)
-    checks.check_run_test("SOLID", dex)
     solid_token = Contract(joint.SOLID_SEX())
     sex_token = Contract(joint.SEX())
     # Deposit to the vault
@@ -223,11 +219,9 @@ def test_profitable_with_big_imbalance_harvest(
     tokenB_whale,
     router,
     swap_from,
-    hedge_type,
-    dex
+    hedge_type
 ):
     checks.check_run_test("nohedge", hedge_type)
-    checks.check_run_test("SOLID", dex)
     solid_token = Contract(joint.SOLID_SEX())
     sex_token = Contract(joint.SEX())
 
@@ -346,11 +340,9 @@ def test_profitable_harvest_yswaps(
     wftm,
     trade_factory,
     yMechs_multisig,
-    hedge_type,
-    dex
+    hedge_type
 ):
     checks.check_run_test("nohedge", hedge_type)
-    checks.check_run_test("SOLID", dex)
     solid_token = Contract(joint.SOLID_SEX())
     sex_token = Contract(joint.SEX())
 

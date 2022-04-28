@@ -136,7 +136,6 @@ contract UniV3Joint is NoHedgeJoint {
         (_amountPending[0], _amountPending[1]) = tokenA < tokenB
             ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
             : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
-        return _amountPending;
     }
 
     function uniswapV3MintCallback(
@@ -189,14 +188,15 @@ contract UniV3Joint is NoHedgeJoint {
         override
         returns (
             uint256,
+            uint256,
             uint256
         )
     {
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
         IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
 
+        int24 _currentTick = _slot0.tick;
         int24 _tickSpacing = _pool.tickSpacing();
-        int24 _currentTick = (_slot0.tick / _tickSpacing) * _tickSpacing;
         int24 _ticksFromCurrent = int24(ticksFromCurrent);
         minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
         maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
@@ -224,13 +224,10 @@ contract UniV3Joint is NoHedgeJoint {
         );
 
         _pool.mint(address(this), minTick, maxTick, liquidityAmount, "");
-
-        return balanceOfTokensInLP();
     }
 
     function burnLP(uint256 amount) internal override {
         IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
-        getReward();
         minTick = 0;
         maxTick = 0;
     }
