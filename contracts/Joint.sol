@@ -255,7 +255,7 @@ abstract contract Joint {
 
         _returnLooseToProviders();
         // Check that we have returned with no losses
-        //
+
         require(
             IERC20(tokenA).balanceOf(address(providerA)) >=
                 (providerA.totalDebt() *
@@ -285,7 +285,7 @@ abstract contract Joint {
                 investedB == 0
         ); // don't create LP if we are already invested
 
-        (uint256 amountA, uint256 amountB, ) = createLP();
+        (uint256 amountA, uint256 amountB) = createLP();
         (uint256 costHedgeA, uint256 costHedgeB) = hedgeLP();
 
         investedA = amountA + costHedgeA;
@@ -478,7 +478,6 @@ abstract contract Joint {
         virtual
         returns (
             uint256,
-            uint256,
             uint256
         );
 
@@ -532,8 +531,9 @@ abstract contract Joint {
     function swapRewardTokens()
         internal
         virtual
-        returns (tokenAmount[] memory _swapToAmounts)
+        returns (tokenAmount[] memory)
     {
+        tokenAmount[] memory _swapToAmounts = new tokenAmount[](rewardTokens.length);
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
@@ -559,6 +559,7 @@ abstract contract Joint {
                 );
             }
         }
+        return _swapToAmounts;
     }
 
     function swap(
