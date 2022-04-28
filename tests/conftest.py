@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    SpookyJoint, SolidexJoint, SpiritJoint, SushiJoint
+    UniV3Joint
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -25,8 +25,8 @@ def tenderly_fork(web3):
     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
 @pytest.fixture(scope="session", autouse=True)
-def donate(wftm, accounts, gov, tokenA_whale, tokenB_whale):
-    donor = accounts.at(wftm, force=True)
+def donate(wftm, weth, accounts, gov, chain):
+    donor = accounts.at(wftm, force=True) if chain.id == 250 else accounts.at(weth, force=True)
     for i in range(10):
         donor.transfer(accounts[i], 100e18)
     donor.transfer(gov, 100e18)
@@ -86,10 +86,16 @@ def strategist(accounts):
 def keeper(accounts):
     yield accounts[5]
 
+eth_chain_ids = [1, 31337]
 
 @pytest.fixture(scope="session")
 def hedgilV2():
-    yield Contract("0x6E7d6Daa034fD0188f879E5648f63D821F7C0702")
+    if chain.id in eth_chain_ids:
+        yield ""
+    elif chain.id == 250:    
+        yield Contract("0xB6bdB19b7E1042CA3dD7b62048827d10C5e3a7FA")
+    else:
+        yield None
 
 
 @pytest.fixture(scope="session")
@@ -104,35 +110,43 @@ def deployer(accounts):
 
 @pytest.fixture(scope="session")
 def dai():
-    yield Contract(token_addresses["DAI"])
+    if chain.id in eth_chain_ids:
+        yield Contract(token_addresses_eth["DAI"])
+    elif chain.id == 250:    
+        yield Contract(token_addresses_ftm["DAI"])
 
 
 @pytest.fixture(scope="session")
-def weth():
-    token_address = "0x74b23882a30290451A17c44f4F05243b6b58C76d"
-    yield Contract(token_address)
+def weth(chain):
+    if chain.id in eth_chain_ids:
+        yield Contract(token_addresses_eth["WETH"])
+    elif chain.id == 250:    
+        yield Contract(token_addresses_ftm["WETH"])
 
 
 @pytest.fixture(scope="session")
-def wftm():
-    token_address = token_addresses["WFTM"]
-    yield Contract(token_address)
-
-
-@pytest.fixture(scope="session")
-def usdc():
-    token_address = token_addresses["USDC"]
-    yield Contract(token_address)
-
-
-@pytest.fixture(scope="session")
-def mim():
-    token_address = token_addresses["MIM"]
-    yield Contract(token_address)
+def wftm(chain):
+    if chain.id == 250:    
+        yield Contract(token_addresses_ftm["WFTM"])
+    yield None
 
 @pytest.fixture(scope="session")
 def registry():
     yield Contract("")
+
+@pytest.fixture(scope="session")
+def healthcheck(chain):
+    if chain.id in eth_chain_ids:
+        yield "0xDDCea799fF1699e98EDF118e0629A974Df7DF012"
+    elif chain.id == 250:    
+        yield "0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0"
+
+@pytest.fixture(scope="session")
+def sms(chain):
+    if chain.id in eth_chain_ids:
+        yield "0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7"
+    elif chain.id == 250:    
+        yield "0x72a34AbafAB09b15E7191822A679f28E067C4a16"
 
 
 @pytest.fixture(scope="session")
@@ -149,8 +163,8 @@ def live_vaultB(registry, tokenB):
 # Select the type of hedge to use for the joint
 @pytest.fixture(
     params=[
-        # "nohedge",
-        "hedgilV2",
+        "nohedge",
+        # "hedgilV2",
         # "hegic"
     ],
     scope="session",
@@ -163,8 +177,8 @@ def hedge_type(request):
         # "SUSHI",
         # "SOLID",
         # "SPIRIT",
-        # "UNI",
-        "SPOOKY"
+        "UNIV3",
+        # "SPOOKY"
     ],
     scope="session",
     autouse=True,)
@@ -176,21 +190,24 @@ def dex(request):
     params=[
         # 'WBTC', # WBTC
         # "YFI",  # YFI
-        "ETH",  # WETH
+        # "ETH",  # WETH
         # 'LINK', # LINK
-        'fUSDT', # USDT
-        'DAI', # DAI
+        # 'fUSDT', # USDT
+        # 'DAI', # DAI
         # "WFTM",
         "USDC",  # USDC
         # "WFTM",
         # "BOO",
-        "BTC",
+        # "BTC",
     ],
     scope="session",
     autouse=True,
 )
-def tokenA(request):
-    yield Contract(token_addresses[request.param])
+def tokenA(request, chain):
+    if chain.id in eth_chain_ids:
+        yield Contract(token_addresses_eth[request.param])
+    elif chain.id == 250:    
+        yield Contract(token_addresses_ftm[request.param])
 
 
 # TODO: uncomment those tokens you want to test as want
@@ -198,45 +215,58 @@ def tokenA(request):
     params=[
         # 'WBTC', # WBTC
         # "YFI",  # YFI
-        # "WETH",  # WETH
+        "WETH",  # WETH
         # 'LINK', # LINK
         # 'USDT', # USDT
         # 'DAI', # DAI
         # "USDC",  # USDC
-        "WFTM",
+        # "WFTM",
         # "MIM",
         # "FRAX",
     ],
     scope="session",
     autouse=True,
 )
-def tokenB(request):
-    yield Contract(token_addresses[request.param])
+def tokenB(request, chain):
+    if chain.id in eth_chain_ids:
+        yield Contract(token_addresses_eth[request.param])
+    elif chain.id == 250:    
+        yield Contract(token_addresses_ftm[request.param])
 
 @pytest.fixture(params=[
     # "SEX",
-    "BOO"
+    # "BOO",
+    ""
     ], scope="session", autouse=True)
-def rewards(request):
-    rewards_address = token_addresses[request.param]  # sushi
-    yield Contract(rewards_address)
+def rewards(request, chain):
+    if chain.id in eth_chain_ids:
+        if request.param in token_addresses_eth.keys():
+            yield Contract(token_addresses_eth[request.param])
+    elif chain.id == 250:
+        if request.param in token_addresses_ftm.keys():
+            yield Contract(token_addresses_ftm[request.param])
+    yield None
 
 joint_type = {
-    "SPOOKY": {
-        "nohedge": "",
-        "hedgilV2": SpookyJoint
-    },
-    "SOLID": {
-        "nohedge": SolidexJoint,
-        "hedgilV2": ""
-    },
-    "SUSHI": {
-        "nohedge": "",
-        "hedgilV2": "",
-        "hegic": SushiJoint
-    },
+    # "SPOOKY": {
+    #     "nohedge": "",
+    #     "hedgilV2": SpookyJoint
+    # },
+    # "SOLID": {
+    #     "nohedge": SolidexJoint,
+    #     "hedgilV2": ""
+    # },
+    # "SUSHI": {
+    #     "nohedge": "",
+    #     "hedgilV2": "",
+    #     "hegic": SushiJoint
+    # },
     "SPIRIT": {
         "nohedge": "",
+        "hedgilV2": ""
+    },
+    "UNIV3": {
+        "nohedge": UniV3Joint,
         "hedgilV2": ""
     }
 }
@@ -244,7 +274,7 @@ joint_type = {
 def joint_to_use(dex, hedge_type):
     yield joint_type[dex][hedge_type]
 
-token_addresses = {
+token_addresses_ftm = {
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",  # YFI
     "ETH": "0x74b23882a30290451A17c44f4F05243b6b58C76d",  # WETH
     "DAI": "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E",  # DAI
@@ -259,9 +289,14 @@ token_addresses = {
     "FRAX": "0xdc301622e621166BD8E82f2cA0A26c13Ad0BE355", #FRAX
     "BTC": "0x321162Cd933E2Be498Cd2267a90534A804051b11", #BTC
     "fUSDT": "0x049d68029688eAbF473097a2fC38ef61633A3C7A", #fUSDT
+} 
+token_addresses_eth = {
+    "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+    "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC
+    "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
 }
 
-whale_addresses = {
+whale_addresses_ftm = {
     "SOLID": "0x1d1A1871d1830D4b5087212c820E5f1252379c2c",
     "SEX": "0x1434f19804789e494E271F9CeF8450e51790fcD2",
     "YFI": "0x29b0Da86e484E1C0029B56e817912d778aC0EC69",
@@ -275,6 +310,10 @@ whale_addresses = {
     "FRAX": "0x7a656B342E14F745e2B164890E88017e27AE7320",
     "BTC": "0x38aCa5484B8603373Acc6961Ecd57a6a594510A3",
     "fUSDT": "0x2823D10DA533d9Ee873FEd7B16f4A962B2B7f181",
+}
+whale_addresses_eth = {
+    "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
+    "USDC": "0x0A59649758aa4d66E25f08Dd01271e891fe52199",  # DAI
 }
 
 lp_whales = {
@@ -297,6 +336,12 @@ lp_whales = {
                 "DAI": "0x9C7EaC4b4a8d37fA9dE7e4cb81F0a99256C672d1",
                 }
         },
+    "UNIV3":
+        {
+            "WETH": {
+                "USDC": ""
+            }
+        }
 }
 
 
@@ -304,15 +349,33 @@ lp_whales = {
 def lp_whale(dex, tokenA, tokenB):
     yield lp_whales[dex][tokenB.symbol()][tokenA.symbol()]
 
+uni_v3_pols_eth = {
+    "WETH": {
+        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8"
+    }
+}
+@pytest.fixture
+def uni_v3_pool(chain, tokenA, tokenB):
+    if chain.id in eth_chain_ids:
+        yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
+    elif chain.id == 250:    
+        yield None
+
 
 @pytest.fixture(scope="session", autouse=True)
-def tokenA_whale(tokenA):
-    yield whale_addresses[tokenA.symbol()]
+def tokenA_whale(chain, tokenA):
+    if chain.id in eth_chain_ids:
+        yield whale_addresses_eth[tokenA.symbol()]
+    elif chain.id == 250:    
+        yield whale_addresses_ftm[tokenA.symbol()]
 
 
 @pytest.fixture(scope="session", autouse=True)
-def tokenB_whale(tokenB):
-    yield whale_addresses[tokenB.symbol()]
+def tokenB_whale(chain, tokenB):
+    if chain.id in eth_chain_ids:
+        yield whale_addresses_eth[tokenB.symbol()]
+    elif chain.id == 250:    
+        yield whale_addresses_ftm[tokenB.symbol()]
 
 mc_pids = {
     "WFTM": {
@@ -334,7 +397,7 @@ def mc_pid(tokenA, tokenB):
         yield ""
 
 router_addresses = {
-    "UNI": "",
+    "UNIV3": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
     "SUSHI": "",
     "SPOOKY": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
     "SOLID": "0xa38cd27185a464914D3046f0AB9d43356B34829D",
@@ -357,7 +420,7 @@ def lp_depositor(dex):
         yield ""
 
 # Non-comprehensive, find the full list here to add your own: https://docs.chain.link/docs/fantom-price-feeds/
-oracle_addresses = {
+oracle_addresses_ftm = {
     "WFTM": "0xf4766552D15AE4d256Ad41B6cf2933482B0680dc",
     "USDC": "0x2553f4eeb82d5A26427b8d1106C51499CBa5D99c",
     "MIM": "0x28de48D3291F31F839274B8d82691c77DF1c5ceD",
@@ -367,20 +430,33 @@ oracle_addresses = {
     "ETH": "0x11DdD3d147E5b83D01cee7070027092397d63658",
     "fUSDT": "0xF64b636c5dFe1d3555A847341cDC449f612307d0",
 }
+oracle_addresses_eth = {
+    "WETH": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",  # WETH
+    "USDC": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",  # DAI
+}
 
 
 @pytest.fixture(scope="session")
-def tokenA_oracle(tokenA):
-    yield Contract(oracle_addresses[tokenA.symbol()])
+def tokenA_oracle(tokenA, chain):
+    if chain.id in eth_chain_ids:
+        yield Contract(oracle_addresses_eth[tokenA.symbol()])
+    elif chain.id == 250:    
+        yield Contract(oracle_addresses_ftm[tokenA.symbol()])
 
 
 @pytest.fixture(scope="session")
-def tokenB_oracle(tokenB):
-    yield Contract(oracle_addresses[tokenB.symbol()])
+def tokenB_oracle(tokenB, chain):
+    if chain.id in eth_chain_ids:
+        yield Contract(oracle_addresses_eth[tokenB.symbol()])
+    elif chain.id == 250:    
+        yield Contract(oracle_addresses_ftm[tokenB.symbol()])
 
 @pytest.fixture
-def rewards_whale(rewards):
-    yield whale_addresses[rewards.symbol()]
+def rewards_whale(rewards, chain):
+    if chain.id in eth_chain_ids:
+        yield whale_addresses_eth[rewards.symbol()]
+    elif chain.id == 250:    
+        yield whale_addresses_ftm[rewards.symbol()]
 
 masterchef_addresses = {
     "SUSHI": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
@@ -392,7 +468,9 @@ masterchef_addresses = {
 
 @pytest.fixture
 def masterchef(rewards):
-    yield Contract(masterchef_addresses[rewards.symbol()])
+    if rewards is not None:
+        yield Contract(masterchef_addresses[rewards.symbol()])
+    yield None
 
 hedgil_pools = {
     "WFTM": {
@@ -406,14 +484,14 @@ hedgil_pools = {
 token_prices = {
     "WBTC": 60_000,
     "BTC": 38_000,
-    "ETH": 4_500,
+    "WETH": 2_800,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
     "fUSDT": 1,
     "USDC": 1,
     "DAI": 1,
-    "WFTM": 3,
+    "WFTM": 1,
     "MIM": 1,
     "FRAX": 1,
     "BOO": 11,
@@ -457,20 +535,20 @@ def weth_amount(user, weth):
 ######### DEPLOYMENTS
 
 @pytest.fixture(scope="function", autouse=True)
-def vaultA(pm, gov, rewards, guardian, management, tokenA):
+def vaultA(pm, gov, guardian, management, tokenA):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
-    vault.initialize(tokenA, gov, rewards, "", "", guardian, management, {"from": gov, "gas_price":0})
+    vault.initialize(tokenA, gov, management, "", "", guardian, management, {"from": gov, "gas_price":0})
     vault.setDepositLimit(2 ** 256 - 1, {"from": gov, "gas_price":0})
     vault.setManagement(management, {"from": gov, "gas_price":0})
     yield vault
 
 
 @pytest.fixture(scope="function", autouse=True)
-def vaultB(pm, gov, rewards, guardian, management, tokenB):
+def vaultB(pm, gov, guardian, management, tokenB):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
-    vault.initialize(tokenB, gov, rewards, "", "", guardian, management, {"from": gov, "gas_price":0})
+    vault.initialize(tokenB, gov, management, "", "", guardian, management, {"from": gov, "gas_price":0})
     vault.setDepositLimit(2 ** 256 - 1, {"from": gov, "gas_price":0})
     vault.setManagement(management, {"from": gov, "gas_price":0})
     yield vault
@@ -488,10 +566,12 @@ def joint(
     hedgilV2,
     gov,
     lp_depositor,
-    stable
+    stable,
+    weth,
+    uni_v3_pool
 ):
     
-    if (joint_to_use == SpookyJoint): 
+    if (joint_to_use == "SpookyJoint"): 
         joint = gov.deploy(
             joint_to_use,
             providerA,
@@ -503,7 +583,7 @@ def joint(
             masterchef,
             mc_pid,
         )
-    elif (joint_to_use == SolidexJoint):
+    elif (joint_to_use == "SolidexJoint"):
         joint = gov.deploy(
             joint_to_use,
             providerA,
@@ -514,45 +594,50 @@ def joint(
             lp_depositor,
             stable
         )
-    
+    elif (joint_to_use == UniV3Joint):
+        joint = gov.deploy(
+            joint_to_use,
+            providerA,
+            providerB,
+            weth,
+            uni_v3_pool,
+            3
+        )
     joint.setMaxPercentageLoss(500, {"from": gov})
-    joint.setHedgeBudget(25)
-    joint.setHedgingPeriod(2 * 86400)
 
     providerA.setJoint(joint, {"from": gov})
     providerB.setJoint(joint, {"from": gov})
 
     yield joint
 
-
 @pytest.fixture
-def providerA(strategist, keeper, vaultA, ProviderStrategy, gov):
+def providerA(strategist, keeper, vaultA, ProviderStrategy, gov, sms, healthcheck):
     strategy = strategist.deploy(ProviderStrategy, vaultA)
     strategy.setKeeper(keeper, {"from": gov, "gas_price":0})
     vaultA.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov, "gas_price":0})
-    strategy.setHealthCheck("0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0", {"from": gov, "gas_price":0})
+    strategy.setHealthCheck(healthcheck, {"from": gov, "gas_price":0})
     strategy.setDoHealthCheck(False, {"from": gov, "gas_price":0})
     Contract(strategy.healthCheck()).setlossLimitRatio(
-        1000, {"from": "0x72a34AbafAB09b15E7191822A679f28E067C4a16", "gas_price":0}
+        1000, {"from": sms, "gas_price":0}
     )
     Contract(strategy.healthCheck()).setProfitLimitRatio(
-        2000, {"from": "0x72a34AbafAB09b15E7191822A679f28E067C4a16", "gas_price":0}
+        2000, {"from": sms, "gas_price":0}
     )
     yield strategy
 
 
 @pytest.fixture
-def providerB(strategist, keeper, vaultB, ProviderStrategy, gov):
+def providerB(strategist, keeper, vaultB, ProviderStrategy, gov, sms, healthcheck):
     strategy = strategist.deploy(ProviderStrategy, vaultB)
     strategy.setKeeper(keeper, {"from": gov, "gas_price":0})
     vaultB.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov, "gas_price":0})
-    strategy.setHealthCheck("0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0", {"from": gov, "gas_price":0})
+    strategy.setHealthCheck(healthcheck, {"from": gov, "gas_price":0})
     strategy.setDoHealthCheck(False, {"from": gov, "gas_price":0})
     Contract(strategy.healthCheck()).setlossLimitRatio(
-        1000, {"from": "0x72a34AbafAB09b15E7191822A679f28E067C4a16", "gas_price":0}
+        1000, {"from": sms, "gas_price":0}
     )
     Contract(strategy.healthCheck()).setProfitLimitRatio(
-        2000, {"from": "0x72a34AbafAB09b15E7191822A679f28E067C4a16", "gas_price":0}
+        2000, {"from": sms, "gas_price":0}
     )
     yield strategy
 
@@ -652,7 +737,7 @@ def reset_tenderly_fork():
     yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def trade_factory(joint, yMechs_multisig):
     tf = Contract(joint.tradeFactory())
     tf.grantRole(tf.STRATEGY(), joint, {"from": yMechs_multisig, "gas_price": 0})
@@ -664,14 +749,14 @@ def yMechs_multisig():
     yield accounts.at("0x9f2A061d6fEF20ad3A656e23fd9C814b75fd5803", force=True)
 
     
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="function", autouse=False)
 def auth_yswaps(joint, trade_factory, yMechs_multisig):
     gas_price(0)
     trade_factory.grantRole(
         trade_factory.STRATEGY(), joint, {"from": yMechs_multisig, "gas_price": 0}
     )
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def trade_factory(joint, yMechs_multisig):
     tf = Contract(joint.tradeFactory())
     tf.grantRole(
