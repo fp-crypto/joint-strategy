@@ -229,13 +229,8 @@ contract UniV3Joint is NoHedgeJoint {
     }
 
     function burnLP(uint256 amount) internal override {
-        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
-        int24 _minTick = minTick;
-        int24 _maxTick = maxTick;
-        _pool.burn(_minTick, _maxTick, uint128(amount));
-
-        IUniswapV3Pool.PositionInfo memory _positionInfo = _positionInfo();
-        _pool.collect(address(this), _minTick, _maxTick, _positionInfo.tokensOwed0, _positionInfo.tokensOwed1);
+        IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
+        getReward();
         minTick = 0;
         maxTick = 0;
     }
