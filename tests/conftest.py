@@ -86,14 +86,16 @@ def strategist(accounts):
 def keeper(accounts):
     yield accounts[5]
 
+eth_chain_ids = [1, 31337]
 
 @pytest.fixture(scope="session")
 def hedgilV2():
-    if chain.id == 1:
-        yield None
+    if chain.id in eth_chain_ids:
+        yield ""
     elif chain.id == 250:    
         yield Contract("0xB6bdB19b7E1042CA3dD7b62048827d10C5e3a7FA")
-    yield None
+    else:
+        yield None
 
 
 @pytest.fixture(scope="session")
@@ -108,7 +110,7 @@ def deployer(accounts):
 
 @pytest.fixture(scope="session")
 def dai():
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(token_addresses_eth["DAI"])
     elif chain.id == 250:    
         yield Contract(token_addresses_ftm["DAI"])
@@ -116,7 +118,7 @@ def dai():
 
 @pytest.fixture(scope="session")
 def weth(chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(token_addresses_eth["WETH"])
     elif chain.id == 250:    
         yield Contract(token_addresses_ftm["WETH"])
@@ -134,14 +136,14 @@ def registry():
 
 @pytest.fixture(scope="session")
 def healthcheck(chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield "0xDDCea799fF1699e98EDF118e0629A974Df7DF012"
     elif chain.id == 250:    
         yield "0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0"
 
 @pytest.fixture(scope="session")
 def sms(chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield "0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7"
     elif chain.id == 250:    
         yield "0x72a34AbafAB09b15E7191822A679f28E067C4a16"
@@ -202,7 +204,7 @@ def dex(request):
     autouse=True,
 )
 def tokenA(request, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(token_addresses_eth[request.param])
     elif chain.id == 250:    
         yield Contract(token_addresses_ftm[request.param])
@@ -226,7 +228,7 @@ def tokenA(request, chain):
     autouse=True,
 )
 def tokenB(request, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(token_addresses_eth[request.param])
     elif chain.id == 250:    
         yield Contract(token_addresses_ftm[request.param])
@@ -237,7 +239,7 @@ def tokenB(request, chain):
     ""
     ], scope="session", autouse=True)
 def rewards(request, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         if request.param in token_addresses_eth.keys():
             yield Contract(token_addresses_eth[request.param])
     elif chain.id == 250:
@@ -354,7 +356,7 @@ uni_v3_pols_eth = {
 }
 @pytest.fixture
 def uni_v3_pool(chain, tokenA, tokenB):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
     elif chain.id == 250:    
         yield None
@@ -362,7 +364,7 @@ def uni_v3_pool(chain, tokenA, tokenB):
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenA_whale(chain, tokenA):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield whale_addresses_eth[tokenA.symbol()]
     elif chain.id == 250:    
         yield whale_addresses_ftm[tokenA.symbol()]
@@ -370,7 +372,7 @@ def tokenA_whale(chain, tokenA):
 
 @pytest.fixture(scope="session", autouse=True)
 def tokenB_whale(chain, tokenB):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield whale_addresses_eth[tokenB.symbol()]
     elif chain.id == 250:    
         yield whale_addresses_ftm[tokenB.symbol()]
@@ -436,7 +438,7 @@ oracle_addresses_eth = {
 
 @pytest.fixture(scope="session")
 def tokenA_oracle(tokenA, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(oracle_addresses_eth[tokenA.symbol()])
     elif chain.id == 250:    
         yield Contract(oracle_addresses_ftm[tokenA.symbol()])
@@ -444,14 +446,14 @@ def tokenA_oracle(tokenA, chain):
 
 @pytest.fixture(scope="session")
 def tokenB_oracle(tokenB, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield Contract(oracle_addresses_eth[tokenB.symbol()])
     elif chain.id == 250:    
         yield Contract(oracle_addresses_ftm[tokenB.symbol()])
 
 @pytest.fixture
 def rewards_whale(rewards, chain):
-    if chain.id == 1:
+    if chain.id in eth_chain_ids:
         yield whale_addresses_eth[rewards.symbol()]
     elif chain.id == 250:    
         yield whale_addresses_ftm[rewards.symbol()]
@@ -482,14 +484,14 @@ hedgil_pools = {
 token_prices = {
     "WBTC": 60_000,
     "BTC": 38_000,
-    "WETH": 4_500,
+    "WETH": 2_800,
     "LINK": 20,
     "YFI": 30_000,
     "USDT": 1,
     "fUSDT": 1,
     "USDC": 1,
     "DAI": 1,
-    "WFTM": 3,
+    "WFTM": 1,
     "MIM": 1,
     "FRAX": 1,
     "BOO": 11,
