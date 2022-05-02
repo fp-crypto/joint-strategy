@@ -215,9 +215,9 @@ def tokenA(request, chain):
     params=[
         # 'WBTC', # WBTC
         # "YFI",  # YFI
-        "WETH",  # WETH
+        # "WETH",  # WETH
         # 'LINK', # LINK
-        # 'USDT', # USDT
+        'USDT', # USDT
         # 'DAI', # DAI
         # "USDC",  # USDC
         # "WFTM",
@@ -294,6 +294,7 @@ token_addresses_eth = {
     "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
     "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC
     "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
+    "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7", # USDT
 }
 
 whale_addresses_ftm = {
@@ -313,7 +314,8 @@ whale_addresses_ftm = {
 }
 whale_addresses_eth = {
     "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
-    "USDC": "0x0A59649758aa4d66E25f08Dd01271e891fe52199",  # DAI
+    "USDC": "0x0A59649758aa4d66E25f08Dd01271e891fe52199",  # USDC
+    "USDT": "0x5754284f345afc66a98fbB0a0Afe71e0F007B949",  # USDT
 }
 
 lp_whales = {
@@ -338,26 +340,26 @@ lp_whales = {
         },
     "UNIV3":
         {
-            "WETH": {
+            "USDC": {
                 "USDC": ""
             }
         }
 }
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=False)
 def lp_whale(dex, tokenA, tokenB):
     yield lp_whales[dex][tokenB.symbol()][tokenA.symbol()]
 
-uni_v3_pols_eth = {
-    "WETH": {
-        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8"
+uni_v3_pols_usdc = {
+    "USDC": {
+        "USDT": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
     }
 }
 @pytest.fixture
 def uni_v3_pool(chain, tokenA, tokenB):
     if chain.id in eth_chain_ids:
-        yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
+        yield uni_v3_pols_usdc[tokenA.symbol()][tokenB.symbol()]
     elif chain.id == 250:    
         yield None
 

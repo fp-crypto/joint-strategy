@@ -1,6 +1,6 @@
 from utils import actions, checks, utils
 import pytest
-from brownie import Contract, chain
+from brownie import Contract, chain, interface
 import eth_utils
 from eth_abi.packed import encode_abi_packed
 
@@ -32,14 +32,17 @@ def test_open_close_position_UNIV3(
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
 
-    pool = Contract(joint.pool())
+    pool = interface.IUniswapV3Pool(joint.pool())
 
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
 
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
-    
+
+    assert vaultA.strategies(providerA).dict()['totalDebt'] == amountA
+    assert vaultB.strategies(providerB).dict()['totalDebt'] == amountB
+
     assert pytest.approx(joint.balanceOfTokensInLP()[0] + tokenA.balanceOf(providerA), rel=RELATIVE_APPROX) == amountA
     assert pytest.approx(joint.balanceOfTokensInLP()[1] + tokenB.balanceOf(providerB), rel=RELATIVE_APPROX) == amountB
 
