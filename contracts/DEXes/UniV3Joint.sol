@@ -7,10 +7,14 @@ import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 import {SimulateSwap} from "../libraries/SimulateSwap.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {TickMath} from "../libraries/TickMath.sol";
+import {SafeCast} from "../libraries/SafeCast.sol";
+import {FullMath} from "../libraries/FullMath.sol";
+import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
 contract UniV3Joint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SimulateSwap for IUniswapV3Pool;
+    using SafeCast for uint256;
 
     bool public isOriginal = true;
     int24 public minTick;
@@ -136,7 +140,103 @@ contract UniV3Joint is NoHedgeJoint {
         (_amountPending[0], _amountPending[1]) = tokenA < tokenB
             ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
             : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
+
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+
+        uint256 feeGrowthInside0LastX128 = positionInfo
+            .feeGrowthInside0LastX128;
+        uint256 feeGrowthInside1LastX128 = positionInfo
+            .feeGrowthInside1LastX128;
+
+        (uint128 tokensOwed0, uint128 tokensOwed1) = getFeeGrowth(
+            positionInfo.liquidity,
+            _pool.slot0().tick,
+            minTick,
+            maxTick,
+            _pool.feeGrowthGlobal0X128(),
+            _pool.feeGrowthGlobal1X128(),
+            feeGrowthInside0LastX128,
+            feeGrowthInside1LastX128,
+            _pool.ticks(minTick),
+            _pool.ticks(maxTick)
+        );
+
+        if (tokenA < tokenB) {
+            _amountPending[0] += tokensOwed0;
+            _amountPending[1] += tokensOwed1;
+        } else {
+            _amountPending[1] += tokensOwed0;
+            _amountPending[0] += tokensOwed1;
+        }
+
         return _amountPending;
+    }
+
+    function getFeeGrowth(
+        uint128 liquidity,
+        int24 tickCurrent,
+        int24 tickLower,
+        int24 tickUpper,
+        uint256 feeGrowthGlobal0X128,
+        uint256 feeGrowthGlobal1X128,
+        uint256 feeGrowthInside0LastX128,
+        uint256 feeGrowthInside1LastX128,
+        IUniswapV3Pool.TickInfo memory lower,
+        IUniswapV3Pool.TickInfo memory upper
+    ) private pure returns (uint128 tokensOwed0, uint128 tokensOwed1) {
+        uint256 feeGrowthBelow0X128;
+        uint256 feeGrowthBelow1X128;
+        if (tickCurrent >= tickLower) {
+            feeGrowthBelow0X128 = lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 = lower.feeGrowthOutside1X128;
+        } else {
+            feeGrowthBelow0X128 =
+                feeGrowthGlobal0X128 -
+                lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 =
+                feeGrowthGlobal1X128 -
+                lower.feeGrowthOutside1X128;
+        }
+
+        {
+            // calculate fee growth above
+            uint256 feeGrowthAbove0X128;
+            uint256 feeGrowthAbove1X128;
+            if (tickCurrent < tickUpper) {
+                feeGrowthAbove0X128 = upper.feeGrowthOutside0X128;
+                feeGrowthAbove1X128 = upper.feeGrowthOutside1X128;
+            } else {
+                feeGrowthAbove0X128 =
+                    feeGrowthGlobal0X128 -
+                    upper.feeGrowthOutside0X128;
+                feeGrowthAbove1X128 =
+                    feeGrowthGlobal1X128 -
+                    upper.feeGrowthOutside1X128;
+            }
+
+            uint256 feeGrowthInside0X128 = feeGrowthGlobal0X128 -
+                feeGrowthBelow0X128 -
+                feeGrowthAbove0X128;
+            uint256 feeGrowthInside1X128 = feeGrowthGlobal1X128 -
+                feeGrowthBelow1X128 -
+                feeGrowthAbove1X128;
+
+            // calculate accumulated fees
+            tokensOwed0 = uint128(
+                FullMath.mulDiv(
+                    feeGrowthInside0X128 - feeGrowthInside0LastX128,
+                    liquidity,
+                    FixedPoint128.Q128
+                )
+            );
+            tokensOwed1 = uint128(
+                FullMath.mulDiv(
+                    feeGrowthInside1X128 - feeGrowthInside1LastX128,
+                    liquidity,
+                    FixedPoint128.Q128
+                )
+            );
+        }
     }
 
     function uniswapV3MintCallback(
@@ -184,14 +284,7 @@ contract UniV3Joint is NoHedgeJoint {
         );
     }
 
-    function createLP()
-        internal
-        override
-        returns (
-            uint256,
-            uint256
-        )
-    {
+    function createLP() internal override returns (uint256, uint256) {
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
         IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
 
@@ -242,14 +335,13 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal override returns (uint256 _amountOut) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
         IUniswapV3Pool(pool).swap(
             address(this), // address(0) might cause issues with some tokens
             zeroForOne,
-            int256(_amountIn),
+            _amountIn.toInt256(),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
             ""
         );
@@ -262,17 +354,16 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
         (, int256 _amountOut, , ) = IUniswapV3Pool(pool).simulateSwap(
             zeroForOne,
-            int256(_amountIn),
+            _amountIn.toInt256(),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
         );
 
-        return uint256(_amountOut);
+        return uint256(-_amountOut);
     }
 
     function _positionInfo()

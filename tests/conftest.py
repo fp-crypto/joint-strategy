@@ -15,7 +15,7 @@ import requests
 def tenderly_fork(web3):
     gas_price(1)
     fork_base_url = "https://simulate.yearn.network/fork"
-    payload = {"network_id": "250"}
+    payload = {"network_id": f"{chain.id}"}
     resp = requests.post(fork_base_url, headers={}, json=payload)
     fork_id = resp.json()["simulation_fork"]["id"]
     fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
@@ -24,15 +24,19 @@ def tenderly_fork(web3):
     web3.provider = tenderly_provider
     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
-@pytest.fixture(scope="session", autouse=True)
-def donate(wftm, weth, accounts, gov, chain):
+
+@pytest.fixture(scope="module", autouse=True)
+def donate(wftm, weth, accounts, gov, tokenA_whale, tokenB_whale, chain):
     donor = accounts.at(wftm, force=True) if chain.id == 250 else accounts.at(weth, force=True)
     for i in range(10):
         donor.transfer(accounts[i], 100e18)
     donor.transfer(gov, 100e18)
+    donor.transfer(tokenA_whale, 100e18)
+    donor.transfer(tokenB_whale, 100e18)
     
 @pytest.fixture(scope="session", autouse=True)
 def reset_chain(chain):
+    chain.reset()
     print(f"Initial Height: {chain.height}")
     yield
     print(f"\nEnd Height: {chain.height}")
@@ -314,8 +318,8 @@ whale_addresses_ftm = {
 }
 whale_addresses_eth = {
     "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
-    "USDC": "0x0A59649758aa4d66E25f08Dd01271e891fe52199",  # USDC
-    "USDT": "0x5754284f345afc66a98fbB0a0Afe71e0F007B949",  # USDT
+    "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDC
+    "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDT
 }
 
 lp_whales = {
@@ -341,7 +345,7 @@ lp_whales = {
     "UNIV3":
         {
             "USDC": {
-                "USDC": ""
+                "USDT": ""
             }
         }
 }
@@ -603,7 +607,7 @@ def joint(
             providerB,
             weth,
             uni_v3_pool,
-            3
+            1
         )
     joint.setMaxPercentageLoss(500, {"from": gov})
 

@@ -35,9 +35,6 @@ library SimulateSwap {
         int24 tickSpacing;
         // the lp fee share of the pool
         uint24 fee;
-        // extra values for cache, that may be useful for _onSwapStep
-        uint256 realPriceX128;
-        uint256 virtualPriceX128;
     }
 
     struct State {
@@ -93,7 +90,6 @@ library SimulateSwap {
         internal
         view
         returns (
-            //function(bool, SimulateSwap.Cache memory, SimulateSwap.State memory, SimulateSwap.Step memory) onSwapStep
             int256 amount0,
             int256 amount1,
             SimulateSwap.State memory state
@@ -216,9 +212,10 @@ library SimulateSwap {
             if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
                 // if the tick is initialized, adjust the liquidity
                 if (step.initialized) {
-                    (, int128 liquidityNet, , , , , , ) = v3Pool.ticks(
+                    IUniswapV3Pool.TickInfo memory tickInfo = v3Pool.ticks(
                         step.tickNext
                     );
+                    int128 liquidityNet = tickInfo.liquidityNet;
                     // if we're moving leftward, we interpret liquidityNet as the opposite sign
                     // safe because liquidityNet cannot be type(int128).min
                     if (zeroForOne) liquidityNet = -liquidityNet;
@@ -263,7 +260,6 @@ library SimulateSwap {
         internal
         view
         returns (
-            //function(bool, SimulateSwap.Cache memory, SimulateSwap.State memory, SimulateSwap.Step memory) onSwapStep
             int256 amount0,
             int256 amount1,
             SimulateSwap.State memory state,
@@ -276,7 +272,6 @@ library SimulateSwap {
             amountSpecified,
             sqrtPriceLimitX96,
             cache
-            //onSwapStep
         );
     }
 }
