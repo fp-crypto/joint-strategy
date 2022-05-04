@@ -468,7 +468,7 @@ abstract contract Joint {
         uint256 currentB,
         uint256 startingA,
         uint256 startingB
-    ) internal pure returns (uint256 _a, uint256 _b) {
+    ) public pure returns (uint256 _a, uint256 _b) {
         _a = (currentA * RATIO_PRECISION) / startingA;
         _b = (currentB * RATIO_PRECISION) / startingB;
     }

@@ -272,7 +272,7 @@ contract UniV3Joint is NoHedgeJoint {
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
         );
 
-        return uint256(_amountOut);
+        return uint256(-_amountOut);
     }
 
     function _positionInfo()

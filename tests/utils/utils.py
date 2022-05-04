@@ -142,3 +142,11 @@ def print_joint_status(joint, tokenA, tokenB, lp_token, rewards):
 
 def swap_tokens_value(router, tokenIn, tokenOut, amountIn):
     return router.getAmountsOut(amountIn, [tokenIn, tokenOut])[1]
+
+def univ3_get_position_info(pool, joint):
+    from eth_abi.packed import encode_abi_packed
+    from Crypto.Hash import keccak
+
+    k = keccak.new(digest_bits=256)
+    k.update(encode_abi_packed(["address", "int24", "int24"], [joint.address, joint.minTick(), joint.maxTick()]))
+    return pool.positions(k.hexdigest())
