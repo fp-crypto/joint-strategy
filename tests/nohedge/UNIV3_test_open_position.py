@@ -1,7 +1,6 @@
-from datetime import timedelta
 from utils import actions, checks, utils
 import pytest
-from brownie import Contract, chain
+from brownie import Contract, chain, interface
 import eth_utils
 from eth_abi.packed import encode_abi_packed
 
@@ -20,11 +19,8 @@ def test_open_close_position_UNIV3(
     amountB,
     RELATIVE_APPROX,
     gov,
-    tokenA_whale,
-    tokenB_whale,
     hedge_type,
     dex,
-    uni_v3_pool
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
@@ -33,14 +29,16 @@ def test_open_close_position_UNIV3(
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
 
-    pool = Contract(joint.pool())
-
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
+    chain.mine(1)
 
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
-    
+
+    assert vaultA.strategies(providerA).dict()['totalDebt'] == amountA
+    assert vaultB.strategies(providerB).dict()['totalDebt'] == amountB
+
     assert pytest.approx(joint.balanceOfTokensInLP()[0] + tokenA.balanceOf(providerA), rel=RELATIVE_APPROX) == amountA
     assert pytest.approx(joint.balanceOfTokensInLP()[1] + tokenB.balanceOf(providerB), rel=RELATIVE_APPROX) == amountB
 
@@ -49,9 +47,15 @@ def test_open_close_position_UNIV3(
 
     providerA.setDoHealthCheck(False, {"from":gov})
     providerB.setDoHealthCheck(False, {"from":gov})
+
+    chain.sleep(1)
+    chain.mine(1)
     
-    providerA.harvest({"from": gov})
-    providerB.harvest({"from": gov})
+    txA = providerA.harvest({"from": gov})
+    txB = providerB.harvest({"from": gov})
+
+    assert pytest.approx(txA.events["Harvested"]['loss'], rel=RELATIVE_APPROX) == 1
+    assert pytest.approx(txB.events["Harvested"]['loss'], rel=RELATIVE_APPROX) == 1
 
     assert joint.balanceOfTokensInLP()[0] == 0
     assert joint.balanceOfTokensInLP()[1] == 0
@@ -59,7 +63,8 @@ def test_open_close_position_UNIV3(
     assert providerA.estimatedTotalAssets() == 0
     assert providerB.estimatedTotalAssets() == 0
 
-def test_profitable_harvest(
+
+def test_open_close_position_with_swap_UNIV3(
     chain,
     tokenA,
     tokenB,
@@ -86,40 +91,74 @@ def test_profitable_harvest(
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
 
-    actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    chain.mine(1)
 
-    pool = Contract(uni_v3_pool)
+    providerA.harvest({"from": gov})
+    providerB.harvest({"from": gov})
 
-    # Check that tick spacing is correct
-    assert (joint.maxTick() - joint.minTick()) == (2*joint.ticksFromCurrent()+1) * pool.tickSpacing()
+    assert vaultA.strategies(providerA).dict()['totalDebt'] == amountA
+    assert vaultB.strategies(providerB).dict()['totalDebt'] == amountB
 
-    initial_slot0 = pool.slot0()
+    assert pytest.approx(joint.balanceOfTokensInLP()[0] + tokenA.balanceOf(providerA), rel=RELATIVE_APPROX) == amountA
+    assert pytest.approx(joint.balanceOfTokensInLP()[1] + tokenB.balanceOf(providerB), rel=RELATIVE_APPROX) == amountB
 
-    #  Get initial position
-    initial_position = utils.univ3_get_position_info(pool, joint)
-    initial_slot0 = pool.slot0()[0]
+    print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
 
-    assert initial_position["tokensOwed0"] == 0
-    assert initial_position["tokensOwed1"] == 0
+    univ3_router = Contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
+    sell_amount = 1_000_000 * 10 ** tokenA.decimals()
+    tokenA.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
+    univ3_router.exactInputSingle(
+        (
+            tokenA,
+            tokenB,
+            100,
+            tokenB_whale,
+            2**256-1,
+            sell_amount,
+            0,
+            0
+        ),
+        {'from': tokenA_whale}
+    )
 
-    zero_for_one = True if tokenA.address < tokenB.address else False
-    MIN_SQRT_RATIO = 4295128739
-    MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342
-    limit = MIN_SQRT_RATIO + 1 if zero_for_one else MAX_SQRT_RATIO - 1
-    # actions.whale_drop_tokenA()
+    tokenB.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
+    univ3_router.exactInputSingle(
+        (
+            tokenB,
+            tokenA,
+            100,
+            tokenB_whale,
+            2**256-1,
+            sell_amount,
+            0,
+            0
+        ),
+        {'from': tokenA_whale}
+    )
 
+    print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
+    pending_rewards_estimation = joint.pendingRewards()[0] + joint.pendingRewards()[1]
+    print("pending", joint.pendingRewards())
+
+    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
+    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+
+    providerA.setDoHealthCheck(False, {"from":gov})
+    providerB.setDoHealthCheck(False, {"from":gov})
     
-    swap_router = Contract("0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45")
-    tokenA.approve(swap_router, 2 ** 254, {"from":tokenA_whale, "gas_price":0})
+    providerA.harvest({"from": gov})
+    providerB.harvest({"from": gov})
 
-    uni_v3_path = encode_abi_packed(["address", "uint24", "address"], 
-        [tokenA.address, pool.fee(), tokenB.address])
-    i = 0
-    while i < 5:
-        swap_router.exactInput((uni_v3_path, tokenA_whale, 1e12, 0), {"from": tokenA_whale, "gas_price":0})
-        i+=1
+    print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
 
-    assert pool.slot0()[0] != initial_slot0
-    assert 0
-    new_position = utils.univ3_get_position_info(pool, joint)
-    assert (new_position["tokensOwed0"] > 0 or new_position["tokensOwed1"] > 0)
+    assert joint.balanceOfTokensInLP()[0] == 0
+    assert joint.balanceOfTokensInLP()[1] == 0
+
+    assert providerA.estimatedTotalAssets() == 0
+    assert providerB.estimatedTotalAssets() == 0
+
+    assert pytest.approx(vaultA.strategies(providerA)["totalGain"] + vaultB.strategies(providerB)["totalGain"], rel=1e-4) == pending_rewards_estimation
+
+    assert 0 

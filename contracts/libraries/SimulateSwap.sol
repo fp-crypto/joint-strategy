@@ -35,9 +35,6 @@ library SimulateSwap {
         int24 tickSpacing;
         // the lp fee share of the pool
         uint24 fee;
-        // extra values for cache, that may be useful for _onSwapStep
-        uint256 realPriceX128;
-        uint256 virtualPriceX128;
     }
 
     struct State {
@@ -93,7 +90,6 @@ library SimulateSwap {
         internal
         view
         returns (
-            //function(bool, SimulateSwap.Cache memory, SimulateSwap.State memory, SimulateSwap.Step memory) onSwapStep
             int256 amount0,
             int256 amount1,
             SimulateSwap.State memory state
@@ -216,9 +212,10 @@ library SimulateSwap {
             if (state.sqrtPriceX96 == step.sqrtPriceNextX96) {
                 // if the tick is initialized, adjust the liquidity
                 if (step.initialized) {
-                    (, int128 liquidityNet, , , , , , ) = v3Pool.ticks(
+                    IUniswapV3Pool.TickInfo memory tickInfo = v3Pool.ticks(
                         step.tickNext
                     );
+                    int128 liquidityNet = tickInfo.liquidityNet;
                     // if we're moving leftward, we interpret liquidityNet as the opposite sign
                     // safe because liquidityNet cannot be type(int128).min
                     if (zeroForOne) liquidityNet = -liquidityNet;
@@ -260,10 +257,9 @@ library SimulateSwap {
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
     )
-        internal
+        public
         view
         returns (
-            //function(bool, SimulateSwap.Cache memory, SimulateSwap.State memory, SimulateSwap.Step memory) onSwapStep
             int256 amount0,
             int256 amount1,
             SimulateSwap.State memory state,
@@ -276,7 +272,77 @@ library SimulateSwap {
             amountSpecified,
             sqrtPriceLimitX96,
             cache
-            //onSwapStep
         );
+    }
+
+    struct feeGrowthParams {
+            uint128 liquidity;
+            int24 tickCurrent;
+            int24 tickLower;
+            int24 tickUpper;
+            uint256 feeGrowthGlobal0X128;
+            uint256 feeGrowthGlobal1X128;
+            uint256 feeGrowthInside0LastX128;
+            uint256 feeGrowthInside1LastX128;
+        }
+
+    function getFeeGrowth(
+        feeGrowthParams memory _feeGrowthParams,
+        IUniswapV3Pool.TickInfo memory lower,
+        IUniswapV3Pool.TickInfo memory upper
+    ) internal pure returns (uint128 tokensOwed0, uint128 tokensOwed1) {
+        uint256 feeGrowthBelow0X128;
+        uint256 feeGrowthBelow1X128;
+        if (_feeGrowthParams.tickCurrent >= _feeGrowthParams.tickLower) {
+            feeGrowthBelow0X128 = lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 = lower.feeGrowthOutside1X128;
+        } else {
+            feeGrowthBelow0X128 =
+                _feeGrowthParams.feeGrowthGlobal0X128 -
+                lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 =
+                _feeGrowthParams.feeGrowthGlobal1X128 -
+                lower.feeGrowthOutside1X128;
+        }
+
+        
+        // calculate fee growth above
+        uint256 feeGrowthAbove0X128;
+        uint256 feeGrowthAbove1X128;
+        if (_feeGrowthParams.tickCurrent < _feeGrowthParams.tickUpper) {
+            feeGrowthAbove0X128 = upper.feeGrowthOutside0X128;
+            feeGrowthAbove1X128 = upper.feeGrowthOutside1X128;
+        } else {
+            feeGrowthAbove0X128 =
+                _feeGrowthParams.feeGrowthGlobal0X128 -
+                upper.feeGrowthOutside0X128;
+            feeGrowthAbove1X128 =
+                _feeGrowthParams.feeGrowthGlobal1X128 -
+                upper.feeGrowthOutside1X128;
+        }
+
+        uint256 feeGrowthInside0X128 = _feeGrowthParams.feeGrowthGlobal0X128 -
+            feeGrowthBelow0X128 -
+            feeGrowthAbove0X128;
+        uint256 feeGrowthInside1X128 = _feeGrowthParams.feeGrowthGlobal1X128 -
+            feeGrowthBelow1X128 -
+            feeGrowthAbove1X128;
+
+        // calculate accumulated fees
+        tokensOwed0 = uint128(
+            FullMath.mulDiv(
+                feeGrowthInside0X128 - _feeGrowthParams.feeGrowthInside0LastX128,
+                _feeGrowthParams.liquidity,
+                FixedPoint128.Q128
+            )
+        );
+        tokensOwed1 = uint128(
+            FullMath.mulDiv(
+                feeGrowthInside1X128 - _feeGrowthParams.feeGrowthInside1LastX128,
+                _feeGrowthParams.liquidity,
+                FixedPoint128.Q128
+            )
+        );
+        
     }
 }

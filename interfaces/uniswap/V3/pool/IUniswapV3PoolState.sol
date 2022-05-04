@@ -50,33 +50,30 @@ interface IUniswapV3PoolState {
     /// @return The liquidity at the current price of the pool
     function liquidity() external view returns (uint128);
 
+    struct TickInfo {
+        // the total position liquidity that references this tick
+        uint128 liquidityGross;
+        // amount of net liquidity added (subtracted) when tick is crossed from left to right (right to left),
+        int128 liquidityNet;
+        // fee growth per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+        // only has relative meaning, not absolute — the value depends on when the tick is initialized
+        uint256 feeGrowthOutside0X128;
+        uint256 feeGrowthOutside1X128;
+        // the cumulative tick value on the other side of the tick
+        int56 tickCumulativeOutside;
+        // the seconds per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+        // only has relative meaning, not absolute — the value depends on when the tick is initialized
+        uint160 secondsPerLiquidityOutsideX128;
+        // the seconds spent on the other side of the tick (relative to the current tick)
+        // only has relative meaning, not absolute — the value depends on when the tick is initialized
+        uint32 secondsOutside;
+        // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
+        // these 8 bits are set to prevent fresh sstores when crossing newly initialized ticks
+        bool initialized;
+    }
+
     /// @notice Look up information about a specific tick in the pool
-    /// @param tick The tick to look up
-    /// @return liquidityGross the total amount of position liquidity that uses the pool either as tick lower or
-    /// tick upper
-    /// @return liquidityNet how much liquidity changes when the pool price crosses the tick,
-    /// @return feeGrowthOutside0X128 the fee growth on the other side of the tick from the current tick in token0,
-    /// @return feeGrowthOutside1X128 the fee growth on the other side of the tick from the current tick in token1,
-    /// @return tickCumulativeOutside the cumulative tick value on the other side of the tick from the current tick
-    /// @return secondsPerLiquidityOutsideX128 the seconds spent per liquidity on the other side of the tick from the current tick,
-    /// @return secondsOutside the seconds spent on the other side of the tick from the current tick,
-    /// @return initialized Set to true if the tick is initialized, i.e. liquidityGross is greater than 0, otherwise equal to false.
-    /// Outside values can only be used if the tick is initialized, i.e. if liquidityGross is greater than 0.
-    /// In addition, these values are only relative and must be used only in comparison to previous snapshots for
-    /// a specific position.
-    function ticks(int24 tick)
-        external
-        view
-        returns (
-            uint128 liquidityGross,
-            int128 liquidityNet,
-            uint256 feeGrowthOutside0X128,
-            uint256 feeGrowthOutside1X128,
-            int56 tickCumulativeOutside,
-            uint160 secondsPerLiquidityOutsideX128,
-            uint32 secondsOutside,
-            bool initialized
-        );
+    function ticks(int24 tick) external view returns (TickInfo memory);
 
     struct PositionInfo {
         // the amount of liquidity owned by this position

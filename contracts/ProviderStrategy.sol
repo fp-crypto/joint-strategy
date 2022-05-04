@@ -143,7 +143,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         // Using a push approach (instead of pull)
         uint256 wantBalance = balanceOfWant();
         if (wantBalance > 0) {
-            want.transfer(joint, wantBalance);
+            want.safeTransfer(joint, wantBalance);
         }
 
         JointAPI(joint).openPosition();

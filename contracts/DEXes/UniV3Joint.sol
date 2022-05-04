@@ -7,10 +7,14 @@ import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 import {SimulateSwap} from "../libraries/SimulateSwap.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {TickMath} from "../libraries/TickMath.sol";
+import {SafeCast} from "../libraries/SafeCast.sol";
+import {FullMath} from "../libraries/FullMath.sol";
+import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
 contract UniV3Joint is NoHedgeJoint {
     using SafeERC20 for IERC20;
-    using SimulateSwap for IUniswapV3Pool;
+    // using SimulateSwap for IUniswapV3Pool;
+    using SafeCast for uint256;
 
     bool public isOriginal = true;
     int24 public minTick;
@@ -136,8 +140,40 @@ contract UniV3Joint is NoHedgeJoint {
         (_amountPending[0], _amountPending[1]) = tokenA < tokenB
             ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
             : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
+
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+
+        uint256 feeGrowthInside0LastX128 = positionInfo
+            .feeGrowthInside0LastX128;
+        uint256 feeGrowthInside1LastX128 = positionInfo
+            .feeGrowthInside1LastX128;
+
+        (uint128 tokensOwed0, uint128 tokensOwed1) = SimulateSwap.getFeeGrowth(
+            SimulateSwap.feeGrowthParams(
+                positionInfo.liquidity,
+                _pool.slot0().tick,
+                minTick,
+                maxTick,
+                _pool.feeGrowthGlobal0X128(),
+                _pool.feeGrowthGlobal1X128(),
+                feeGrowthInside0LastX128,
+                feeGrowthInside1LastX128),
+            _pool.ticks(minTick),
+            _pool.ticks(maxTick)
+        );
+
+        if (tokenA < tokenB) {
+            _amountPending[0] += tokensOwed0;
+            _amountPending[1] += tokensOwed1;
+        } else {
+            _amountPending[1] += tokensOwed0;
+            _amountPending[0] += tokensOwed1;
+        }
+
         return _amountPending;
     }
+    
+    
 
     function uniswapV3MintCallback(
         uint256 amount0Owed,
@@ -184,14 +220,7 @@ contract UniV3Joint is NoHedgeJoint {
         );
     }
 
-    function createLP()
-        internal
-        override
-        returns (
-            uint256,
-            uint256
-        )
-    {
+    function createLP() internal override returns (uint256, uint256) {
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
         IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
 
@@ -242,14 +271,13 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal override returns (uint256 _amountOut) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
         IUniswapV3Pool(pool).swap(
             address(this), // address(0) might cause issues with some tokens
             zeroForOne,
-            int256(_amountIn),
+            _amountIn.toInt256(),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
             ""
         );
@@ -262,13 +290,13 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        require(_amountIn < 2**255); // dev: amountIn will fail cast to int256
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
-        (, int256 _amountOut, , ) = IUniswapV3Pool(pool).simulateSwap(
+        (, int256 _amountOut, , ) = SimulateSwap.simulateSwap(
+            IUniswapV3Pool(pool),
             zeroForOne,
-            int256(_amountIn),
+            _amountIn.toInt256(),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
         );
 

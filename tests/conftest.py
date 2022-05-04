@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint
+    UniV3Joint, SimulateSwap
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -15,7 +15,7 @@ import requests
 def tenderly_fork(web3):
     gas_price(1)
     fork_base_url = "https://simulate.yearn.network/fork"
-    payload = {"network_id": "250"}
+    payload = {"network_id": f"{chain.id}"}
     resp = requests.post(fork_base_url, headers={}, json=payload)
     fork_id = resp.json()["simulation_fork"]["id"]
     fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
@@ -24,15 +24,19 @@ def tenderly_fork(web3):
     web3.provider = tenderly_provider
     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
-@pytest.fixture(scope="session", autouse=True)
-def donate(wftm, weth, accounts, gov, chain):
+@pytest.fixture(scope="module", autouse=True)
+def donate(wftm, weth, accounts, gov, tokenA_whale, tokenB_whale, chain):
     donor = accounts.at(wftm, force=True) if chain.id == 250 else accounts.at(weth, force=True)
     for i in range(10):
+        print(f"Donating account {i}")
         donor.transfer(accounts[i], 100e18)
     donor.transfer(gov, 100e18)
+    donor.transfer(tokenA_whale, 100e18)
+    donor.transfer(tokenB_whale, 100e18)
     
 @pytest.fixture(scope="session", autouse=True)
 def reset_chain(chain):
+    chain.reset()
     print(f"Initial Height: {chain.height}")
     yield
     print(f"\nEnd Height: {chain.height}")
@@ -215,9 +219,9 @@ def tokenA(request, chain):
     params=[
         # 'WBTC', # WBTC
         # "YFI",  # YFI
-        "WETH",  # WETH
+        # "WETH",  # WETH
         # 'LINK', # LINK
-        # 'USDT', # USDT
+        'USDT', # USDT
         # 'DAI', # DAI
         # "USDC",  # USDC
         # "WFTM",
@@ -294,6 +298,7 @@ token_addresses_eth = {
     "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
     "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC
     "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
+    "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7", # USDT
 }
 
 whale_addresses_ftm = {
@@ -313,7 +318,8 @@ whale_addresses_ftm = {
 }
 whale_addresses_eth = {
     "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
-    "USDC": "0x0A59649758aa4d66E25f08Dd01271e891fe52199",  # DAI
+    "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDC
+    "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDT
 }
 
 lp_whales = {
@@ -339,19 +345,23 @@ lp_whales = {
     "UNIV3":
         {
             "WETH": {
-                "USDC": ""
+                "USDC": "",
+                "USDT": "",
             }
         }
 }
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=False)
 def lp_whale(dex, tokenA, tokenB):
     yield lp_whales[dex][tokenB.symbol()][tokenA.symbol()]
 
 uni_v3_pols_eth = {
     "WETH": {
-        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8"
+        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+    },
+    "USDT": {
+        "USDC": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
     }
 }
 @pytest.fixture
@@ -595,13 +605,14 @@ def joint(
             stable
         )
     elif (joint_to_use == UniV3Joint):
+        simulate_swap = gov.deploy(SimulateSwap)
         joint = gov.deploy(
             joint_to_use,
             providerA,
             providerB,
             weth,
             uni_v3_pool,
-            3
+            1
         )
     joint.setMaxPercentageLoss(500, {"from": gov})
 
