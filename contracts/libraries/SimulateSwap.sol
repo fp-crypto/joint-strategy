@@ -257,7 +257,7 @@ library SimulateSwap {
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
     )
-        internal
+        public
         view
         returns (
             int256 amount0,
@@ -272,6 +272,77 @@ library SimulateSwap {
             amountSpecified,
             sqrtPriceLimitX96,
             cache
+        );
+    }
+
+    struct feeGrowthParams {
+        uint128 liquidity;
+        int24 tickCurrent;
+        int24 tickLower;
+        int24 tickUpper;
+        uint256 feeGrowthGlobal0X128;
+        uint256 feeGrowthGlobal1X128;
+        uint256 feeGrowthInside0LastX128;
+        uint256 feeGrowthInside1LastX128;
+    }
+
+    function getFeeGrowth(
+        feeGrowthParams memory _feeGrowthParams,
+        IUniswapV3Pool.TickInfo memory lower,
+        IUniswapV3Pool.TickInfo memory upper
+    ) internal pure returns (uint128 tokensOwed0, uint128 tokensOwed1) {
+        uint256 feeGrowthBelow0X128;
+        uint256 feeGrowthBelow1X128;
+        if (_feeGrowthParams.tickCurrent >= _feeGrowthParams.tickLower) {
+            feeGrowthBelow0X128 = lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 = lower.feeGrowthOutside1X128;
+        } else {
+            feeGrowthBelow0X128 =
+                _feeGrowthParams.feeGrowthGlobal0X128 -
+                lower.feeGrowthOutside0X128;
+            feeGrowthBelow1X128 =
+                _feeGrowthParams.feeGrowthGlobal1X128 -
+                lower.feeGrowthOutside1X128;
+        }
+
+        // calculate fee growth above
+        uint256 feeGrowthAbove0X128;
+        uint256 feeGrowthAbove1X128;
+        if (_feeGrowthParams.tickCurrent < _feeGrowthParams.tickUpper) {
+            feeGrowthAbove0X128 = upper.feeGrowthOutside0X128;
+            feeGrowthAbove1X128 = upper.feeGrowthOutside1X128;
+        } else {
+            feeGrowthAbove0X128 =
+                _feeGrowthParams.feeGrowthGlobal0X128 -
+                upper.feeGrowthOutside0X128;
+            feeGrowthAbove1X128 =
+                _feeGrowthParams.feeGrowthGlobal1X128 -
+                upper.feeGrowthOutside1X128;
+        }
+
+        uint256 feeGrowthInside0X128 = _feeGrowthParams.feeGrowthGlobal0X128 -
+            feeGrowthBelow0X128 -
+            feeGrowthAbove0X128;
+        uint256 feeGrowthInside1X128 = _feeGrowthParams.feeGrowthGlobal1X128 -
+            feeGrowthBelow1X128 -
+            feeGrowthAbove1X128;
+
+        // calculate accumulated fees
+        tokensOwed0 = uint128(
+            FullMath.mulDiv(
+                feeGrowthInside0X128 -
+                    _feeGrowthParams.feeGrowthInside0LastX128,
+                _feeGrowthParams.liquidity,
+                FixedPoint128.Q128
+            )
+        );
+        tokensOwed1 = uint128(
+            FullMath.mulDiv(
+                feeGrowthInside1X128 -
+                    _feeGrowthParams.feeGrowthInside1LastX128,
+                _feeGrowthParams.liquidity,
+                FixedPoint128.Q128
+            )
         );
     }
 }

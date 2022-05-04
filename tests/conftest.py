@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint
+    UniV3Joint, SimulateSwap
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -24,11 +24,11 @@ def tenderly_fork(web3):
     web3.provider = tenderly_provider
     print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
 
-
 @pytest.fixture(scope="module", autouse=True)
 def donate(wftm, weth, accounts, gov, tokenA_whale, tokenB_whale, chain):
     donor = accounts.at(wftm, force=True) if chain.id == 250 else accounts.at(weth, force=True)
     for i in range(10):
+        print(f"Donating account {i}")
         donor.transfer(accounts[i], 100e18)
     donor.transfer(gov, 100e18)
     donor.transfer(tokenA_whale, 100e18)
@@ -344,8 +344,9 @@ lp_whales = {
         },
     "UNIV3":
         {
-            "USDC": {
-                "USDT": ""
+            "WETH": {
+                "USDC": "",
+                "USDT": "",
             }
         }
 }
@@ -355,15 +356,18 @@ lp_whales = {
 def lp_whale(dex, tokenA, tokenB):
     yield lp_whales[dex][tokenB.symbol()][tokenA.symbol()]
 
-uni_v3_pols_usdc = {
-    "USDC": {
-        "USDT": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
+uni_v3_pols_eth = {
+    "WETH": {
+        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+    },
+    "USDT": {
+        "USDC": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
     }
 }
 @pytest.fixture
 def uni_v3_pool(chain, tokenA, tokenB):
     if chain.id in eth_chain_ids:
-        yield uni_v3_pols_usdc[tokenA.symbol()][tokenB.symbol()]
+        yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
     elif chain.id == 250:    
         yield None
 
@@ -601,6 +605,7 @@ def joint(
             stable
         )
     elif (joint_to_use == UniV3Joint):
+        simulate_swap = gov.deploy(SimulateSwap)
         joint = gov.deploy(
             joint_to_use,
             providerA,

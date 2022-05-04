@@ -107,7 +107,7 @@ def test_open_close_position_with_swap_UNIV3(
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
 
     univ3_router = Contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
-    sell_amount = 20_000_000 * 10 ** tokenA.decimals()
+    sell_amount = 1_000_000 * 10 ** tokenA.decimals()
     tokenA.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
     univ3_router.exactInputSingle(
         (
@@ -123,7 +123,23 @@ def test_open_close_position_with_swap_UNIV3(
         {'from': tokenA_whale}
     )
 
+    tokenB.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
+    univ3_router.exactInputSingle(
+        (
+            tokenB,
+            tokenA,
+            100,
+            tokenB_whale,
+            2**256-1,
+            sell_amount,
+            0,
+            0
+        ),
+        {'from': tokenA_whale}
+    )
+
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
+    pending_rewards_estimation = joint.pendingRewards()[0] + joint.pendingRewards()[1]
     print("pending", joint.pendingRewards())
 
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
@@ -143,3 +159,6 @@ def test_open_close_position_with_swap_UNIV3(
     assert providerA.estimatedTotalAssets() == 0
     assert providerB.estimatedTotalAssets() == 0
 
+    assert pytest.approx(vaultA.strategies(providerA)["totalGain"] + vaultB.strategies(providerB)["totalGain"], rel=1e-4) == pending_rewards_estimation
+
+    assert 0 
