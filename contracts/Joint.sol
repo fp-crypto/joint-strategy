@@ -143,7 +143,7 @@ abstract contract Joint {
 
     function name() external view virtual returns (string memory);
 
-    function shouldEndEpoch() public view virtual returns (bool);
+    function shouldEndEpoch() external view virtual returns (bool);
 
     function _autoProtect() internal view virtual returns (bool);
 
@@ -157,7 +157,7 @@ abstract contract Joint {
         return false;
     }
 
-    function shouldStartEpoch() public view returns (bool) {
+    function shouldStartEpoch() external view returns (bool) {
         // return true if we have balance of A or balance of B while the position is closed
         return
             (balanceOfA() > 0 || balanceOfB() > 0) &&
@@ -473,13 +473,7 @@ abstract contract Joint {
         _b = (currentB * RATIO_PRECISION) / startingB;
     }
 
-    function createLP()
-        internal
-        virtual
-        returns (
-            uint256,
-            uint256
-        );
+    function createLP() internal virtual returns (uint256, uint256);
 
     function burnLP(uint256 amount) internal virtual;
 
@@ -533,7 +527,9 @@ abstract contract Joint {
         virtual
         returns (tokenAmount[] memory)
     {
-        tokenAmount[] memory _swapToAmounts = new tokenAmount[](rewardTokens.length);
+        tokenAmount[] memory _swapToAmounts = new tokenAmount[](
+            rewardTokens.length
+        );
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));

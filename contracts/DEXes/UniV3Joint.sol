@@ -141,8 +141,6 @@ contract UniV3Joint is NoHedgeJoint {
             ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
             : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
 
-        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
-
         uint256 feeGrowthInside0LastX128 = positionInfo
             .feeGrowthInside0LastX128;
         uint256 feeGrowthInside1LastX128 = positionInfo
@@ -150,15 +148,9 @@ contract UniV3Joint is NoHedgeJoint {
 
         (uint128 tokensOwed0, uint128 tokensOwed1) = getFeeGrowth(
             positionInfo.liquidity,
-            _pool.slot0().tick,
-            minTick,
-            maxTick,
-            _pool.feeGrowthGlobal0X128(),
-            _pool.feeGrowthGlobal1X128(),
+            IUniswapV3Pool(pool),
             feeGrowthInside0LastX128,
-            feeGrowthInside1LastX128,
-            _pool.ticks(minTick),
-            _pool.ticks(maxTick)
+            feeGrowthInside1LastX128
         );
 
         if (tokenA < tokenB) {
@@ -174,53 +166,66 @@ contract UniV3Joint is NoHedgeJoint {
 
     function getFeeGrowth(
         uint128 liquidity,
-        int24 tickCurrent,
-        int24 tickLower,
-        int24 tickUpper,
-        uint256 feeGrowthGlobal0X128,
-        uint256 feeGrowthGlobal1X128,
+        IUniswapV3Pool _pool,
         uint256 feeGrowthInside0LastX128,
-        uint256 feeGrowthInside1LastX128,
-        IUniswapV3Pool.TickInfo memory lower,
-        IUniswapV3Pool.TickInfo memory upper
-    ) private pure returns (uint128 tokensOwed0, uint128 tokensOwed1) {
-        uint256 feeGrowthBelow0X128;
-        uint256 feeGrowthBelow1X128;
-        if (tickCurrent >= tickLower) {
-            feeGrowthBelow0X128 = lower.feeGrowthOutside0X128;
-            feeGrowthBelow1X128 = lower.feeGrowthOutside1X128;
-        } else {
-            feeGrowthBelow0X128 =
-                feeGrowthGlobal0X128 -
-                lower.feeGrowthOutside0X128;
-            feeGrowthBelow1X128 =
-                feeGrowthGlobal1X128 -
-                lower.feeGrowthOutside1X128;
-        }
+        uint256 feeGrowthInside1LastX128
+    ) private view returns (uint128 tokensOwed0, uint128 tokensOwed1) {
+        int24 tickCurrent = _pool.slot0().tick;
+        (uint256 feeGrowthGlobal0X128, uint256 feeGrowthGlobal1X128) = (
+            _pool.feeGrowthGlobal0X128(),
+            _pool.feeGrowthGlobal0X128()
+        );
+        IUniswapV3Pool.TickInfo memory lower = _pool.ticks(minTick);
+        IUniswapV3Pool.TickInfo memory upper = _pool.ticks(maxTick);
+
+        uint256 feeGrowthInside0X128;
+        uint256 feeGrowthInside1X128;
 
         {
-            // calculate fee growth above
-            uint256 feeGrowthAbove0X128;
-            uint256 feeGrowthAbove1X128;
-            if (tickCurrent < tickUpper) {
-                feeGrowthAbove0X128 = upper.feeGrowthOutside0X128;
-                feeGrowthAbove1X128 = upper.feeGrowthOutside1X128;
-            } else {
-                feeGrowthAbove0X128 =
-                    feeGrowthGlobal0X128 -
-                    upper.feeGrowthOutside0X128;
-                feeGrowthAbove1X128 =
-                    feeGrowthGlobal1X128 -
-                    upper.feeGrowthOutside1X128;
+            uint256 feeGrowthBelow0X128;
+            uint256 feeGrowthBelow1X128;
+            {
+                if (tickCurrent >= minTick) {
+                    feeGrowthBelow0X128 = lower.feeGrowthOutside0X128;
+                    feeGrowthBelow1X128 = lower.feeGrowthOutside1X128;
+                } else {
+                    feeGrowthBelow0X128 =
+                        feeGrowthGlobal0X128 -
+                        lower.feeGrowthOutside0X128;
+                    feeGrowthBelow1X128 =
+                        feeGrowthGlobal1X128 -
+                        lower.feeGrowthOutside1X128;
+                }
             }
 
-            uint256 feeGrowthInside0X128 = feeGrowthGlobal0X128 -
+            uint256 feeGrowthAbove0X128;
+            uint256 feeGrowthAbove1X128;
+            {
+                // calculate fee growth above
+
+                if (tickCurrent < maxTick) {
+                    feeGrowthAbove0X128 = upper.feeGrowthOutside0X128;
+                    feeGrowthAbove1X128 = upper.feeGrowthOutside1X128;
+                } else {
+                    feeGrowthAbove0X128 =
+                        feeGrowthGlobal0X128 -
+                        upper.feeGrowthOutside0X128;
+                    feeGrowthAbove1X128 =
+                        feeGrowthGlobal1X128 -
+                        upper.feeGrowthOutside1X128;
+                }
+            }
+
+            feeGrowthInside0X128 =
+                feeGrowthGlobal0X128 -
                 feeGrowthBelow0X128 -
                 feeGrowthAbove0X128;
-            uint256 feeGrowthInside1X128 = feeGrowthGlobal1X128 -
+            feeGrowthInside1X128 =
+                feeGrowthGlobal1X128 -
                 feeGrowthBelow1X128 -
                 feeGrowthAbove1X128;
-
+        }
+        {
             // calculate accumulated fees
             tokensOwed0 = uint128(
                 FullMath.mulDiv(
@@ -332,19 +337,21 @@ contract UniV3Joint is NoHedgeJoint {
         address _tokenFrom,
         address _tokenTo,
         uint256 _amountIn
-    ) internal override returns (uint256 _amountOut) {
+    ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
-        IUniswapV3Pool(pool).swap(
+        (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
             address(this), // address(0) might cause issues with some tokens
             zeroForOne,
             _amountIn.toInt256(),
             zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
             ""
         );
+
+        return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
     }
 
     function quote(
@@ -357,13 +364,14 @@ contract UniV3Joint is NoHedgeJoint {
 
         bool zeroForOne = _tokenFrom < _tokenTo;
 
-        (, int256 _amountOut, , ) = IUniswapV3Pool(pool).simulateSwap(
-            zeroForOne,
-            _amountIn.toInt256(),
-            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-        );
+        (int256 _amount0, int256 _amount1, , ) = IUniswapV3Pool(pool)
+            .simulateSwap(
+                zeroForOne,
+                _amountIn.toInt256(),
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+            );
 
-        return uint256(-_amountOut);
+        return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
     }
 
     function _positionInfo()
