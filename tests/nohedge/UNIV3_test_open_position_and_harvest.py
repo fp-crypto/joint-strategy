@@ -182,8 +182,9 @@ def test_lossy_harvest_UNIV3(
     token_in = tokenA if swap_from == "a" else tokenB
     token_out = tokenB if swap_from == "a" else tokenA
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
-
-    sell_amount = 5_000_000 * 10 ** token_in.decimals()
+    
+    reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
+    sell_amount = 2 / 100 * reserves[0] if swap_from == "a" else 2 / 100 * reserves[1]
     # swap 1m from one token to the other
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
 

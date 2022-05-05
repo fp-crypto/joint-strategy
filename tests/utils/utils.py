@@ -166,3 +166,6 @@ def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount):
         ),
         {'from': whale}
     )
+
+def univ3_get_pool_reserves(pool, tokenA, tokenB):
+    return (tokenA.balanceOf(pool), tokenB.balanceOf(pool))
