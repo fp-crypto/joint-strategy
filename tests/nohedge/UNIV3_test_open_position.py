@@ -82,7 +82,8 @@ def test_open_close_position_with_swap_UNIV3(
     tokenB_whale,
     hedge_type,
     dex,
-    uni_v3_pool
+    uni_v3_pool,
+    router
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
@@ -106,40 +107,15 @@ def test_open_close_position_with_swap_UNIV3(
 
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
 
-    univ3_router = Contract("0xE592427A0AEce92De3Edee1F18E0157C05861564")
     sell_amount = 1_000_000 * 10 ** tokenA.decimals()
-    tokenA.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
-    univ3_router.exactInputSingle(
-        (
-            tokenA,
-            tokenB,
-            100,
-            tokenB_whale,
-            2**256-1,
-            sell_amount,
-            0,
-            0
-        ),
-        {'from': tokenA_whale}
-    )
-
-    tokenB.approve(univ3_router, 2**256-1, {'from': tokenA_whale})
-    univ3_router.exactInputSingle(
-        (
-            tokenB,
-            tokenA,
-            100,
-            tokenB_whale,
-            2**256-1,
-            sell_amount,
-            0,
-            0
-        ),
-        {'from': tokenA_whale}
-    )
+    # swap 1m from A to B and then from B to A to end up in the original situation
+    utils.univ3_sell_token(tokenA, tokenB, router, tokenA_whale, sell_amount)
+    sell_amount = 1_000_000 * 10 ** tokenB.decimals()
+    utils.univ3_sell_token(tokenB, tokenA, router, tokenB_whale, sell_amount)
 
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
-    pending_rewards_estimation = joint.pendingRewards()[0] + joint.pendingRewards()[1]
+    pending_rewards_estimation = joint.pendingRewards()[0] / 10 ** tokenA.decimals() \
+        + joint.pendingRewards()[1] / 10 ** tokenB.decimals()
     print("pending", joint.pendingRewards())
 
     vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
@@ -159,6 +135,90 @@ def test_open_close_position_with_swap_UNIV3(
     assert providerA.estimatedTotalAssets() == 0
     assert providerB.estimatedTotalAssets() == 0
 
-    assert pytest.approx(vaultA.strategies(providerA)["totalGain"] + vaultB.strategies(providerB)["totalGain"], rel=1e-4) == pending_rewards_estimation
+    assert joint.pendingRewards() == (0, 0)
 
-    assert 0 
+    assert pytest.approx(vaultA.strategies(providerA)["totalGain"]  / 10 ** tokenA.decimals() \
+         + vaultB.strategies(providerB)["totalGain"] / 10 ** tokenB.decimals()
+         , rel=1e-4) == pending_rewards_estimation
+
+@pytest.mark.parametrize("swap_from", ["a", "b"])
+def test_lossy_harvest_UNIV3(
+    chain,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
+    tokenA_whale,
+    tokenB_whale,
+    hedge_type,
+    dex,
+    uni_v3_pool,
+    router,
+    swap_from
+):
+    checks.check_run_test("nohedge", hedge_type)
+    checks.check_run_test("UNIV3", dex)
+    
+    # Deposit to the vault
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    chain.mine(1)
+
+    actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
+
+    print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
+
+    token_in = tokenA if swap_from == "a" else tokenB
+    token_out = tokenB if swap_from == "a" else tokenA
+    token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
+
+    sell_amount = 5_000_000 * 10 ** token_in.decimals()
+    # swap 1m from one token to the other
+    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
+
+    assets_tokenA = providerA.estimatedTotalAssets()
+    assets_tokenB = providerB.estimatedTotalAssets()
+    
+    print("etas", assets_tokenA, assets_tokenB)
+    pending_rewards_estimation = joint.pendingRewards()[0] / 10 ** tokenA.decimals() \
+        + joint.pendingRewards()[1] / 10 ** tokenB.decimals()
+    print("pending", joint.pendingRewards())
+
+    index_rewards = 0 if swap_from == "a" else 1
+    assert joint.pendingRewards()[index_rewards] > 0
+    assert joint.pendingRewards()[1 - index_rewards] == 0
+
+    assert pending_rewards_estimation > 0
+    assert assets_tokenA < amountA
+    assert assets_tokenB < amountB
+
+    providerA.setDoHealthCheck(False, {"from":gov})
+    providerB.setDoHealthCheck(False, {"from":gov})
+    
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
+
+    print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
+
+    assert joint.balanceOfTokensInLP()[0] == 0
+    assert joint.balanceOfTokensInLP()[1] == 0
+
+    assert providerA.estimatedTotalAssets() == 0
+    assert providerB.estimatedTotalAssets() == 0
+
+    assert joint.pendingRewards() == (0, 0)
+
+    assert pytest.approx(amountA - vaultA.strategies(providerA)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenA
+    assert pytest.approx(amountB - vaultB.strategies(providerB)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenB
+
+
