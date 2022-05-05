@@ -9,14 +9,15 @@ def user_deposit(user, vault, token, amount):
     vault.deposit(amount, {"from": user})
     assert token.balanceOf(vault.address) == amount
 
-def gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB):
+def gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr=False):
     # the first harvest sends funds (tokenA) to joint contract and waits for tokenB funds
     # the second harvest sends funds (tokenB) to joint contract AND invests them (if there is enough TokenA)
     providerA.harvest({"from": gov})
     providerB.harvest({"from": gov})
     # we set debtRatio to 0 after starting an epoch to be sure that funds return to vault after each epoch
-    vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
-    vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
+    if not keep_dr:
+        vaultA.updateStrategyDebtRatio(providerA, 0, {"from": gov})
+        vaultB.updateStrategyDebtRatio(providerB, 0, {"from": gov})
 
     checks.epoch_started_univ3(providerA, providerB, joint, amountA, amountB)
 
