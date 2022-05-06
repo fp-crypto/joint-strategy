@@ -151,7 +151,7 @@ def univ3_get_position_info(pool, joint):
     k.update(encode_abi_packed(["address", "int24", "int24"], [joint.address, joint.minTick(), joint.maxTick()]))
     return pool.positions(k.hexdigest())
 
-def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount):
+def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, limit_price = 0):
     token_to_sell.approve(router, 0, {'from': whale})
     token_to_sell.approve(router, 2**256-1, {'from': whale})
     router.exactInputSingle(
@@ -163,7 +163,7 @@ def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount):
             2**256-1,
             amount,
             0,
-            0
+            limit_price
         ),
         {'from': whale}
     )
