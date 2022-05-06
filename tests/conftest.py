@@ -564,6 +564,13 @@ def vaultB(pm, gov, guardian, management, tokenB):
     vault.setManagement(management, {"from": gov, "gas_price":0})
     yield vault
 
+@pytest.fixture()
+def simulate_swap(dex, gov):
+    if dex == "UNIV3":
+        yield gov.deploy(SimulateSwap)
+    else:
+        yield ""
+
 @pytest.fixture
 def joint(
     providerA,
