@@ -367,7 +367,8 @@ uni_v3_pols_eth = {
 @pytest.fixture
 def uni_v3_pool(chain, tokenA, tokenB):
     if chain.id in eth_chain_ids:
-        yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
+        base_pool = Contract(uni_v3_pols_eth["WETH"]["USDC"])
+        yield Contract.from_abi(f"UniswapV3Pool {tokenA.symbol()} - {tokenB.symbol()}", uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()], base_pool.abi)
     elif chain.id == 250:    
         yield None
 
