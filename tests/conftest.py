@@ -620,7 +620,7 @@ def joint(
             providerB,
             weth,
             uni_v3_pool,
-            1
+            2
         )
     joint.setMaxPercentageLoss(500, {"from": gov})
 
