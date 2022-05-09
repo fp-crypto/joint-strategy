@@ -29,7 +29,7 @@ abstract contract Joint {
     using SafeERC20 for IERC20;
     using Address for address;
 
-    uint256 internal constant RATIO_PRECISION = 1e4;
+    uint256 internal constant RATIO_PRECISION = 1e18;
 
     ProviderStrategy public providerA;
     ProviderStrategy public providerB;
@@ -134,7 +134,7 @@ abstract contract Joint {
         pool = _pool;
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
-        maxPercentageLoss = 10; // 0.10%
+        maxPercentageLoss = RATIO_PRECISION / 1_000; // 0.10%
 
         tokenA = address(providerA.want());
         tokenB = address(providerB.want());
@@ -360,6 +360,73 @@ abstract contract Joint {
             uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
             _bBalance = _bBalance - sellAmount;
             _aBalance = _aBalance + buyAmount;
+        }
+    }
+    event n(string s, uint256 n);
+    function estimatedTotalAssetsAfterBalance_dev()
+        public
+        returns (uint256 _aBalance, uint256 _bBalance)
+    {
+        (_aBalance, _bBalance) = balanceOfTokensInLP();
+        emit n("_aBalance", _aBalance);
+        emit n("_bBalance", _bBalance);
+        _aBalance = _aBalance + balanceOfA();
+        _bBalance = _bBalance + balanceOfB();
+        emit n("_aBalance", _aBalance);
+        emit n("_bBalance", _bBalance);
+        (uint256 callProfit, uint256 putProfit) = getHedgeProfit();
+        _aBalance = _aBalance + callProfit;
+        _bBalance = _bBalance + putProfit;
+        emit n("_aBalance", _aBalance);
+        emit n("_bBalance", _bBalance);
+        uint256[] memory _rewardsPending = pendingRewards();
+        for (uint256 i = 0; i < rewardTokens.length; i++) {
+            address reward = rewardTokens[i];
+            if (reward == tokenA) {
+                _aBalance = _aBalance + _rewardsPending[i];
+            } else if (reward == tokenB) {
+                _bBalance = _bBalance + _rewardsPending[i];
+            } else if (_rewardsPending[i] != 0) {
+                address swapTo = findSwapTo(reward);
+                uint256 outAmount = quote(
+                    reward,
+                    swapTo,
+                    _rewardsPending[i] + IERC20(reward).balanceOf(address(this))
+                );
+                if (swapTo == tokenA) {
+                    _aBalance = _aBalance + outAmount;
+                } else if (swapTo == tokenB) {
+                    _bBalance = _bBalance + outAmount;
+                }
+            }
+        }
+        emit n("_aBalance", _aBalance);
+        emit n("_bBalance", _bBalance);
+        (address sellToken, uint256 sellAmount) = calculateSellToBalance(
+            _aBalance,
+            _bBalance,
+            investedA,
+            investedB
+        );
+        if (sellToken == tokenA) {
+            emit n("tokenA", sellAmount);
+        } else if (sellToken == tokenB){
+            emit n("tokenB", sellAmount);
+        }
+        if (sellToken == tokenA) {
+            uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
+            _aBalance = _aBalance - sellAmount;
+            _bBalance = _bBalance + buyAmount;
+            emit n("buyAmount", buyAmount);
+            emit n("_aBalance", _aBalance);
+            emit n("_bBalance", _bBalance);
+        } else if (sellToken == tokenB) {
+            uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
+            _bBalance = _bBalance - sellAmount;
+            _aBalance = _aBalance + buyAmount;
+            emit n("buyAmount", buyAmount);
+            emit n("_aBalance", _aBalance);
+            emit n("_bBalance", _bBalance); 
         }
     }
 
