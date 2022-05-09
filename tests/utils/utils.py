@@ -168,5 +168,47 @@ def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, lim
         {'from': whale}
     )
 
+def univ3_buy_token(token_to_buy, token_to_sell, router, whale, amount, limit_price = 0):
+    token_to_sell.approve(router, 0, {'from': whale})
+    token_to_sell.approve(router, 2**256-1, {'from': whale})
+    router.exactOutputSingle(
+        (
+            token_to_sell,
+            token_to_buy,
+            100,
+            whale,
+            2**256-1,
+            amount,
+            2**255-1,
+            limit_price
+        ),
+        {'from': whale}
+    )
+
 def univ3_get_pool_reserves(pool, tokenA, tokenB):
     return (tokenA.balanceOf(pool), tokenB.balanceOf(pool))
+
+def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale):
+
+    reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
+    buy_amount = reserves[0] - 500_000 * 10**tokenA.decimals() if swap_from == "a" else reserves[1] - 500_000 * 10**tokenB.decimals()
+    
+    token_in = tokenB if swap_from == "a" else tokenA
+    token_out = tokenA if swap_from == "a" else tokenB
+    whale = tokenB_whale if swap_from == "a" else tokenA_whale
+
+    token_in.approve(router, 0, {'from': whale})
+    token_in.approve(router, 2**256-1, {'from': whale})
+    router.exactOutputSingle(
+        (
+            token_in,
+            token_out,
+            100,
+            whale,
+            2**256-1,
+            buy_amount,
+            2**256 -1 ,
+            0
+        ),
+        {'from': whale}
+    )
