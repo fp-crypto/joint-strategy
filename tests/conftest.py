@@ -34,7 +34,7 @@ def donate(wftm, weth, accounts, gov, tokenA_whale, tokenB_whale, chain):
     donor.transfer(tokenA_whale, 100e18)
     donor.transfer(tokenB_whale, 100e18)
     
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def reset_chain(chain):
     chain.reset()
     print(f"Initial Height: {chain.height}")
@@ -622,7 +622,7 @@ def joint(
             uni_v3_pool,
             2
         )
-    joint.setMaxPercentageLoss(500, {"from": gov})
+    joint.setMaxPercentageLoss(5 * joint.maxPercentageLoss(), {"from": gov})
 
     providerA.setJoint(joint, {"from": gov})
     providerB.setJoint(joint, {"from": gov})
