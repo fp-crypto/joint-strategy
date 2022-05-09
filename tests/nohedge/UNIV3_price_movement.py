@@ -128,6 +128,10 @@ def test_multiple_ticks_UNIV3(
     rewards_pending = joint.pendingRewards()
     
     if joint.maxTick() < new_tick or new_tick < joint.minTick():
+        if swap_from == "a":
+            assert joint.balanceOfTokensInLP()[1] == 0
+        else:
+            assert joint.balanceOfTokensInLP()[0] == 0
         sell_amount = 100 * 10 ** token_in.decimals()
         utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, 0)
         assert joint.pendingRewards() == rewards_pending
@@ -136,4 +140,45 @@ def test_multiple_ticks_UNIV3(
     providerB.setDoHealthCheck(False, {"from":gov})
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
-# TODO: Simulate the case where liquidity in the pool of token A/B is less than what we initially provided (huge swap in the middle)
+@pytest.mark.parametrize("swap_from", ["a", "b"])
+def test_not_enough_liquidity_to_balance_UNIV3(
+    chain,
+    tokenA,
+    tokenB,
+    vaultA,
+    vaultB,
+    providerA,
+    providerB,
+    joint,
+    user,
+    amountA,
+    amountB,
+    RELATIVE_APPROX,
+    gov,
+    tokenA_whale,
+    tokenB_whale,
+    hedge_type,
+    dex,
+    uni_v3_pool,
+    router,
+    swap_from,
+    simulate_swap
+):
+    checks.check_run_test("nohedge", hedge_type)
+    checks.check_run_test("UNIV3", dex)
+    
+    # Deposit to the vault
+    actions.user_deposit(user, vaultA, tokenA, amountA)
+    actions.user_deposit(user, vaultB, tokenB, amountB)
+
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    chain.mine(1)
+
+    actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
+    
+    utils.univ3_empty_pool_reserve(joint.pool(), swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
+    providerA.setDoHealthCheck(False, {"from":gov})
+    providerB.setDoHealthCheck(False, {"from":gov})
+    # TODO: Implement alternative way of swapping the rebalance for this case as it gets stuck!
+    
