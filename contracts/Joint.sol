@@ -362,59 +362,6 @@ abstract contract Joint {
             _aBalance = _aBalance + buyAmount;
         }
     }
-    
-    function estimatedTotalAssetsAfterBalance_dev()
-        public
-        returns (uint256 _aBalance, uint256 _bBalance)
-    {
-        (_aBalance, _bBalance) = balanceOfTokensInLP();
-
-        _aBalance = _aBalance + balanceOfA();
-        _bBalance = _bBalance + balanceOfB();
-        
-        (uint256 callProfit, uint256 putProfit) = getHedgeProfit();
-        _aBalance = _aBalance + callProfit;
-        _bBalance = _bBalance + putProfit;
-        
-        uint256[] memory _rewardsPending = pendingRewards();
-        for (uint256 i = 0; i < rewardTokens.length; i++) {
-            address reward = rewardTokens[i];
-            if (reward == tokenA) {
-                _aBalance = _aBalance + _rewardsPending[i];
-            } else if (reward == tokenB) {
-                _bBalance = _bBalance + _rewardsPending[i];
-            } else if (_rewardsPending[i] != 0) {
-                address swapTo = findSwapTo(reward);
-                uint256 outAmount = quote(
-                    reward,
-                    swapTo,
-                    _rewardsPending[i] + IERC20(reward).balanceOf(address(this))
-                );
-                if (swapTo == tokenA) {
-                    _aBalance = _aBalance + outAmount;
-                } else if (swapTo == tokenB) {
-                    _bBalance = _bBalance + outAmount;
-                }
-            }
-        }
-        
-        (address sellToken, uint256 sellAmount) = calculateSellToBalance(
-            _aBalance,
-            _bBalance,
-            investedA,
-            investedB
-        );
-        
-        if (sellToken == tokenA) {
-            uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
-            _aBalance = _aBalance - sellAmount;
-            _bBalance = _bBalance + buyAmount;
-        } else if (sellToken == tokenB) {
-            uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
-            _bBalance = _bBalance - sellAmount;
-            _aBalance = _aBalance + buyAmount;
-        }
-    }
 
     function calculateSellToBalance(
         uint256 currentA,
