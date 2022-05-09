@@ -362,23 +362,20 @@ abstract contract Joint {
             _aBalance = _aBalance + buyAmount;
         }
     }
-    event n(string s, uint256 n);
+    
     function estimatedTotalAssetsAfterBalance_dev()
         public
         returns (uint256 _aBalance, uint256 _bBalance)
     {
         (_aBalance, _bBalance) = balanceOfTokensInLP();
-        emit n("_aBalance", _aBalance);
-        emit n("_bBalance", _bBalance);
+
         _aBalance = _aBalance + balanceOfA();
         _bBalance = _bBalance + balanceOfB();
-        emit n("_aBalance", _aBalance);
-        emit n("_bBalance", _bBalance);
+        
         (uint256 callProfit, uint256 putProfit) = getHedgeProfit();
         _aBalance = _aBalance + callProfit;
         _bBalance = _bBalance + putProfit;
-        emit n("_aBalance", _aBalance);
-        emit n("_bBalance", _bBalance);
+        
         uint256[] memory _rewardsPending = pendingRewards();
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
@@ -400,33 +397,22 @@ abstract contract Joint {
                 }
             }
         }
-        emit n("_aBalance", _aBalance);
-        emit n("_bBalance", _bBalance);
+        
         (address sellToken, uint256 sellAmount) = calculateSellToBalance(
             _aBalance,
             _bBalance,
             investedA,
             investedB
         );
-        if (sellToken == tokenA) {
-            emit n("tokenA", sellAmount);
-        } else if (sellToken == tokenB){
-            emit n("tokenB", sellAmount);
-        }
+        
         if (sellToken == tokenA) {
             uint256 buyAmount = quote(sellToken, tokenB, sellAmount);
             _aBalance = _aBalance - sellAmount;
             _bBalance = _bBalance + buyAmount;
-            emit n("buyAmount", buyAmount);
-            emit n("_aBalance", _aBalance);
-            emit n("_bBalance", _bBalance);
         } else if (sellToken == tokenB) {
             uint256 buyAmount = quote(sellToken, tokenA, sellAmount);
             _bBalance = _bBalance - sellAmount;
             _aBalance = _aBalance + buyAmount;
-            emit n("buyAmount", buyAmount);
-            emit n("_aBalance", _aBalance);
-            emit n("_bBalance", _bBalance); 
         }
     }
 
