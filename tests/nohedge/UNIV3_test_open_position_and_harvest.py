@@ -184,7 +184,7 @@ def test_lossy_harvest_UNIV3(
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
     
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
-    sell_amount = 2 / 100 * reserves[0] if swap_from == "a" else 2 / 100 * reserves[1]
+    sell_amount = 5 / 100 * reserves[0] if swap_from == "a" else 5 / 100 * reserves[1]
     # swap 1m from one token to the other
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
 
@@ -265,9 +265,15 @@ def test_choppy_harvest_UNIV3(
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
     
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
-    percentage_rewards_swap = 2 / 100
+    # check weird case for percentage = 4
+    percentage_rewards_swap = 5 / 100
     sell_amount = percentage_rewards_swap * reserves[0] if swap_from == "a" else percentage_rewards_swap * reserves[1]
-    # swap 1m from one token to the other
+    # swap from one token to the other
+    print(f"selling {sell_amount} {token_in.symbol()}")
+    print(reserves)
+    reserve_out = reserves[1] if swap_from == "a" else reserves[0]
+    if sell_amount > reserve_out:
+        sell_amount = int(reserve_out * 95 / 100)
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
 
     assets_tokenA = providerA.estimatedTotalAssets()
@@ -289,21 +295,19 @@ def test_choppy_harvest_UNIV3(
     
     actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr = False)
 
+    # assert 0
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
+    
+    token_in = tokenB if swap_from == "a" else tokenA
+    token_out = tokenA if swap_from == "a" else tokenB
+    token_in_whale = tokenB_whale if swap_from == "a" else tokenA_whale
+
+    utils.univ3_buy_token(token_out, token_in, router, token_in_whale, sell_amount)
 
     token_in = tokenA if swap_from == "a" else tokenB
     token_out = tokenB if swap_from == "a" else tokenA
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
-    
-    reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
-    
-    sell_amount =  percentage_rewards_swap * reserves[0] if swap_from == "a" else percentage_rewards_swap * reserves[1]
-    
-    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
-    token_in = tokenB if swap_from == "a" else tokenA
-    token_out = tokenA if swap_from == "a" else tokenB
-    token_in_whale = tokenB_whale if swap_from == "a" else tokenA_whale
-    sell_amount = percentage_rewards_swap * reserves[1] if swap_from == "a" else percentage_rewards_swap * reserves[0]
+
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
