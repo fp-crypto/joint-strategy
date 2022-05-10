@@ -710,6 +710,10 @@ def LPHedgingLibrary(LPHedgingLib, gov):
 def RELATIVE_APPROX():
     yield 1e-5
 
+@pytest.fixture(scope="session", autouse=True)
+def RATIO_PRECISION():
+    yield 1e18
+
 
 @pytest.fixture(autouse=False)
 def mock_chainlink(AggregatorMock, gov):
