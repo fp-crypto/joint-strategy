@@ -161,8 +161,8 @@ contract UniV3Joint is NoHedgeJoint {
         uint256 feeGrowthInside1LastX128 = positionInfo
             .feeGrowthInside1LastX128;
 
-        (uint128 tokensOwed0, uint128 tokensOwed1) = UniswapHelperViews.getFeeGrowth(
-            UniswapHelperViews.feeGrowthParams(
+        (uint128 tokensOwed0, uint128 tokensOwed1) = UniswapHelperViews.getFeesEarned(
+            UniswapHelperViews.feesEarnedParams(
                 positionInfo.liquidity,
                 _pool.slot0().tick,
                 minTick,
