@@ -1,5 +1,6 @@
 import brownie
 from brownie import interface, chain, accounts, web3, network, Contract
+import iniconfig
 
 
 def sync_price(joint):
@@ -212,3 +213,20 @@ def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_wha
         ),
         {'from': whale}
     )
+
+def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale):
+    initial_ratio = reserves[0] / reserves[1]
+    current_reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
+    current_ratio = current_reserves[0] / current_reserves[1]
+    
+    if current_ratio > initial_ratio:
+        token_in = tokenB
+        token_out = tokenA
+        whale = tokenB_whale
+        amount = (current_reserves[0] - initial_ratio * current_reserves[1]) / (1 + initial_ratio)
+    else:
+        token_in = tokenA
+        token_out = tokenB
+        whale = tokenA_whale
+        amount = (-current_reserves[0] + initial_ratio * current_reserves[1]) / (1 + initial_ratio)
+    univ3_sell_token(token_in, token_out, router, whale, amount, 0)
