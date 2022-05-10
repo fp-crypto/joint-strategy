@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint, UniswapHelperViews
+    UniV3Joint, UniswapHelperViews, TestingLibrary
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -568,6 +568,13 @@ def vaultB(pm, gov, guardian, management, tokenB):
 def uniswap_helper_views(dex, gov):
     if dex == "UNIV3":
         yield gov.deploy(UniswapHelperViews)
+    else:
+        yield ""
+
+@pytest.fixture()
+def testing_library(dex, gov):
+    if dex == "UNIV3":
+        yield gov.deploy(TestingLibrary)
     else:
         yield ""
 

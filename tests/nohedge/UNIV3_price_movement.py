@@ -30,7 +30,8 @@ def test_one_tick_UNIV3(
     router,
     swap_from,
     swap_dex,
-    uniswap_helper_views
+    uniswap_helper_views,
+    testing_library
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
@@ -59,7 +60,7 @@ def test_one_tick_UNIV3(
     current_tick = uni_v3_pool.slot0()["tick"]
     next_tick = current_tick - 1 if swap_from == "a" else current_tick + 1
     # limit_price = uniswap_helper_views.getSqrtRatioAtTick(next_tick) + 1 if swap_from == "a" else uniswap_helper_views.getSqrtRatioAtTick(next_tick) - 1
-    limit_price = uniswap_helper_views.getSqrtRatioAtTick(next_tick) + 1
+    limit_price = testing_library.getSqrtRatioAtTick(next_tick) + 1
 
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
     
@@ -99,7 +100,8 @@ def test_multiple_ticks_UNIV3(
     router,
     swap_from,
     swap_dex,
-    uniswap_helper_views
+    uniswap_helper_views,
+    testing_library
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
@@ -128,7 +130,7 @@ def test_multiple_ticks_UNIV3(
     current_tick = uni_v3_pool.slot0()["tick"]
     next_tick = current_tick - n_ticks if swap_from == "a" else current_tick + n_ticks
     # limit_price = uniswap_helper_views.getSqrtRatioAtTick(next_tick) + 1 if swap_from == "a" else uniswap_helper_views.getSqrtRatioAtTick(next_tick) - 1
-    limit_price = uniswap_helper_views.getSqrtRatioAtTick(next_tick) + 1
+    limit_price = testing_library.getSqrtRatioAtTick(next_tick) + 1
 
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
     
