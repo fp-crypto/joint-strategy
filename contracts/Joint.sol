@@ -37,7 +37,7 @@ abstract contract Joint {
     address public tokenA;
     address public tokenB;
 
-    address public WETH;
+    address public referenceToken;
     address[] public rewardTokens;
 
     address public pool;
@@ -115,22 +115,22 @@ abstract contract Joint {
     constructor(
         address _providerA,
         address _providerB,
-        address _weth,
+        address _referenceToken,
         address _pool
     ) {
-        _initialize(_providerA, _providerB, _weth, _pool);
+        _initialize(_providerA, _providerB, _referenceToken, _pool);
     }
 
     function _initialize(
         address _providerA,
         address _providerB,
-        address _weth,
+        address _referenceToken,
         address _pool
     ) internal virtual {
         require(address(providerA) == address(0), "Joint already initialized");
         providerA = ProviderStrategy(_providerA);
         providerB = ProviderStrategy(_providerB);
-        WETH = _weth;
+        referenceToken = _referenceToken;
         pool = _pool;
 
         // NOTE: we let some loss to avoid getting locked in the position if something goes slightly wrong
@@ -483,8 +483,8 @@ abstract contract Joint {
         } else if (tokenB == token) {
             return tokenA;
         } else if (_isReward(token)) {
-            if (tokenA == WETH || tokenB == WETH) {
-                return WETH;
+            if (tokenA == referenceToken || tokenB == referenceToken) {
+                return referenceToken;
             }
             return tokenA;
         } else {
@@ -497,16 +497,16 @@ abstract contract Joint {
         view
         returns (address[] memory _path)
     {
-        bool is_weth = _token_in == address(WETH) ||
-            _token_out == address(WETH);
+        bool isReferenceToken = _token_in == address(referenceToken) ||
+            _token_out == address(referenceToken);
         bool is_internal = (_token_in == tokenA && _token_out == tokenB) ||
             (_token_in == tokenB && _token_out == tokenA);
-        _path = new address[](is_weth || is_internal ? 2 : 3);
+        _path = new address[](isReferenceToken || is_internal ? 2 : 3);
         _path[0] = _token_in;
-        if (is_weth || is_internal) {
+        if (isReferenceToken || is_internal) {
             _path[1] = _token_out;
         } else {
-            _path[1] = address(WETH);
+            _path[1] = address(referenceToken);
             _path[2] = _token_out;
         }
     }
@@ -535,10 +535,10 @@ abstract contract Joint {
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
             if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
                 _swapToAmounts[i] = tokenAmount(reward, 0);
-            } else if (tokenA == WETH || tokenB == WETH) {
+            } else if (tokenA == referenceToken || tokenB == referenceToken) {
                 _swapToAmounts[i] = tokenAmount(
-                    WETH,
-                    swap(reward, WETH, _rewardBal)
+                    referenceToken,
+                    swap(reward, referenceToken, _rewardBal)
                 );
             } else {
                 // Assume that position has already been liquidated

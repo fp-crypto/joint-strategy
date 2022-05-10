@@ -52,17 +52,17 @@ contract UniV3Joint is NoHedgeJoint {
      *  Constructor, only called during original deploy
      * @param _providerA, provider strategy of tokenA
      * @param _providerB, provider strategy of tokenB
-     * @param _weth, token to use as reference, for pricing oracles and paying hedging costs (if any)
+     * @param _referenceToken, token to use as reference, for pricing oracles and paying hedging costs (if any)
      * @param _pool, Uni V3 pool to LP
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      */
     constructor(
         address _providerA,
         address _providerB,
-        address _weth,
+        address _referenceToken,
         address _pool,
         uint24 _ticksFromCurrent
-    ) NoHedgeJoint(_providerA, _providerB, _weth, _pool) {
+    ) NoHedgeJoint(_providerA, _providerB, _referenceToken, _pool) {
         _initalizeUniV3Joint(_ticksFromCurrent);
     }
 
@@ -71,18 +71,18 @@ contract UniV3Joint is NoHedgeJoint {
      *  Constructor equivalent for clones, initializing the joint and the specifics of UniV3Joint
      * @param _providerA, provider strategy of tokenA
      * @param _providerB, provider strategy of tokenB
-     * @param _weth, token to use as reference, for pricing oracles and paying hedging costs (if any)
+     * @param _referenceToken, token to use as reference, for pricing oracles and paying hedging costs (if any)
      * @param _pool, Uni V3 pool to LP
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      */
     function initialize(
         address _providerA,
         address _providerB,
-        address _weth,
+        address _referenceToken,
         address _pool,
         uint24 _ticksFromCurrent
     ) external {
-        _initialize(_providerA, _providerB, _weth, _pool);
+        _initialize(_providerA, _providerB, _referenceToken, _pool);
         _initalizeUniV3Joint(_ticksFromCurrent);
     }
 
@@ -110,7 +110,7 @@ contract UniV3Joint is NoHedgeJoint {
      *  Cloning function to migrate/ deploy to other pools
      * @param _providerA, provider strategy of tokenA
      * @param _providerB, provider strategy of tokenB
-     * @param _weth, token to use as reference, for pricing oracles and paying hedging costs (if any)
+     * @param _referenceToken, token to use as reference, for pricing oracles and paying hedging costs (if any)
      * @param _pool, Uni V3 pool to LP
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      * @return newJoint, address of newly deployed joint
@@ -118,7 +118,7 @@ contract UniV3Joint is NoHedgeJoint {
     function cloneUniV3Joint(
         address _providerA,
         address _providerB,
-        address _weth,
+        address _referenceToken,
         address _pool,
         uint24 _ticksFromCurrent
     ) external returns (address newJoint) {
@@ -143,7 +143,7 @@ contract UniV3Joint is NoHedgeJoint {
         UniV3Joint(newJoint).initialize(
             _providerA,
             _providerB,
-            _weth,
+            _referenceToken,
             _pool,
             _ticksFromCurrent
         );
