@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "../Hedges/NoHedgeJoint.sol";
 import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 import {ICRVPool} from "../../interfaces/CRV/ICRVPool.sol";
-import {SimulateSwap} from "../libraries/SimulateSwap.sol";
+import {UniswapHelperViews} from "../libraries/UniswapHelperViews.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 import {SafeCast} from "../libraries/SafeCast.sol";
@@ -14,7 +14,6 @@ import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
 contract UniV3Joint is NoHedgeJoint {
     using SafeERC20 for IERC20;
-    // using SimulateSwap for IUniswapV3Pool;
     using SafeCast for uint256;
 
     bool public isOriginal = true;
@@ -162,8 +161,8 @@ contract UniV3Joint is NoHedgeJoint {
         uint256 feeGrowthInside1LastX128 = positionInfo
             .feeGrowthInside1LastX128;
 
-        (uint128 tokensOwed0, uint128 tokensOwed1) = SimulateSwap.getFeeGrowth(
-            SimulateSwap.feeGrowthParams(
+        (uint128 tokensOwed0, uint128 tokensOwed1) = UniswapHelperViews.getFeeGrowth(
+            UniswapHelperViews.feeGrowthParams(
                 positionInfo.liquidity,
                 _pool.slot0().tick,
                 minTick,
@@ -328,7 +327,7 @@ contract UniV3Joint is NoHedgeJoint {
         if(useUniswapPool){
             bool zeroForOne = _tokenFrom < _tokenTo;
 
-            (int256 _amount0, int256 _amount1, , ) = SimulateSwap.simulateSwap(
+            (int256 _amount0, int256 _amount1, , ) = UniswapHelperViews.simulateSwap(
                 IUniswapV3Pool(pool),
                 zeroForOne,
                 _amountIn.toInt256(),

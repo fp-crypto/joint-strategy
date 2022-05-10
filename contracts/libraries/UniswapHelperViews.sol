@@ -13,7 +13,7 @@ import {TickBitmapExtended} from "./TickBitmapExtended.sol";
 import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 
 /// @title Simulate Uniswap V3 Swaps
-library SimulateSwap {
+library UniswapHelperViews {
     using SafeCast for uint256;
     using TickBitmapExtended for function(int16)
         external
@@ -86,14 +86,14 @@ library SimulateSwap {
         bool zeroForOne,
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96,
-        SimulateSwap.Cache memory cache
+        UniswapHelperViews.Cache memory cache
     )
         internal
         view
         returns (
             int256 amount0,
             int256 amount1,
-            SimulateSwap.State memory state
+            UniswapHelperViews.State memory state
         )
     {
         if (amountSpecified == 0) revert ZeroAmount();
@@ -127,7 +127,7 @@ library SimulateSwap {
 
         bool exactInput = amountSpecified > 0;
 
-        state = SimulateSwap.State({
+        state = UniswapHelperViews.State({
             amountSpecifiedRemaining: amountSpecified,
             amountCalculated: 0,
             sqrtPriceX96: cache.sqrtPriceX96Start,
@@ -142,7 +142,7 @@ library SimulateSwap {
             state.amountSpecifiedRemaining != 0 &&
             state.sqrtPriceX96 != sqrtPriceLimitX96
         ) {
-            SimulateSwap.Step memory step;
+            UniswapHelperViews.Step memory step;
 
             step.sqrtPriceStartX96 = state.sqrtPriceX96;
 
@@ -263,8 +263,8 @@ library SimulateSwap {
         returns (
             int256 amount0,
             int256 amount1,
-            SimulateSwap.State memory state,
-            SimulateSwap.Cache memory cache
+            UniswapHelperViews.State memory state,
+            UniswapHelperViews.Cache memory cache
         )
     {
         (amount0, amount1, state) = simulateSwap(

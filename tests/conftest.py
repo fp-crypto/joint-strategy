@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint, SimulateSwap
+    UniV3Joint, UniswapHelperViews
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -565,9 +565,9 @@ def vaultB(pm, gov, guardian, management, tokenB):
     yield vault
 
 @pytest.fixture()
-def simulate_swap(dex, gov):
+def uniswap_helper_views(dex, gov):
     if dex == "UNIV3":
-        yield gov.deploy(SimulateSwap)
+        yield gov.deploy(UniswapHelperViews)
     else:
         yield ""
 
@@ -613,7 +613,7 @@ def joint(
             stable
         )
     elif (joint_to_use == UniV3Joint):
-        simulate_swap = gov.deploy(SimulateSwap)
+        uniswap_helper_views = gov.deploy(UniswapHelperViews)
         joint = gov.deploy(
             joint_to_use,
             providerA,
