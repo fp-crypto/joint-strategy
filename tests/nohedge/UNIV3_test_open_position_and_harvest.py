@@ -139,9 +139,10 @@ def test_open_close_position_with_swap_UNIV3(
 
     assert pytest.approx(vaultA.strategies(providerA)["totalGain"]  / 10 ** tokenA.decimals() \
          + vaultB.strategies(providerB)["totalGain"] / 10 ** tokenB.decimals()
-         , rel=1e-4) == pending_rewards_estimation
+         , rel=1e-3) == pending_rewards_estimation
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
+@pytest.mark.parametrize("swap_dex", ["crv", "uni"])
 def test_lossy_harvest_UNIV3(
     chain,
     tokenA,
@@ -162,10 +163,16 @@ def test_lossy_harvest_UNIV3(
     dex,
     uni_v3_pool,
     router,
-    swap_from
+    swap_from,
+    swap_dex,
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
+
+    if swap_dex == "uni":
+        joint.setUseUniswapPool(True, {"from": gov})
+    else:
+        joint.setUseUniswapPool(False, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -184,6 +191,7 @@ def test_lossy_harvest_UNIV3(
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
     
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
+    print("Reserves: ", reserves)
     sell_amount = 5 / 100 * reserves[0] if swap_from == "a" else 5 / 100 * reserves[1]
     # swap 1m from one token to the other
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
@@ -222,7 +230,10 @@ def test_lossy_harvest_UNIV3(
     assert pytest.approx(amountA - vaultA.strategies(providerA)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenA
     assert pytest.approx(amountB - vaultB.strategies(providerB)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenB
 
+    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
+
 @pytest.mark.parametrize("swap_from", ["a", "b"])
+@pytest.mark.parametrize("swap_dex", ["crv", "uni"])
 def test_choppy_harvest_UNIV3(
     chain,
     tokenA,
@@ -243,10 +254,16 @@ def test_choppy_harvest_UNIV3(
     dex,
     uni_v3_pool,
     router,
-    swap_from
+    swap_from,
+    swap_dex,
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
+
+    if swap_dex == "uni":
+        joint.setUseUniswapPool(True, {"from": gov})
+    else:
+        joint.setUseUniswapPool(False, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -265,7 +282,7 @@ def test_choppy_harvest_UNIV3(
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
     
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
-    # check weird case for percentage = 4
+
     percentage_rewards_swap = 5 / 100
     sell_amount = percentage_rewards_swap * reserves[0] if swap_from == "a" else percentage_rewards_swap * reserves[1]
     # swap from one token to the other
@@ -324,3 +341,4 @@ def test_choppy_harvest_UNIV3(
         assert vault.strategies(strat)["totalLoss"] > 0
         assert vault.strategies(strat)["totalGain"] > 0
         assert vault.strategies(strat)["totalDebt"] == 0
+    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale)

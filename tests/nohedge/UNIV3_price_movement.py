@@ -1,11 +1,13 @@
-from xxlimited import new
-from utils import actions, checks, utils
-import pytest
-from brownie import Contract, chain, interface
 import eth_utils
+import pytest
+from brownie import Contract, chain, interface, history
 from eth_abi.packed import encode_abi_packed
+from utils import actions, checks, utils
+from xxlimited import new
+
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
+@pytest.mark.parametrize("swap_dex", ["uni", "crv"])
 def test_one_tick_UNIV3(
     chain,
     tokenA,
@@ -27,10 +29,16 @@ def test_one_tick_UNIV3(
     uni_v3_pool,
     router,
     swap_from,
+    swap_dex,
     simulate_swap
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
+
+    if swap_dex == "uni":
+        joint.setUseUniswapPool(True, {"from": gov})
+    else:
+        joint.setUseUniswapPool(False, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -68,6 +76,7 @@ def test_one_tick_UNIV3(
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
+@pytest.mark.parametrize("swap_dex", ["uni", "crv"])
 def test_multiple_ticks_UNIV3(
     chain,
     tokenA,
@@ -89,10 +98,16 @@ def test_multiple_ticks_UNIV3(
     uni_v3_pool,
     router,
     swap_from,
+    swap_dex,
     simulate_swap
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
+
+    if swap_dex == "uni":
+        joint.setUseUniswapPool(True, {"from": gov})
+    else:
+        joint.setUseUniswapPool(False, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -141,6 +156,7 @@ def test_multiple_ticks_UNIV3(
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
+@pytest.mark.parametrize("swap_dex", ["uni"])
 def test_not_enough_liquidity_to_balance_UNIV3(
     chain,
     tokenA,
@@ -162,10 +178,17 @@ def test_not_enough_liquidity_to_balance_UNIV3(
     uni_v3_pool,
     router,
     swap_from,
-    simulate_swap
+    swap_dex,
+    simulate_swap,
+    RATIO_PRECISION
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
+
+    if swap_dex == "uni":
+        joint.setUseUniswapPool(True, {"from": gov})
+    else:
+        joint.setUseUniswapPool(False, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -180,5 +203,24 @@ def test_not_enough_liquidity_to_balance_UNIV3(
     utils.univ3_empty_pool_reserve(joint.pool(), swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
     providerA.setDoHealthCheck(False, {"from":gov})
     providerB.setDoHealthCheck(False, {"from":gov})
-    # TODO: Implement alternative way of swapping the rebalance for this case as it gets stuck!
+    assert joint.useUniswapPool()
+    joint.setUseUniswapPool(False, {"from": gov})
+    assert ~joint.useUniswapPool()
+
+    # Now we can check estimated total balances and ensure they are within limits
+    estimated_assets = joint.estimatedTotalAssetsAfterBalance()
+    max_loss_tokenA = (1-joint.maxPercentageLoss() / RATIO_PRECISION) * joint.investedA()
+    max_loss_tokenB = (1-joint.maxPercentageLoss() / RATIO_PRECISION) * joint.investedB()
+
+    assert estimated_assets[0] >= max_loss_tokenA
+    assert estimated_assets[1] >= max_loss_tokenB
+
+    actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
     
+    assert joint.estimatedTotalAssetsAfterBalance() == (0, 0)
+    assert pytest.approx(history[-4].events["TokenExchange"]["tokens_sold"], rel=1e-3) == history[-4].events["TokenExchange"]["tokens_bought"]
+
+    for (vault, strat) in zip([vaultA, vaultB], [providerA, providerB]):
+        assert vault.strategies(strat)["totalLoss"] > 0
+        assert vault.strategies(strat)["totalGain"] == 0
+        assert vault.strategies(strat)["totalDebt"] == 0
