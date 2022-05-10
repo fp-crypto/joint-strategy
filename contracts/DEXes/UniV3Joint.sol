@@ -2,12 +2,20 @@
 pragma solidity 0.8.12;
 pragma experimental ABIEncoderV2;
 
+// Import necessary libraries and interfaces:
+// NoHedgeJoint to inherit from
 import "../Hedges/NoHedgeJoint.sol";
+// Uni V3 pool functionality
 import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
+// CRV pool functionalities for swaps and quotes
 import {ICRVPool} from "../../interfaces/CRV/ICRVPool.sol";
+// Helper functions from Uni v3
 import {UniswapHelperViews} from "../libraries/UniswapHelperViews.sol";
+// Liquidity calculations
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
+// Pool tick calculations
 import {TickMath} from "../libraries/TickMath.sol";
+// Safe casting and math
 import {SafeCast} from "../libraries/SafeCast.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 import {FixedPoint128} from "../libraries/FixedPoint128.sol";
