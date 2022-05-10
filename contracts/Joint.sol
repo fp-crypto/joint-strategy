@@ -682,4 +682,15 @@ abstract contract Joint {
             revert("Unsupported token");
         }
     }
+
+    function _checkAllowance(
+        address _contract,
+        IERC20 _token,
+        uint256 _amount
+    ) internal {
+        if (_token.allowance(address(this), _contract) < _amount) {
+            _token.safeApprove(_contract, 0);
+            _token.safeApprove(_contract, _amount);
+        }
+    }
 }
