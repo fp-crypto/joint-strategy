@@ -142,7 +142,7 @@ def test_open_close_position_with_swap_UNIV3(
          , rel=1e-3) == pending_rewards_estimation
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
-@pytest.mark.parametrize("swap_dex", ["crv", "uni"])
+@pytest.mark.parametrize("swap_dex", ["uni", "crv"])
 def test_lossy_harvest_UNIV3(
     chain,
     tokenA,
@@ -189,12 +189,15 @@ def test_lossy_harvest_UNIV3(
     token_in = tokenA if swap_from == "a" else tokenB
     token_out = tokenB if swap_from == "a" else tokenA
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
+    token_out_whale = tokenB_whale if swap_from == "a" else tokenA_whale
     
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
     print("Reserves: ", reserves)
     sell_amount = 5 / 100 * reserves[0] if swap_from == "a" else 5 / 100 * reserves[1]
     # swap 1m from one token to the other
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
+    if swap_dex == "crv":
+        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
 
     assets_tokenA = providerA.estimatedTotalAssets()
     assets_tokenB = providerB.estimatedTotalAssets()
@@ -231,9 +234,11 @@ def test_lossy_harvest_UNIV3(
     assert pytest.approx(amountB - vaultB.strategies(providerB)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenB
 
     utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
+    if swap_dex == "crv":
+        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_out_whale, prev_reserve)
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
-@pytest.mark.parametrize("swap_dex", ["crv", "uni"])
+@pytest.mark.parametrize("swap_dex", ["uni", "crv"])
 def test_choppy_harvest_UNIV3(
     chain,
     tokenA,
@@ -280,7 +285,8 @@ def test_choppy_harvest_UNIV3(
     token_in = tokenA if swap_from == "a" else tokenB
     token_out = tokenB if swap_from == "a" else tokenA
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
-    
+    token_out_whale = tokenB_whale if swap_from == "a" else tokenA_whale
+
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
 
     percentage_rewards_swap = 5 / 100
@@ -292,7 +298,9 @@ def test_choppy_harvest_UNIV3(
     if sell_amount > reserve_out:
         sell_amount = int(reserve_out * 95 / 100)
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
-
+    if swap_dex == "crv":
+        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
+    
     assets_tokenA = providerA.estimatedTotalAssets()
     assets_tokenB = providerB.estimatedTotalAssets()
     
@@ -310,6 +318,9 @@ def test_choppy_harvest_UNIV3(
         assert vault.strategies(strat)["totalGain"] == 0
         assert vault.strategies(strat)["totalDebt"] == 0
     
+    if swap_dex == "crv":
+        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_out_whale, prev_reserve)
+
     actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr = False)
 
     # assert 0
