@@ -15,7 +15,7 @@ import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 contract UniV3Joint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
-
+    
     bool public isOriginal = true;
     int24 public minTick;
     int24 public maxTick;
@@ -130,16 +130,14 @@ contract UniV3Joint is NoHedgeJoint {
         returns (uint256 _balanceA, uint256 _balanceB)
     {
         IUniswapV3Pool.Slot0 memory _slot0 = IUniswapV3Pool(pool).slot0();
-        uint160 _sqrtPriceX96 = _slot0.sqrtPriceX96;
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
-        uint128 _liquidity = positionInfo.liquidity;
 
         (uint256 amount0, uint256 amount1) = LiquidityAmounts
             .getAmountsForLiquidity(
-                _sqrtPriceX96,
+                _slot0.sqrtPriceX96,
                 TickMath.getSqrtRatioAtTick(minTick),
                 TickMath.getSqrtRatioAtTick(maxTick),
-                _liquidity
+                positionInfo.liquidity
             );
 
         return tokenA < tokenB ? (amount0, amount1) : (amount1, amount0);
@@ -156,24 +154,22 @@ contract UniV3Joint is NoHedgeJoint {
 
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
 
-        uint256 feeGrowthInside0LastX128 = positionInfo
-            .feeGrowthInside0LastX128;
-        uint256 feeGrowthInside1LastX128 = positionInfo
-            .feeGrowthInside1LastX128;
+        int24 _minTick = minTick;
+        int24 _maxTick = maxTick;
 
         (uint128 tokensOwed0, uint128 tokensOwed1) = UniswapHelperViews.getFeesEarned(
             UniswapHelperViews.feesEarnedParams(
                 positionInfo.liquidity,
                 _pool.slot0().tick,
-                minTick,
-                maxTick,
+                _minTick,
+                _maxTick,
                 _pool.feeGrowthGlobal0X128(),
                 _pool.feeGrowthGlobal1X128(),
-                feeGrowthInside0LastX128,
-                feeGrowthInside1LastX128
+                positionInfo.feeGrowthInside0LastX128,
+                positionInfo.feeGrowthInside1LastX128
             ),
-            _pool.ticks(minTick),
-            _pool.ticks(maxTick)
+            _pool.ticks(_minTick),
+            _pool.ticks(_maxTick)
         );
 
         if (tokenA < tokenB) {
@@ -239,12 +235,12 @@ contract UniV3Joint is NoHedgeJoint {
         int24 _tickSpacing = _pool.tickSpacing();
         int24 _currentTick = (_slot0.tick / _tickSpacing) * _tickSpacing;
         int24 _ticksFromCurrent = int24(ticksFromCurrent);
-        minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
-        maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
+        int24 _minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
+        int24 _maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
 
-        uint160 sqrtPriceX96 = _slot0.sqrtPriceX96;
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(minTick);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(maxTick);
+        minTick = _minTick;
+        maxTick = _maxTick;
+
         uint256 amount0;
         uint256 amount1;
 
@@ -257,14 +253,14 @@ contract UniV3Joint is NoHedgeJoint {
         }
 
         uint128 liquidityAmount = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
+            _slot0.sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(_minTick),
+            TickMath.getSqrtRatioAtTick(_maxTick),
             amount0,
             amount1
         );
 
-        _pool.mint(address(this), minTick, maxTick, liquidityAmount, "");
+        _pool.mint(address(this), _minTick, _maxTick, liquidityAmount, "");
 
         return balanceOfTokensInLP();
     }
