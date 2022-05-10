@@ -530,6 +530,7 @@ contract UniV3Joint is NoHedgeJoint {
             int128 indexTokenOut = (indexTokenIn == 1) ? int128(2) : int128(1);
             // Allow necessary amount for CRV pool
             _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
+            uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
             // Perform swap
             _pool.exchange(
                 indexTokenIn, 
@@ -539,7 +540,7 @@ contract UniV3Joint is NoHedgeJoint {
             );
             // Revoke allowance
             IERC20(_tokenFrom).safeApprove(address(_pool), 0);
-
+            return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
         }
         
     }
