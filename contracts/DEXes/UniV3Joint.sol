@@ -4,6 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../Hedges/NoHedgeJoint.sol";
 import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
+import {ICRVPool} from "../../interfaces/CRV/ICRVPool.sol";
 import {SimulateSwap} from "../libraries/SimulateSwap.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {TickMath} from "../libraries/TickMath.sol";
@@ -20,6 +21,8 @@ contract UniV3Joint is NoHedgeJoint {
     int24 public minTick;
     int24 public maxTick;
     uint24 public ticksFromCurrent;
+    bool public useUniswapPool;
+    address public crvPool;
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -53,6 +56,9 @@ contract UniV3Joint is NoHedgeJoint {
         rewardTokens = new address[](2);
         rewardTokens[0] = tokenA;
         rewardTokens[1] = tokenB;
+        useUniswapPool = true;
+        // Initialize CRV pool to 3pool
+        crvPool = address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
     }
 
     event Cloned(address indexed clone);
@@ -108,6 +114,14 @@ contract UniV3Joint is NoHedgeJoint {
     function balanceOfPool() public view override returns (uint256) {
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
         return positionInfo.liquidity;
+    }
+
+    function setCRVPool(address newPool) external onlyVaultManagers {
+        crvPool = newPool;
+    }
+
+    function setUseUniswapPool(bool newUseUniswapPool) external onlyVaultManagers {
+        useUniswapPool = newUseUniswapPool;
     }
 
     function balanceOfTokensInLP()
@@ -270,18 +284,38 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
+        if (useUniswapPool) {
+            bool zeroForOne = _tokenFrom < _tokenTo;
 
-        bool zeroForOne = _tokenFrom < _tokenTo;
+            (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
+                address(this), // address(0) might cause issues with some tokens
+                zeroForOne,
+                _amountIn.toInt256(),
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+                ""
+            );
 
-        (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
-            address(this), // address(0) might cause issues with some tokens
-            zeroForOne,
-            _amountIn.toInt256(),
-            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
-            ""
-        );
+            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+        } else {
+            // Do NOT use uni pool use CRV 3pool
+            // 3crv uses indexes:
+            // 0 for DAI
+            // 1 for USDC
+            // 2 for USDT
+            ICRVPool _pool = ICRVPool(crvPool);
+            int128 indexTokenIn = (_pool.coins(1) == _tokenFrom) ? int128(1) : int128(2);
+            int128 indexTokenOut = (indexTokenIn == 1) ? int128(2) : int128(1);
+            _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
+            _pool.exchange(
+                indexTokenIn, 
+                indexTokenOut, 
+                _amountIn, 
+                0
+            );
+            IERC20(_tokenFrom).safeApprove(address(_pool), 0);
 
-        return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+        }
+        
     }
 
     function quote(
@@ -291,17 +325,33 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
+        if(useUniswapPool){
+            bool zeroForOne = _tokenFrom < _tokenTo;
 
-        bool zeroForOne = _tokenFrom < _tokenTo;
+            (int256 _amount0, int256 _amount1, , ) = SimulateSwap.simulateSwap(
+                IUniswapV3Pool(pool),
+                zeroForOne,
+                _amountIn.toInt256(),
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+            );
 
-        (int256 _amount0, int256 _amount1, , ) = SimulateSwap.simulateSwap(
-            IUniswapV3Pool(pool),
-            zeroForOne,
-            _amountIn.toInt256(),
-            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-        );
-
-        return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+        } else {
+            // Do NOT use uni pool use CRV 3pool
+            // 3crv uses indexes:
+            // 0 for DAI
+            // 1 for USDC
+            // 2 for USDT
+            ICRVPool _pool = ICRVPool(crvPool);
+            int128 indexTokenIn = (_pool.coins(1) == _tokenFrom) ? int128(1) : int128(2);
+            int128 indexTokenOut = (indexTokenIn == 1) ? int128(2) : int128(1);
+            return _pool.get_dy(
+                indexTokenIn, 
+                indexTokenOut, 
+                _amountIn
+            );
+        }
+        
     }
 
     function _positionInfo()
