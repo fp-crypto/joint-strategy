@@ -191,6 +191,19 @@ contract UniV3Joint is NoHedgeJoint {
 
     /*
      * @notice
+     *  Function available for vault managers to set min & max values of the position. If,
+     * for any reason the ticks are not the value they should be, we always have the option 
+     * to re-set them back to the necessary value
+     * @param _minTick, lower limit of position
+     * @param _maxTick, upper limit of position
+     */
+    function setTicksManually(int24 _minTick, int24 _maxTick) external onlyVaultManagers {
+        minTick = _minTick;
+        maxTick = _maxTick;
+    }
+
+    /*
+     * @notice
      *  Function returning the current balance of each token in the LP position taking
      * the new level of reserves into account
      * @return _balanceA, balance of tokenA in the LP position
@@ -417,6 +430,44 @@ contract UniV3Joint is NoHedgeJoint {
             minTick = 0;
             maxTick = 0;
         }
+    }
+
+    /*
+     * @notice
+     *  Function available to vault managers to burn the LP manually, if for any reason
+     * the ticks have been set to 0 (or any different value from the original LP), we make 
+     * sure we can always get out of the position
+     * @param _amount, amount of liquidity to burn
+     * @param _minTick, lower limit of position
+     * @param _maxTick, upper limit of position
+     */
+    function burnLPManually(
+            uint256 _amount,
+            int24 _minTick,
+            int24 _maxTick
+            ) external onlyVaultManagers {
+        IUniswapV3Pool(pool).burn(_minTick, _maxTick, uint128(_amount));
+    }
+
+    /*
+     * @notice
+     *  Function available to vault managers to collect the pending rewards manually, 
+     * if for any reason the ticks have been set to 0 (or any different value from the 
+     * original LP), we make sure we can always get the rewards back
+     * @param _minTick, lower limit of position
+     * @param _maxTick, upper limit of position
+     */
+    function collectRewardsManually(
+        int24 _minTick,
+        int24 _maxTick
+    ) external onlyVaultManagers {
+        IUniswapV3Pool(pool).collect(
+            address(this),
+            _minTick,
+            _maxTick,
+            type(uint128).max,
+            type(uint128).max
+        );
     }
 
     /*
