@@ -5,8 +5,7 @@ pragma solidity ^0.8.9;
 import {TickMath} from "./TickMath.sol";
 import {LiquidityAmounts} from "./LiquidityAmounts.sol";
 
-
-/// @title Simulate Uniswap V3 Swaps
+/// @title Testing library conrtaining useful functions for the test suite
 library TestingLibrary {
 
     function getSqrtRatioAtTick(int24 tick)

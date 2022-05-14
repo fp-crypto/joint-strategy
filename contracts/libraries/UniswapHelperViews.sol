@@ -12,7 +12,7 @@ import {TickBitmapExtended} from "./TickBitmapExtended.sol";
 
 import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 
-/// @title Simulate Uniswap V3 Swaps
+/// @title Uniswap V3 necessary views for the strategy
 library UniswapHelperViews {
     using SafeCast for uint256;
     using TickBitmapExtended for function(int16)
