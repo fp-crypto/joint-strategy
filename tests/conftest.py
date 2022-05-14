@@ -648,7 +648,7 @@ def joint(
             providerB,
             weth,
             uni_v3_pool,
-            2
+            0
         )
     joint.setMaxPercentageLoss(5 * joint.maxPercentageLoss(), {"from": gov})
 
@@ -736,7 +736,7 @@ def LPHedgingLibrary(LPHedgingLib, gov):
 
 @pytest.fixture(scope="session", autouse=True)
 def RELATIVE_APPROX():
-    yield 1e-5
+    yield 1e-4
 
 @pytest.fixture(scope="session", autouse=True)
 def RATIO_PRECISION():
