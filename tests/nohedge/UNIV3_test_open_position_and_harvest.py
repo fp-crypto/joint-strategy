@@ -200,7 +200,7 @@ def test_lossy_harvest_UNIV3(
     # swap 1m from one token to the other
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, univ3_pool_fee)
     if swap_dex == "crv":
-        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
+        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_out, token_in_whale)
 
     assets_tokenA = providerA.estimatedTotalAssets()
     assets_tokenB = providerB.estimatedTotalAssets()
@@ -238,7 +238,7 @@ def test_lossy_harvest_UNIV3(
 
     utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale, univ3_pool_fee)
     if swap_dex == "crv":
-        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_out_whale, prev_reserve)
+        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_in, token_out_whale, prev_reserve)
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
 @pytest.mark.parametrize("swap_dex", ["uni", "crv"])
@@ -293,18 +293,20 @@ def test_choppy_harvest_UNIV3(
     token_out_whale = tokenB_whale if swap_from == "a" else tokenA_whale
 
     reserves = utils.univ3_get_pool_reserves(joint.pool(), tokenA, tokenB)
-
+    # if swap_from == "b":
+    #     assert 0
     percentage_rewards_swap = 5 / 100
     sell_amount = percentage_rewards_swap * reserves[0] if swap_from == "a" else percentage_rewards_swap * reserves[1]
     # swap from one token to the other
     print(f"selling {sell_amount} {token_in.symbol()}")
     print(reserves)
     reserve_out = reserves[1] if swap_from == "a" else reserves[0]
+    reserve_out = reserve_out / (10**token_out.decimals()) * (10**token_in.decimals())
     if sell_amount > reserve_out:
         sell_amount = int(reserve_out * 95 / 100)
     utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, univ3_pool_fee)
     if swap_dex == "crv":
-        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
+        prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_out, token_in_whale)
     
     assets_tokenA = providerA.estimatedTotalAssets()
     assets_tokenB = providerB.estimatedTotalAssets()
@@ -325,7 +327,7 @@ def test_choppy_harvest_UNIV3(
         assert vault.strategies(strat)["totalDebt"] == 0
     
     if swap_dex == "crv":
-        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_out_whale, prev_reserve)
+        utils.crv_re_peg_pool(joint.crvPool(), token_out, token_in, token_out_whale, prev_reserve)
 
     actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr = False)
 

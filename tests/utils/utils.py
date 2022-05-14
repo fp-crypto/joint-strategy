@@ -230,14 +230,23 @@ def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, t
         amount = (-current_reserves[0] + initial_ratio * current_reserves[1]) / (1 + initial_ratio)
     univ3_sell_token(token_in, token_out, router, whale, amount, univ3_pool_fee, 0)
 
-def crv_ensure_bad_trade(crv_pool, token_in, token_in_whale):
+def get_crv_index(crv_pool, token):
+    if crv_pool.coins(0) == token.address:
+        return 0
+    elif crv_pool.coins(1) == token.address:
+        return 1
+    elif crv_pool.coins(2) == token.address:
+        return 2
+
+def crv_ensure_bad_trade(crv_pool, token_in, token_out, token_in_whale):
     crv_pool = Contract(crv_pool)
-    index_from = 1 if crv_pool.coins(1) == token_in else 2
-    index_to = 2 if index_from == 1 else 1
+    index_from = get_crv_index(crv_pool, token_in)
+    index_to = get_crv_index(crv_pool, token_out)
     
     reserve_token_from = crv_pool.balances(index_from)
     reserve_token_to = crv_pool.balances(index_to)
-    sell_amount = reserve_token_to / 5
+    sell_amount = reserve_token_to / 2
+    sell_amount = sell_amount / (10**token_out.decimals()) * (10**token_in.decimals())
 
     token_in.approve(crv_pool, 0, {"from": token_in_whale})
     token_in.approve(crv_pool, 2**256-1, {"from": token_in_whale})
@@ -245,10 +254,10 @@ def crv_ensure_bad_trade(crv_pool, token_in, token_in_whale):
 
     return reserve_token_to
 
-def crv_re_peg_pool(crv_pool, token_in, token_in_whale, previous_reserve):
+def crv_re_peg_pool(crv_pool, token_in, token_out, token_in_whale, previous_reserve):
     crv_pool = Contract(crv_pool)
-    index_from = 1 if crv_pool.coins(1) == token_in else 2
-    index_to = 2 if index_from == 1 else 1
+    index_from = get_crv_index(crv_pool, token_in)
+    index_to = get_crv_index(crv_pool, token_out)
     
     reserve_token_from = crv_pool.balances(index_from)
     sell_amount = previous_reserve - reserve_token_from

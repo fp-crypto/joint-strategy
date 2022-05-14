@@ -165,8 +165,8 @@ def live_vaultB(registry, tokenB):
 ######### PARAMETERS
 @pytest.fixture(
     params=[
-        # "100",
-        "500",
+        "100",
+        # "500",
         # "3000"
     ],
     scope="session",
@@ -231,8 +231,8 @@ def tokenA(request, chain):
         # "YFI",  # YFI
         # "WETH",  # WETH
         # 'LINK', # LINK
-        'USDT', # USDT
-        # 'DAI', # DAI
+        # 'USDT', # USDT
+        'DAI', # DAI
         # "USDC",  # USDC
         # "WFTM",
         # "MIM",
@@ -648,7 +648,7 @@ def joint(
             providerB,
             weth,
             uni_v3_pool,
-            0
+            1
         )
     joint.setMaxPercentageLoss(5 * joint.maxPercentageLoss(), {"from": gov})
 
