@@ -37,8 +37,8 @@ contract UniV3Joint is NoHedgeJoint {
     // liquidity remaining in the pool is not enough for the rebalancing swap the strategy needs
     // to perform as the swap function from the uniV3 pool uses a while loop that would get stuck 
     // until we reach gas limit
-    bool public useUniswapPool;
-    // CRV pool to use in case of useUniswapPool = False
+    bool public useCRVPool;
+    // CRV pool to use in case of useCRVPool = true
     address public crvPool;
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
@@ -98,7 +98,7 @@ contract UniV3Joint is NoHedgeJoint {
         rewardTokens[0] = tokenA;
         rewardTokens[1] = tokenB;
         // by default use uni pool to swap as it has lower fees
-        useUniswapPool = true;
+        useCRVPool = false;
         // Initialize CRV pool to 3pool
         crvPool = address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
     }
@@ -191,10 +191,10 @@ contract UniV3Joint is NoHedgeJoint {
      * @notice
      *  Function available for vault managers to set the boolean value deciding wether
      * to use the uni v3 pool for swaps or a CRV pool
-     * @param newUseUniswapPool, new booelan value to use
+     * @param newUseCRVPool, new booelan value to use
      */
-    function setUseUniswapPool(bool newUseUniswapPool) external onlyVaultManagers {
-        useUniswapPool = newUseUniswapPool;
+    function setUseCRVPool(bool newUseCRVPool) external onlyVaultManagers {
+        useCRVPool = newUseCRVPool;
     }
 
     /*
@@ -480,7 +480,7 @@ contract UniV3Joint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function used internally to swap tokens during rebalancing. Depending on the useUniswapPool
+     *  Function used internally to swap tokens during rebalancing. Depending on the useCRVPool
      * state variable it will either use the uni v3 pool to swap or a CRV pool specified in 
      * crvPool state variable
      * @param _tokenFrom, adress of token to swap from
@@ -495,7 +495,7 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if (useUniswapPool) {
+        if (!useCRVPool) {
             // Use uni v3 pool to swap
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
@@ -549,7 +549,7 @@ contract UniV3Joint is NoHedgeJoint {
      * @notice
      *  Function used internally to quote a potential rebalancing swap without actually 
      * executing it. Same as the swap function, will simulate the trade either on the uni v3
-     * pool or CRV pool based on useUniswapPool
+     * pool or CRV pool based on useCRVPool
      * @param _tokenFrom, adress of token to swap from
      * @param _tokenTo, address of token to swap to
      * @param _amountIn, amount of _tokenIn to swap for _tokenTo
@@ -562,7 +562,7 @@ contract UniV3Joint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if(useUniswapPool){
+        if(!useCRVPool){
             // Use uni v3 pool to swap
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
