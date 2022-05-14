@@ -191,10 +191,20 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @notice
      *  Function available for vault managers to set the boolean value deciding wether
      * to use the uni v3 pool for swaps or a CRV pool
-     * @param newUseCRVPool, new booelan value to use
+     * @param newUseCRVPool, new boolean value to use
      */
     function setUseCRVPool(bool newUseCRVPool) external onlyVaultManagers {
         useCRVPool = newUseCRVPool;
+    }
+
+    /*
+     * @notice
+     *  Function available for vault managers to set the number of ticks on each side of 
+     * current tick to provide liquidity to
+     * @param newTicksFromCurrent, new value to use
+     */
+    function setTicksFromCurrent(uint24 newTicksFromCurrent) external onlyVaultManagers {
+        ticksFromCurrent = newTicksFromCurrent;
     }
 
     /*
