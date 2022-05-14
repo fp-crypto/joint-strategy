@@ -518,23 +518,16 @@ contract UniV3StablesJoint is NoHedgeJoint {
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
             return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
         } else {
-            // Do NOT use uni pool use CRV 3pool
-            // 3crv uses indexes:
-            // 0 for DAI
-            // 1 for USDC
-            // 2 for USDT
+            // Do NOT use uni pool use CRV pool
             ICRVPool _pool = ICRVPool(crvPool);
-            // Index of token to swap
-            int128 indexTokenIn = (_pool.coins(1) == _tokenFrom) ? int128(1) : int128(2);
-            // Index of token to receive
-            int128 indexTokenOut = (indexTokenIn == 1) ? int128(2) : int128(1);
+        
             // Allow necessary amount for CRV pool
             _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
             uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
             // Perform swap
             _pool.exchange(
-                indexTokenIn, 
-                indexTokenOut, 
+                _getCRVPoolIndex(_tokenFrom, _pool), 
+                _getCRVPoolIndex(_tokenTo, _pool),
                 _amountIn, 
                 0
             );
@@ -582,24 +575,37 @@ contract UniV3StablesJoint is NoHedgeJoint {
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
             return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
         } else {
-            // Do NOT use uni pool use CRV 3pool
-            // 3crv uses indexes:
-            // 0 for DAI
-            // 1 for USDC
-            // 2 for USDT
+            // Do NOT use uni pool use CRV pool
+            
             ICRVPool _pool = ICRVPool(crvPool);
-            // Index of token to swap
-            int128 indexTokenIn = (_pool.coins(1) == _tokenFrom) ? int128(1) : int128(2);
-            // Index of token to receive
-            int128 indexTokenOut = (indexTokenIn == 1) ? int128(2) : int128(1);
+
             // Call the quote function in CRV pool
             return _pool.get_dy(
-                indexTokenIn, 
-                indexTokenOut, 
+                _getCRVPoolIndex(_tokenFrom, _pool), 
+                _getCRVPoolIndex(_tokenTo, _pool), 
                 _amountIn
             );
         }
         
+    }
+
+    /*
+     * @notice
+     *  Function used internally to retrieve the CRV index for a token in a CRV pool, for example
+     * 3Pool uses:
+     * - 0 is DAI
+     * - 1 is USDC
+     * - 2 is USDT
+     * @return in128 containing the token's pool index
+     */
+    function _getCRVPoolIndex(address _token, ICRVPool _pool) internal view returns(int128) {
+        if(_pool.coins(0) == _token) {
+                return int128(0);
+            } else if (_pool.coins(1) == _token) {
+                return int128(1);
+            } else if (_pool.coins(2) == _token) {
+                return int128(2);
+            }
     }
 
     /*

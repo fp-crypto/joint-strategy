@@ -330,6 +330,7 @@ whale_addresses_eth = {
     "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
     "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDC
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDT
+    "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # DAI
 }
 
 lp_whales = {
@@ -376,6 +377,11 @@ uni_v3_pols_eth = {
         "USDC": {
             "100": "0x3416cf6c708da44db2624d63ea0aaef7113527c6",
             "500": "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf",
+        }  
+    },
+    "DAI": {
+        "USDC": {
+            "100": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
         }  
     }
 }
