@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint, UniswapHelperViews, TestingLibrary
+    UniV3StablesJoint, UniswapHelperViews, TestingLibrary
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -280,7 +280,7 @@ joint_type = {
         "hedgilV2": ""
     },
     "UNIV3": {
-        "nohedge": UniV3Joint,
+        "nohedge": UniV3StablesJoint,
         "hedgilV2": ""
     }
 }
@@ -634,7 +634,7 @@ def joint(
             lp_depositor,
             stable
         )
-    elif (joint_to_use == UniV3Joint):
+    elif (joint_to_use == UniV3StablesJoint):
         uniswap_helper_views = gov.deploy(UniswapHelperViews)
         joint = gov.deploy(
             joint_to_use,

@@ -20,7 +20,7 @@ import {SafeCast} from "../libraries/SafeCast.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
-contract UniV3Joint is NoHedgeJoint {
+contract UniV3StablesJoint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
     
@@ -63,12 +63,12 @@ contract UniV3Joint is NoHedgeJoint {
         address _pool,
         uint24 _ticksFromCurrent
     ) NoHedgeJoint(_providerA, _providerB, _referenceToken, _pool) {
-        _initalizeUniV3Joint(_ticksFromCurrent);
+        _initalizeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
      * @notice
-     *  Constructor equivalent for clones, initializing the joint and the specifics of UniV3Joint
+     *  Constructor equivalent for clones, initializing the joint and the specifics of UniV3StablesJoint
      * @param _providerA, provider strategy of tokenA
      * @param _providerB, provider strategy of tokenB
      * @param _referenceToken, token to use as reference, for pricing oracles and paying hedging costs (if any)
@@ -83,15 +83,15 @@ contract UniV3Joint is NoHedgeJoint {
         uint24 _ticksFromCurrent
     ) external {
         _initialize(_providerA, _providerB, _referenceToken, _pool);
-        _initalizeUniV3Joint(_ticksFromCurrent);
+        _initalizeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
      * @notice
-     *  Initialize UniV3Joint specifics
+     *  Initialize UniV3StablesJoint specifics
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      */
-    function _initalizeUniV3Joint(uint24 _ticksFromCurrent) internal {
+    function _initalizeUniV3StablesJoint(uint24 _ticksFromCurrent) internal {
         ticksFromCurrent = _ticksFromCurrent;
         // The reward tokens are the tokens provided to the pool
         rewardTokens = new address[](2);
@@ -115,7 +115,7 @@ contract UniV3Joint is NoHedgeJoint {
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      * @return newJoint, address of newly deployed joint
      */
-    function cloneUniV3Joint(
+    function cloneUniV3StablesJoint(
         address _providerA,
         address _providerB,
         address _referenceToken,
@@ -140,7 +140,7 @@ contract UniV3Joint is NoHedgeJoint {
             newJoint := create(0, clone_code, 0x37)
         }
 
-        UniV3Joint(newJoint).initialize(
+        UniV3StablesJoint(newJoint).initialize(
             _providerA,
             _providerB,
             _referenceToken,
@@ -153,7 +153,7 @@ contract UniV3Joint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function returning the name of the joint in the format "NoHedgeUniV3Joint(USDC-DAI)"
+     *  Function returning the name of the joint in the format "NoHedgeUniV3StablesJoint(USDC-DAI)"
      * @return name of the strategy
      */
     function name() external view override returns (string memory) {
@@ -165,7 +165,7 @@ contract UniV3Joint is NoHedgeJoint {
             )
         );
 
-        return string(abi.encodePacked("NoHedgeUniV3Joint(", ab, ")"));
+        return string(abi.encodePacked("NoHedgeUniV3StablesJoint(", ab, ")"));
     }
 
     /*
