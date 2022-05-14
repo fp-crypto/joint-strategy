@@ -83,7 +83,8 @@ def test_open_close_position_with_swap_UNIV3(
     hedge_type,
     dex,
     uni_v3_pool,
-    router
+    router,
+    univ3_pool_fee
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
@@ -109,9 +110,9 @@ def test_open_close_position_with_swap_UNIV3(
 
     sell_amount = 1_000_000 * 10 ** tokenA.decimals()
     # swap 1m from A to B and then from B to A to end up in the original situation
-    utils.univ3_sell_token(tokenA, tokenB, router, tokenA_whale, sell_amount)
+    utils.univ3_sell_token(tokenA, tokenB, router, tokenA_whale, sell_amount, univ3_pool_fee)
     sell_amount = 1_000_000 * 10 ** tokenB.decimals()
-    utils.univ3_sell_token(tokenB, tokenA, router, tokenB_whale, sell_amount)
+    utils.univ3_sell_token(tokenB, tokenA, router, tokenB_whale, sell_amount, univ3_pool_fee)
 
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
     pending_rewards_estimation = joint.pendingRewards()[0] / 10 ** tokenA.decimals() \
@@ -165,14 +166,16 @@ def test_lossy_harvest_UNIV3(
     router,
     swap_from,
     swap_dex,
+    univ3_pool_fee,
+    RATIO_PRECISION
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
 
     if swap_dex == "uni":
-        joint.setUseUniswapPool(True, {"from": gov})
+        joint.setUseCRVPool(False, {"from": gov})
     else:
-        joint.setUseUniswapPool(False, {"from": gov})
+        joint.setUseCRVPool(True, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -195,7 +198,7 @@ def test_lossy_harvest_UNIV3(
     print("Reserves: ", reserves)
     sell_amount = 5 / 100 * reserves[0] if swap_from == "a" else 5 / 100 * reserves[1]
     # swap 1m from one token to the other
-    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
+    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, univ3_pool_fee)
     if swap_dex == "crv":
         prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
 
@@ -217,7 +220,7 @@ def test_lossy_harvest_UNIV3(
 
     providerA.setDoHealthCheck(False, {"from":gov})
     providerB.setDoHealthCheck(False, {"from":gov})
-    
+    utils.set_max_losses(providerA, providerB, joint, gov, RATIO_PRECISION)
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
@@ -233,7 +236,7 @@ def test_lossy_harvest_UNIV3(
     assert pytest.approx(amountA - vaultA.strategies(providerA)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenA
     assert pytest.approx(amountB - vaultB.strategies(providerB)["totalLoss"], rel=RELATIVE_APPROX) == assets_tokenB
 
-    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
+    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale, univ3_pool_fee)
     if swap_dex == "crv":
         utils.crv_re_peg_pool(joint.crvPool(), token_out, token_out_whale, prev_reserve)
 
@@ -261,14 +264,16 @@ def test_choppy_harvest_UNIV3(
     router,
     swap_from,
     swap_dex,
+    univ3_pool_fee,
+    RATIO_PRECISION
 ):
     checks.check_run_test("nohedge", hedge_type)
     checks.check_run_test("UNIV3", dex)
 
     if swap_dex == "uni":
-        joint.setUseUniswapPool(True, {"from": gov})
+        joint.setUseCRVPool(False, {"from": gov})
     else:
-        joint.setUseUniswapPool(False, {"from": gov})
+        joint.setUseCRVPool(True, {"from": gov})
     
     # Deposit to the vault
     actions.user_deposit(user, vaultA, tokenA, amountA)
@@ -297,7 +302,7 @@ def test_choppy_harvest_UNIV3(
     reserve_out = reserves[1] if swap_from == "a" else reserves[0]
     if sell_amount > reserve_out:
         sell_amount = int(reserve_out * 95 / 100)
-    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
+    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, univ3_pool_fee)
     if swap_dex == "crv":
         prev_reserve = utils.crv_ensure_bad_trade(joint.crvPool(), token_in, token_in_whale)
     
@@ -311,6 +316,7 @@ def test_choppy_harvest_UNIV3(
 
     providerA.setDoHealthCheck(False, {"from":gov})
     providerB.setDoHealthCheck(False, {"from":gov})
+    utils.set_max_losses(providerA, providerB, joint, gov, RATIO_PRECISION)
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
     for (vault, strat) in zip([vaultA, vaultB], [providerA, providerB]):
@@ -330,13 +336,13 @@ def test_choppy_harvest_UNIV3(
     token_out = tokenA if swap_from == "a" else tokenB
     token_in_whale = tokenB_whale if swap_from == "a" else tokenA_whale
 
-    utils.univ3_buy_token(token_out, token_in, router, token_in_whale, sell_amount)
+    utils.univ3_buy_token(token_out, token_in, router, token_in_whale, sell_amount, univ3_pool_fee)
 
     token_in = tokenA if swap_from == "a" else tokenB
     token_out = tokenB if swap_from == "a" else tokenA
     token_in_whale = tokenA_whale if swap_from == "a" else tokenB_whale
 
-    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount)
+    utils.univ3_sell_token(token_in, token_out, router, token_in_whale, sell_amount, univ3_pool_fee)
 
     actions.gov_end_epoch(gov, providerA, providerB, joint, vaultA, vaultB)
 
@@ -352,4 +358,4 @@ def test_choppy_harvest_UNIV3(
         assert vault.strategies(strat)["totalLoss"] > 0
         assert vault.strategies(strat)["totalGain"] > 0
         assert vault.strategies(strat)["totalDebt"] == 0
-    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale)
+    utils.univ3_rebalance_pool(reserves, uni_v3_pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale, univ3_pool_fee)

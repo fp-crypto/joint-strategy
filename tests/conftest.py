@@ -163,6 +163,16 @@ def live_vaultB(registry, tokenB):
     yield registry.latestVault(tokenB)
 
 ######### PARAMETERS
+@pytest.fixture(
+    params=[
+        # "100",
+        "500",
+        # "3000"
+    ],
+    scope="session",
+    autouse=True,)
+def univ3_pool_fee(request):
+    yield request.param
 
 # Select the type of hedge to use for the joint
 @pytest.fixture(
@@ -358,17 +368,22 @@ def lp_whale(dex, tokenA, tokenB):
 
 uni_v3_pols_eth = {
     "WETH": {
-        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+        "USDC": {
+            "3000": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+        }   
     },
     "USDT": {
-        "USDC": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
+        "USDC": {
+            "100": "0x3416cf6c708da44db2624d63ea0aaef7113527c6",
+            "500": "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf",
+        }  
     }
 }
 @pytest.fixture
-def uni_v3_pool(chain, tokenA, tokenB):
+def uni_v3_pool(chain, tokenA, tokenB, univ3_pool_fee):
     if chain.id in eth_chain_ids:
-        base_pool = Contract(uni_v3_pols_eth["WETH"]["USDC"])
-        yield Contract.from_abi(f"UniswapV3Pool {tokenA.symbol()} - {tokenB.symbol()}", uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()], base_pool.abi)
+        base_pool = Contract(uni_v3_pols_eth["WETH"]["USDC"]["3000"])
+        yield Contract.from_abi(f"UniswapV3Pool {tokenA.symbol()} - {tokenB.symbol()}", uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()][univ3_pool_fee], base_pool.abi)
     elif chain.id == 250:    
         yield None
 

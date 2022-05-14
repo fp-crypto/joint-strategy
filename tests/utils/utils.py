@@ -152,14 +152,14 @@ def univ3_get_position_info(pool, joint):
     k.update(encode_abi_packed(["address", "int24", "int24"], [joint.address, joint.minTick(), joint.maxTick()]))
     return pool.positions(k.hexdigest())
 
-def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, limit_price = 0):
+def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, fee, limit_price = 0):
     token_to_sell.approve(router, 0, {'from': whale})
     token_to_sell.approve(router, 2**256-1, {'from': whale})
     router.exactInputSingle(
         (
             token_to_sell,
             token_to_receive,
-            100,
+            fee,
             whale,
             2**256-1,
             amount,
@@ -169,14 +169,14 @@ def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, lim
         {'from': whale}
     )
 
-def univ3_buy_token(token_to_buy, token_to_sell, router, whale, amount, limit_price = 0):
+def univ3_buy_token(token_to_buy, token_to_sell, router, whale, amount, fee, limit_price = 0):
     token_to_sell.approve(router, 0, {'from': whale})
     token_to_sell.approve(router, 2**256-1, {'from': whale})
     router.exactOutputSingle(
         (
             token_to_sell,
             token_to_buy,
-            100,
+            fee,
             whale,
             2**256-1,
             amount,
@@ -189,7 +189,7 @@ def univ3_buy_token(token_to_buy, token_to_sell, router, whale, amount, limit_pr
 def univ3_get_pool_reserves(pool, tokenA, tokenB):
     return (tokenA.balanceOf(pool), tokenB.balanceOf(pool))
 
-def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale):
+def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale, fee):
     reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
     buy_amount = reserves[0] - 500_000 * 10**tokenA.decimals() if swap_from == "a" else reserves[1] - 500_000 * 10**tokenB.decimals()
     
@@ -203,7 +203,7 @@ def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_wha
         (
             token_in,
             token_out,
-            100,
+            fee,
             whale,
             2**256-1,
             buy_amount,
@@ -213,7 +213,7 @@ def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_wha
         {'from': whale}
     )
 
-def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale):
+def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale, univ3_pool_fee):
     initial_ratio = reserves[0] / reserves[1]
     current_reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
     current_ratio = current_reserves[0] / current_reserves[1]
@@ -228,7 +228,7 @@ def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, t
         token_out = tokenB
         whale = tokenA_whale
         amount = (-current_reserves[0] + initial_ratio * current_reserves[1]) / (1 + initial_ratio)
-    univ3_sell_token(token_in, token_out, router, whale, amount, 0)
+    univ3_sell_token(token_in, token_out, router, whale, amount, univ3_pool_fee, 0)
 
 def crv_ensure_bad_trade(crv_pool, token_in, token_in_whale):
     crv_pool = Contract(crv_pool)
@@ -237,7 +237,7 @@ def crv_ensure_bad_trade(crv_pool, token_in, token_in_whale):
     
     reserve_token_from = crv_pool.balances(index_from)
     reserve_token_to = crv_pool.balances(index_to)
-    sell_amount = reserve_token_from / 10
+    sell_amount = reserve_token_to / 5
 
     token_in.approve(crv_pool, 0, {"from": token_in_whale})
     token_in.approve(crv_pool, 2**256-1, {"from": token_in_whale})
@@ -255,4 +255,10 @@ def crv_re_peg_pool(crv_pool, token_in, token_in_whale, previous_reserve):
 
     token_in.approve(crv_pool, 0, {"from": token_in_whale})
     token_in.approve(crv_pool, 2**256-1, {"from": token_in_whale})
-    crv_pool.exchange(index_from, index_to, sell_amount, 0, {"from": token_in_whale})
+    crv_pool.exchange(index_from, index_to, sell_amount, 0, {"from": token_in_whale, "gas_price":0})
+
+def set_max_losses(providerA, providerB, joint, gov, RATIO_PRECISION):
+    max_lossA = 1+int(-(providerA.estimatedTotalAssets() / providerA.totalDebt() -1)*100)
+    max_lossB = 1+int(-(providerB.estimatedTotalAssets() / providerB.totalDebt() -1)*100)
+    
+    joint.setMaxPercentageLoss(max(max_lossA, max_lossB) * RATIO_PRECISION / 100, {"from":gov})
