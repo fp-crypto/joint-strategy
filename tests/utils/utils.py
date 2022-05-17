@@ -1,5 +1,6 @@
 import brownie
 from brownie import interface, chain, accounts, web3, network, Contract
+import iniconfig
 
 
 def sync_price(joint):
@@ -150,3 +151,123 @@ def univ3_get_position_info(pool, joint):
     k = keccak.new(digest_bits=256)
     k.update(encode_abi_packed(["address", "int24", "int24"], [joint.address, joint.minTick(), joint.maxTick()]))
     return pool.positions(k.hexdigest())
+
+def univ3_sell_token(token_to_sell, token_to_receive, router, whale, amount, fee, limit_price = 0):
+    token_to_sell.approve(router, 0, {'from': whale})
+    token_to_sell.approve(router, 2**256-1, {'from': whale})
+    router.exactInputSingle(
+        (
+            token_to_sell,
+            token_to_receive,
+            fee,
+            whale,
+            2**256-1,
+            amount,
+            0,
+            limit_price
+        ),
+        {'from': whale}
+    )
+
+def univ3_buy_token(token_to_buy, token_to_sell, router, whale, amount, fee, limit_price = 0):
+    token_to_sell.approve(router, 0, {'from': whale})
+    token_to_sell.approve(router, 2**256-1, {'from': whale})
+    router.exactOutputSingle(
+        (
+            token_to_sell,
+            token_to_buy,
+            fee,
+            whale,
+            2**256-1,
+            amount,
+            2**255-1,
+            limit_price
+        ),
+        {'from': whale}
+    )
+
+def univ3_get_pool_reserves(pool, tokenA, tokenB):
+    return (tokenA.balanceOf(pool), tokenB.balanceOf(pool))
+
+def univ3_empty_pool_reserve(pool, swap_from, tokenA, tokenB, router, tokenA_whale, tokenB_whale, fee):
+    reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
+    buy_amount = reserves[0] - 500_000 * 10**tokenA.decimals() if swap_from == "a" else reserves[1] - 500_000 * 10**tokenB.decimals()
+    
+    token_in = tokenB if swap_from == "a" else tokenA
+    token_out = tokenA if swap_from == "a" else tokenB
+    whale = tokenB_whale if swap_from == "a" else tokenA_whale
+
+    token_in.approve(router, 0, {'from': whale})
+    token_in.approve(router, 2**256-1, {'from': whale})
+    router.exactOutputSingle(
+        (
+            token_in,
+            token_out,
+            fee,
+            whale,
+            2**256-1,
+            buy_amount,
+            2**256 -1 ,
+            0
+        ),
+        {'from': whale}
+    )
+
+def univ3_rebalance_pool(reserves, pool, tokenA, tokenB, router, tokenA_whale, tokenB_whale, univ3_pool_fee):
+    initial_ratio = reserves[0] / reserves[1]
+    current_reserves = univ3_get_pool_reserves(pool, tokenA, tokenB)
+    current_ratio = current_reserves[0] / current_reserves[1]
+    
+    if current_ratio > initial_ratio:
+        token_in = tokenB
+        token_out = tokenA
+        whale = tokenB_whale
+        amount = (current_reserves[0] - initial_ratio * current_reserves[1]) / (1 + initial_ratio)
+    else:
+        token_in = tokenA
+        token_out = tokenB
+        whale = tokenA_whale
+        amount = (-current_reserves[0] + initial_ratio * current_reserves[1]) / (1 + initial_ratio)
+    univ3_sell_token(token_in, token_out, router, whale, amount, univ3_pool_fee, 0)
+
+def get_crv_index(crv_pool, token):
+    if crv_pool.coins(0) == token.address:
+        return 0
+    elif crv_pool.coins(1) == token.address:
+        return 1
+    elif crv_pool.coins(2) == token.address:
+        return 2
+
+def crv_ensure_bad_trade(crv_pool, token_in, token_out, token_in_whale):
+    crv_pool = Contract(crv_pool)
+    index_from = get_crv_index(crv_pool, token_in)
+    index_to = get_crv_index(crv_pool, token_out)
+    
+    reserve_token_from = crv_pool.balances(index_from)
+    reserve_token_to = crv_pool.balances(index_to)
+    sell_amount = reserve_token_to / 2
+    sell_amount = sell_amount / (10**token_out.decimals()) * (10**token_in.decimals())
+
+    token_in.approve(crv_pool, 0, {"from": token_in_whale})
+    token_in.approve(crv_pool, 2**256-1, {"from": token_in_whale})
+    crv_pool.exchange(index_from, index_to, sell_amount, 0, {"from": token_in_whale})
+
+    return reserve_token_to
+
+def crv_re_peg_pool(crv_pool, token_in, token_out, token_in_whale, previous_reserve):
+    crv_pool = Contract(crv_pool)
+    index_from = get_crv_index(crv_pool, token_in)
+    index_to = get_crv_index(crv_pool, token_out)
+    
+    reserve_token_from = crv_pool.balances(index_from)
+    sell_amount = previous_reserve - reserve_token_from
+
+    token_in.approve(crv_pool, 0, {"from": token_in_whale})
+    token_in.approve(crv_pool, 2**256-1, {"from": token_in_whale})
+    crv_pool.exchange(index_from, index_to, sell_amount, 0, {"from": token_in_whale, "gas_price":0})
+
+def set_max_losses(providerA, providerB, joint, gov, RATIO_PRECISION):
+    max_lossA = 1+int(-(providerA.estimatedTotalAssets() / providerA.totalDebt() -1)*100)
+    max_lossB = 1+int(-(providerB.estimatedTotalAssets() / providerB.totalDebt() -1)*100)
+    
+    joint.setMaxPercentageLoss(max(max_lossA, max_lossB) * RATIO_PRECISION / 100, {"from":gov})

@@ -1,7 +1,7 @@
 import pytest
 
 from brownie import accounts, chain, config, Contract, web3, Wei, \
-    UniV3Joint, SimulateSwap
+    UniV3StablesJoint, UniswapHelperViews, TestingLibrary
 from brownie.network import gas_price, gas_limit
 import requests
 
@@ -34,7 +34,7 @@ def donate(wftm, weth, accounts, gov, tokenA_whale, tokenB_whale, chain):
     donor.transfer(tokenA_whale, 100e18)
     donor.transfer(tokenB_whale, 100e18)
     
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def reset_chain(chain):
     chain.reset()
     print(f"Initial Height: {chain.height}")
@@ -163,6 +163,16 @@ def live_vaultB(registry, tokenB):
     yield registry.latestVault(tokenB)
 
 ######### PARAMETERS
+@pytest.fixture(
+    params=[
+        "100",
+        # "500",
+        # "3000"
+    ],
+    scope="session",
+    autouse=True,)
+def univ3_pool_fee(request):
+    yield request.param
 
 # Select the type of hedge to use for the joint
 @pytest.fixture(
@@ -221,8 +231,8 @@ def tokenA(request, chain):
         # "YFI",  # YFI
         # "WETH",  # WETH
         # 'LINK', # LINK
-        'USDT', # USDT
-        # 'DAI', # DAI
+        # 'USDT', # USDT
+        'DAI', # DAI
         # "USDC",  # USDC
         # "WFTM",
         # "MIM",
@@ -270,7 +280,7 @@ joint_type = {
         "hedgilV2": ""
     },
     "UNIV3": {
-        "nohedge": UniV3Joint,
+        "nohedge": UniV3StablesJoint,
         "hedgilV2": ""
     }
 }
@@ -320,6 +330,7 @@ whale_addresses_eth = {
     "WETH": "0x2F0b23f53734252Bda2277357e97e1517d6B042A",  # WETH
     "USDC": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDC
     "USDT": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # USDT
+    "DAI": "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",  # DAI
 }
 
 lp_whales = {
@@ -358,16 +369,27 @@ def lp_whale(dex, tokenA, tokenB):
 
 uni_v3_pols_eth = {
     "WETH": {
-        "USDC": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+        "USDC": {
+            "3000": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+        }   
     },
     "USDT": {
-        "USDC": "0x3416cf6c708da44db2624d63ea0aaef7113527c6"
+        "USDC": {
+            "100": "0x3416cf6c708da44db2624d63ea0aaef7113527c6",
+            "500": "0x7858e59e0c01ea06df3af3d20ac7b0003275d4bf",
+        }  
+    },
+    "DAI": {
+        "USDC": {
+            "100": "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+        }  
     }
 }
 @pytest.fixture
-def uni_v3_pool(chain, tokenA, tokenB):
+def uni_v3_pool(chain, tokenA, tokenB, univ3_pool_fee):
     if chain.id in eth_chain_ids:
-        yield uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()]
+        base_pool = Contract(uni_v3_pols_eth["WETH"]["USDC"]["3000"])
+        yield Contract.from_abi(f"UniswapV3Pool {tokenA.symbol()} - {tokenB.symbol()}", uni_v3_pols_eth[tokenB.symbol()][tokenA.symbol()][univ3_pool_fee], base_pool.abi)
     elif chain.id == 250:    
         yield None
 
@@ -407,7 +429,7 @@ def mc_pid(tokenA, tokenB):
         yield ""
 
 router_addresses = {
-    "UNIV3": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+    "UNIV3": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
     "SUSHI": "",
     "SPOOKY": "0xF491e7B69E4244ad4002BC14e878a34207E38c29",
     "SOLID": "0xa38cd27185a464914D3046f0AB9d43356B34829D",
@@ -563,6 +585,20 @@ def vaultB(pm, gov, guardian, management, tokenB):
     vault.setManagement(management, {"from": gov, "gas_price":0})
     yield vault
 
+@pytest.fixture()
+def uniswap_helper_views(dex, gov):
+    if dex == "UNIV3":
+        yield gov.deploy(UniswapHelperViews)
+    else:
+        yield ""
+
+@pytest.fixture()
+def testing_library(dex, gov):
+    if dex == "UNIV3":
+        yield gov.deploy(TestingLibrary)
+    else:
+        yield ""
+
 @pytest.fixture
 def joint(
     providerA,
@@ -604,8 +640,8 @@ def joint(
             lp_depositor,
             stable
         )
-    elif (joint_to_use == UniV3Joint):
-        simulate_swap = gov.deploy(SimulateSwap)
+    elif (joint_to_use == UniV3StablesJoint):
+        uniswap_helper_views = gov.deploy(UniswapHelperViews)
         joint = gov.deploy(
             joint_to_use,
             providerA,
@@ -614,7 +650,7 @@ def joint(
             uni_v3_pool,
             1
         )
-    joint.setMaxPercentageLoss(500, {"from": gov})
+    joint.setMaxPercentageLoss(5 * joint.maxPercentageLoss(), {"from": gov})
 
     providerA.setJoint(joint, {"from": gov})
     providerB.setJoint(joint, {"from": gov})
@@ -700,7 +736,11 @@ def LPHedgingLibrary(LPHedgingLib, gov):
 
 @pytest.fixture(scope="session", autouse=True)
 def RELATIVE_APPROX():
-    yield 1e-5
+    yield 1e-4
+
+@pytest.fixture(scope="session", autouse=True)
+def RATIO_PRECISION():
+    yield 1e18
 
 
 @pytest.fixture(autouse=False)
