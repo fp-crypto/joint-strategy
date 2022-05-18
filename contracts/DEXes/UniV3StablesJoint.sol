@@ -338,10 +338,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
         int256 amount1Delta,
         bytes calldata data
     ) external {
-        // Only the pool can use this function
-        require(msg.sender == address(pool)); // dev: callback only called by pool
-
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        // Only the pool can use this function
+        require(msg.sender == address(_pool)); // dev: callback only called by pool
+
 
         uint256 amountIn;
         address tokenIn;
