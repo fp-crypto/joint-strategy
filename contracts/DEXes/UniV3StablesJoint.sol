@@ -567,7 +567,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
 
-            // Use the uniswap helper view to simluate the swapin the uni v3 pool
+            // Use the uniswap helper view to simulate the swap in the uni v3 pool
             (int256 _amount0, int256 _amount1, , ) = UniswapHelperViews.simulateSwap(
                 // pool to use
                 IUniswapV3Pool(pool),
