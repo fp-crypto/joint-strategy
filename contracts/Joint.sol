@@ -864,8 +864,7 @@ abstract contract Joint {
     /*
      * @notice
      *  Function available to governance sweeping a specified token but tokenA and B
-     * @param expectedBalanceA, expected balance of tokenA to receive
-     * @param expectedBalanceB, expected balance of tokenB to receive
+     * @param _token, address of the token to sweep
      */
     function sweep(address _token) external onlyGovernance {
         require(_token != address(tokenA));
