@@ -649,11 +649,13 @@ abstract contract Joint {
         internal
         view
         returns (address[] memory _path)
-    {
+    {   
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
         bool isReferenceToken = _token_in == address(referenceToken) ||
             _token_out == address(referenceToken);
-        bool is_internal = (_token_in == tokenA && _token_out == tokenB) ||
-            (_token_in == tokenB && _token_out == tokenA);
+        bool is_internal = (_token_in == _tokenA && _token_out == _tokenB) ||
+            (_token_in == _tokenB && _token_out == _tokenA);
         _path = new address[](isReferenceToken || is_internal ? 2 : 3);
         _path[0] = _token_in;
         if (isReferenceToken || is_internal) {
@@ -680,17 +682,18 @@ abstract contract Joint {
         virtual
         returns (uint256 swappedToA, uint256 swappedToB)
     {
-
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
             // If the reward token is either A or B, don't swap
-            if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
+            if (reward == _tokenA || reward == _tokenB || _rewardBal == 0) {
                 continue;
             // If the referenceToken is either A or B, swap rewards against it 
-            } else if (tokenA == referenceToken) {
+            } else if (_tokenA == referenceToken) {
                     swappedToA += swap(reward, referenceToken, _rewardBal);
-            } else if (tokenB == referenceToken) {
+            } else if (_tokenB == referenceToken) {
                     swappedToB += swap(reward, referenceToken, _rewardBal);
             } else {
                 // Assume that position has already been liquidated
@@ -700,11 +703,11 @@ abstract contract Joint {
                     investedA,
                     investedB
                 );
-                address swapTo = (ratioA >= ratioB) ? tokenB : tokenA;
+                address swapTo = (ratioA >= ratioB) ? _tokenB : _tokenA;
                 if (ratioA >= ratioB) {
-                    swappedToB += swap(reward, tokenB, _rewardBal);
+                    swappedToB += swap(reward, _tokenB, _rewardBal);
                 } else {
-                    swappedToA += swap(reward, tokenA, _rewardBal);
+                    swappedToA += swap(reward, _tokenA, _rewardBal);
                 }
             }
         }
