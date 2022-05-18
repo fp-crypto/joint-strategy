@@ -630,13 +630,11 @@ abstract contract Joint {
             return tokenB;
         } else if (tokenB == token) {
             return tokenA;
-        } else if (_isReward(token)) {
+        } else {
             if (tokenA == referenceToken || tokenB == referenceToken) {
                 return referenceToken;
             }
             return tokenA;
-        } else {
-            revert("!swapTo");
         }
     }
 
