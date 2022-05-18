@@ -703,7 +703,7 @@ abstract contract Joint {
                     investedA,
                     investedB
                 );
-                address swapTo = (ratioA >= ratioB) ? _tokenB : _tokenA;
+                
                 if (ratioA >= ratioB) {
                     swappedToB += swap(reward, _tokenB, _rewardBal);
                 } else {
