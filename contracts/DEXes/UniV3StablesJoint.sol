@@ -612,6 +612,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 return int128(1);
             } else if (_pool.coins(2) == _token) {
                 return int128(2);
+            } else {
+                revert();
             }
     }
 
