@@ -291,16 +291,9 @@ abstract contract Joint {
         (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
 
         // 2. SELL REWARDS FOR WANT
-        tokenAmount[] memory swappedToAmounts = swapRewardTokens();
-        for (uint256 i = 0; i < swappedToAmounts.length; i++) {
-            address rewardSwappedTo = swappedToAmounts[i].token;
-            uint256 rewardSwapOutAmount = swappedToAmounts[i].amount;
-            if (rewardSwappedTo == tokenA) {
-                currentBalanceA = currentBalanceA + rewardSwapOutAmount;
-            } else if (rewardSwappedTo == tokenB) {
-                currentBalanceB = currentBalanceB + rewardSwapOutAmount;
-            }
-        }
+        (uint256 rewardsSwappedToA, uint256 rewardsSwappedToB) = swapRewardTokens();
+        currentBalanceA += rewardsSwappedToA;
+        currentBalanceB += rewardsSwappedToB;
 
         // 3. REBALANCE PORTFOLIO
         // Calculate rebalance operation
@@ -679,36 +672,28 @@ abstract contract Joint {
 
     function withdrawLP() internal virtual {}
 
-    struct tokenAmount {
-        address token;
-        uint256 amount;
-    }
-
     /*
      * @notice
      *  Function available internally swapping amounts necessary to swap rewards
-     * @return tokenAmount array of the swap path followed
+     * @return amounts exchanged to tokenA and tokenB
      */
     function swapRewardTokens()
         internal
         virtual
-        returns (tokenAmount[] memory)
+        returns (uint256 swappedToA, uint256 swappedToB)
     {
-        tokenAmount[] memory _swapToAmounts = new tokenAmount[](
-            rewardTokens.length
-        );
+
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
             // If the reward token is either A or B, don't swap
             if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
-                _swapToAmounts[i] = tokenAmount(reward, 0);
+                continue;
             // If the referenceToken is either A or B, swap rewards against it 
-            } else if (tokenA == referenceToken || tokenB == referenceToken) {
-                _swapToAmounts[i] = tokenAmount(
-                    referenceToken,
-                    swap(reward, referenceToken, _rewardBal)
-                );
+            } else if (tokenA == referenceToken) {
+                    swappedToA += swap(reward, referenceToken, _rewardBal);
+            } else if (tokenB == referenceToken) {
+                    swappedToB += swap(reward, referenceToken, _rewardBal);
             } else {
                 // Assume that position has already been liquidated
                 (uint256 ratioA, uint256 ratioB) = getRatios(
@@ -718,13 +703,14 @@ abstract contract Joint {
                     investedB
                 );
                 address swapTo = (ratioA >= ratioB) ? tokenB : tokenA;
-                _swapToAmounts[i] = tokenAmount(
-                    swapTo,
-                    swap(reward, swapTo, _rewardBal)
-                );
+                if (ratioA >= ratioB) {
+                    swappedToB += swap(reward, tokenB, _rewardBal);
+                } else {
+                    swappedToA += swap(reward, tokenA, _rewardBal);
+                }
             }
         }
-        return _swapToAmounts;
+        return (swappedToA, swappedToB);
     }
 
     function swap(
