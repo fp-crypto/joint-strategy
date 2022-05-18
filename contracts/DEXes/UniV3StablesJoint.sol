@@ -363,7 +363,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function claiming the earned rewards for the joint, sends the tokens to the joint
      * contract
      */
-    function getReward() internal override {
+    function collectOwedTokens() internal {
         IUniswapV3Pool(pool).collect(
             address(this),
             minTick,
@@ -372,6 +372,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
             type(uint128).max
         );
     }
+
+    function getReward() internal override {}
 
     /*
      * @notice
@@ -441,7 +443,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      */
     function burnLP(uint256 amount) internal override {
         IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
-        getReward();
+        collectOwedTokens();
         // If entire position is closed, re-set the min and max ticks
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
         if (positionInfo.liquidity == 0){
@@ -479,13 +481,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
         int24 _minTick,
         int24 _maxTick
     ) external onlyVaultManagers {
-        IUniswapV3Pool(pool).collect(
-            address(this),
-            _minTick,
-            _maxTick,
-            type(uint128).max,
-            type(uint128).max
-        );
+        IUniswapV3Pool(pool).burn(minTick, maxTick, 0);
+        collectOwedTokens();
     }
 
     /*
