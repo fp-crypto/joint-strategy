@@ -318,7 +318,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
     ) external {
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
         // Only the pool can use this function
-        require(msg.sender == _pool); // dev: callback only called by pool
+        require(msg.sender == address(_pool)); // dev: callback only called by pool
         // Send the required funds to the pool
         IERC20(_pool.token0()).safeTransfer(address(_pool), amount0Owed);
         IERC20(_pool.token1()).safeTransfer(address(_pool), amount1Owed);
