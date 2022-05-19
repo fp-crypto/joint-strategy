@@ -231,8 +231,8 @@ def tokenA(request, chain):
         # "YFI",  # YFI
         # "WETH",  # WETH
         # 'LINK', # LINK
-        # 'USDT', # USDT
-        'DAI', # DAI
+        'USDT', # USDT
+        # 'DAI', # DAI
         # "USDC",  # USDC
         # "WFTM",
         # "MIM",

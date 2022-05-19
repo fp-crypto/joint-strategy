@@ -245,7 +245,7 @@ def crv_ensure_bad_trade(crv_pool, token_in, token_out, token_in_whale):
     
     reserve_token_from = crv_pool.balances(index_from)
     reserve_token_to = crv_pool.balances(index_to)
-    sell_amount = reserve_token_to / 2
+    sell_amount = reserve_token_to * 0.8
     sell_amount = sell_amount / (10**token_out.decimals()) * (10**token_in.decimals())
 
     token_in.approve(crv_pool, 0, {"from": token_in_whale})

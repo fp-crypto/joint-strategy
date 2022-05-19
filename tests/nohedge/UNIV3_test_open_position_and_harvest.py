@@ -329,7 +329,7 @@ def test_choppy_harvest_UNIV3(
     if swap_dex == "crv":
         utils.crv_re_peg_pool(joint.crvPool(), token_out, token_in, token_out_whale, prev_reserve)
 
-    actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr = False)
+    actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB, keep_dr = False, check=False)
 
     # assert 0
     print("etas", providerA.estimatedTotalAssets(), providerB.estimatedTotalAssets())
