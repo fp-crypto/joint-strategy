@@ -375,11 +375,11 @@ abstract contract Joint {
     }
 
     // Keepers will claim and sell rewards mid-epoch (otherwise we sell only in the end)
-    function harvest() external onlyKeepers {
+    function harvest() external virtual onlyKeepers {
         getReward();
     }
 
-    function harvestTrigger() external view returns (bool) {
+    function harvestTrigger() external view virtual returns (bool) {
         return balanceOfRewardToken()[0] > minRewardToHarvest;
     }
 
