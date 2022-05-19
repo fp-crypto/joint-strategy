@@ -625,10 +625,10 @@ abstract contract Joint {
      * @param token, address of the token to swap from
      * @return address of the token to swap to
      */
-    function findSwapTo(address token) internal view returns (address) {
-        if (tokenA == token) {
+    function findSwapTo(address from_token) internal view returns (address) {
+        if (tokenA == from_token) {
             return tokenB;
-        } else if (tokenB == token) {
+        } else if (tokenB == from_token) {
             return tokenA;
         } else {
             if (tokenA == referenceToken || tokenB == referenceToken) {
