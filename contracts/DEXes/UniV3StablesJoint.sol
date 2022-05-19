@@ -631,4 +631,31 @@ contract UniV3StablesJoint is NoHedgeJoint {
         );
         return IUniswapV3Pool(pool).positions(key);
     }
+
+    /*
+     * @notice
+     *  Function used by governance to swap tokens manually if needed, can be used when closing 
+     * the LP position manually and need some re-balancing before sending funds back to the 
+     * providers
+     * @param swapPath, path of addresses to swap, should be 2 and always tokenA <> tokenB
+     * @param swapInAmount, amount of swapPath[0] to swap for swapPath[1]
+     * @param minOutAmount, minimum amount of want out
+     * @return swapped amount
+     */
+    function swapTokenForTokenManually(
+        address[] memory swapPath,
+        uint256 swapInAmount,
+        uint256 minOutAmount
+    ) external onlyGovernance override returns (uint256) {
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
+        require(swapPath.length == 2);
+        require(swapPath[0] == _tokenA || swapPath[1] == _tokenA);
+        require(swapPath[0] == _tokenB || swapPath[1] == _tokenB);
+        return swap(
+            swapPath[0], 
+            swapPath[1], 
+            swapInAmount
+            );
+    }
 }
