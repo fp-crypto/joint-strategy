@@ -360,20 +360,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function claiming the earned rewards for the joint, sends the tokens to the joint
-     * contract
+     *  Function used internally to collect the accrued fees by burn 0 of the LP position
+     * and collecting the owed tokens (only fees as no LP has been burnt)
+     * @return balance of tokens in the LP (invested amounts)
      */
-    function collectOwedTokens() internal {
-        IUniswapV3Pool(pool).collect(
-            address(this),
-            minTick,
-            maxTick,
-            type(uint128).max,
-            type(uint128).max
-        );
+    function getReward() internal override {
+        _burnAndCollect(0, minTick, maxTick);
     }
-
-    function getReward() internal override {}
 
     /*
      * @notice
@@ -442,8 +435,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @param amount, amount of liquidity to burn
      */
     function burnLP(uint256 amount) internal override {
-        IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
-        collectOwedTokens();
+        _burnAndCollect(amount, minTick, maxTick);
         // If entire position is closed, re-set the min and max ticks
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
         if (positionInfo.liquidity == 0){
@@ -457,6 +449,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function available to vault managers to burn the LP manually, if for any reason
      * the ticks have been set to 0 (or any different value from the original LP), we make 
      * sure we can always get out of the position
+     * This function can be used to only collect fees by passing a 0 amount to burn
      * @param _amount, amount of liquidity to burn
      * @param _minTick, lower limit of position
      * @param _maxTick, upper limit of position
@@ -466,23 +459,31 @@ contract UniV3StablesJoint is NoHedgeJoint {
             int24 _minTick,
             int24 _maxTick
             ) external onlyVaultManagers {
-        IUniswapV3Pool(pool).burn(_minTick, _maxTick, uint128(_amount));
+        _burnAndCollect(_amount, _minTick, _maxTick);
     }
 
     /*
      * @notice
-     *  Function available to vault managers to collect the pending rewards manually, 
-     * if for any reason the ticks have been set to 0 (or any different value from the 
-     * original LP), we make sure we can always get the rewards back
+     *  Function available internally to burn the LP amount specified, for position
+     * defined by minTick and maxTick specified and collect the owed tokens
+     * @param _amount, amount of liquidity to burn
      * @param _minTick, lower limit of position
      * @param _maxTick, upper limit of position
      */
-    function collectRewardsManually(
+    function _burnAndCollect(
+        uint256 _amount,
         int24 _minTick,
         int24 _maxTick
-    ) external onlyVaultManagers {
-        IUniswapV3Pool(pool).burn(minTick, maxTick, 0);
-        collectOwedTokens();
+    ) internal {
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        _pool.burn(_minTick, _maxTick, uint128(_amount));
+        _pool.collect(
+            address(this),
+            _minTick,
+            _maxTick,
+            type(uint128).max,
+            type(uint128).max
+        );
     }
 
     /*
