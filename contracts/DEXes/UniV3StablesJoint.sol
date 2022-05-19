@@ -206,7 +206,11 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @param _minTick, lower limit of position
      * @param _maxTick, upper limit of position
      */
-    function setTicksManually(int24 _minTick, int24 _maxTick) external onlyVaultManagers {
+    function setTicksManually(int24 _minTick, int24 _maxTick, bool forceChange) external onlyVaultManagers {
+        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
+        if (positionInfo.liquidity > 0 && !forceChange) {
+            revert();
+        }
         minTick = _minTick;
         maxTick = _maxTick;
     }
