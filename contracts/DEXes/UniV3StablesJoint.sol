@@ -180,15 +180,6 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function available for vault managers to set the CRV pool to use for swaps
-     * @param newPool, new CRV pool address to use
-     */
-    function setCRVPool(address newPool) external onlyGovernance {
-        crvPool = newPool;
-    }
-
-    /*
-     * @notice
      *  Function available for vault managers to set the boolean value deciding wether
      * to use the uni v3 pool for swaps or a CRV pool
      * @param newUseCRVPool, new boolean value to use
