@@ -202,13 +202,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @notice
      *  Function available for vault managers to set min & max values of the position. If,
      * for any reason the ticks are not the value they should be, we always have the option 
-     * to re-set them back to the necessary value
+     * to re-set them back to the necessary value using the force parameter
      * @param _minTick, lower limit of position
-     * @param _maxTick, upper limit of position
+     * @param _minTick, lower limit of position
+     * @param forceChange, force parameter to ensure this function is not called randomly
      */
     function setTicksManually(int24 _minTick, int24 _maxTick, bool forceChange) external onlyVaultManagers {
-        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
-        if (positionInfo.liquidity > 0 && !forceChange) {
+        if ((investedA > 0 || investedB > 0) && !forceChange) {
             revert();
         }
         minTick = _minTick;
