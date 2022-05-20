@@ -858,7 +858,7 @@ abstract contract Joint {
         address[] memory swapPath,
         uint256 swapInAmount,
         uint256 minOutAmount
-    ) external onlyGovernance virtual returns (uint256) {}
+    ) external virtual returns (uint256);
 
     /*
      * @notice
