@@ -291,16 +291,9 @@ abstract contract Joint {
         (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
 
         // 2. SELL REWARDS FOR WANT
-        tokenAmount[] memory swappedToAmounts = swapRewardTokens();
-        for (uint256 i = 0; i < swappedToAmounts.length; i++) {
-            address rewardSwappedTo = swappedToAmounts[i].token;
-            uint256 rewardSwapOutAmount = swappedToAmounts[i].amount;
-            if (rewardSwappedTo == tokenA) {
-                currentBalanceA = currentBalanceA + rewardSwapOutAmount;
-            } else if (rewardSwappedTo == tokenB) {
-                currentBalanceB = currentBalanceB + rewardSwapOutAmount;
-            }
-        }
+        (uint256 rewardsSwappedToA, uint256 rewardsSwappedToB) = swapRewardTokens();
+        currentBalanceA += rewardsSwappedToA;
+        currentBalanceB += rewardsSwappedToB;
 
         // 3. REBALANCE PORTFOLIO
         // Calculate rebalance operation
@@ -382,11 +375,11 @@ abstract contract Joint {
     }
 
     // Keepers will claim and sell rewards mid-epoch (otherwise we sell only in the end)
-    function harvest() external onlyKeepers {
+    function harvest() external virtual onlyKeepers {
         getReward();
     }
 
-    function harvestTrigger() external view returns (bool) {
+    function harvestTrigger() external view virtual returns (bool) {
         return balanceOfRewardToken()[0] > minRewardToHarvest;
     }
 
@@ -632,19 +625,16 @@ abstract contract Joint {
      * @param token, address of the token to swap from
      * @return address of the token to swap to
      */
-    function findSwapTo(address token) internal view returns (address) {
-        if (tokenA == token) {
+    function findSwapTo(address from_token) internal view returns (address) {
+        if (tokenA == from_token) {
             return tokenB;
-        } else if (tokenB == token) {
+        } else if (tokenB == from_token) {
             return tokenA;
-        } else if (_isReward(token)) {
-            if (tokenA == referenceToken || tokenB == referenceToken) {
-                return referenceToken;
-            }
-            return tokenA;
-        } else {
-            revert("!swapTo");
         }
+        if (tokenA == referenceToken || tokenB == referenceToken) {
+            return referenceToken;
+        }
+        return tokenA;
     }
 
     /*
@@ -658,11 +648,13 @@ abstract contract Joint {
         internal
         view
         returns (address[] memory _path)
-    {
+    {   
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
         bool isReferenceToken = _token_in == address(referenceToken) ||
             _token_out == address(referenceToken);
-        bool is_internal = (_token_in == tokenA && _token_out == tokenB) ||
-            (_token_in == tokenB && _token_out == tokenA);
+        bool is_internal = (_token_in == _tokenA && _token_out == _tokenB) ||
+            (_token_in == _tokenB && _token_out == _tokenA);
         _path = new address[](isReferenceToken || is_internal ? 2 : 3);
         _path[0] = _token_in;
         if (isReferenceToken || is_internal) {
@@ -679,36 +671,29 @@ abstract contract Joint {
 
     function withdrawLP() internal virtual {}
 
-    struct tokenAmount {
-        address token;
-        uint256 amount;
-    }
-
     /*
      * @notice
      *  Function available internally swapping amounts necessary to swap rewards
-     * @return tokenAmount array of the swap path followed
+     * @return amounts exchanged to tokenA and tokenB
      */
     function swapRewardTokens()
         internal
         virtual
-        returns (tokenAmount[] memory)
+        returns (uint256 swappedToA, uint256 swappedToB)
     {
-        tokenAmount[] memory _swapToAmounts = new tokenAmount[](
-            rewardTokens.length
-        );
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
         for (uint256 i = 0; i < rewardTokens.length; i++) {
             address reward = rewardTokens[i];
             uint256 _rewardBal = IERC20(reward).balanceOf(address(this));
             // If the reward token is either A or B, don't swap
-            if (reward == tokenA || reward == tokenB || _rewardBal == 0) {
-                _swapToAmounts[i] = tokenAmount(reward, 0);
+            if (reward == _tokenA || reward == _tokenB || _rewardBal == 0) {
+                continue;
             // If the referenceToken is either A or B, swap rewards against it 
-            } else if (tokenA == referenceToken || tokenB == referenceToken) {
-                _swapToAmounts[i] = tokenAmount(
-                    referenceToken,
-                    swap(reward, referenceToken, _rewardBal)
-                );
+            } else if (_tokenA == referenceToken) {
+                    swappedToA += swap(reward, referenceToken, _rewardBal);
+            } else if (_tokenB == referenceToken) {
+                    swappedToB += swap(reward, referenceToken, _rewardBal);
             } else {
                 // Assume that position has already been liquidated
                 (uint256 ratioA, uint256 ratioB) = getRatios(
@@ -717,14 +702,15 @@ abstract contract Joint {
                     investedA,
                     investedB
                 );
-                address swapTo = (ratioA >= ratioB) ? tokenB : tokenA;
-                _swapToAmounts[i] = tokenAmount(
-                    swapTo,
-                    swap(reward, swapTo, _rewardBal)
-                );
+                
+                if (ratioA >= ratioB) {
+                    swappedToB += swap(reward, _tokenB, _rewardBal);
+                } else {
+                    swappedToA += swap(reward, _tokenA, _rewardBal);
+                }
             }
         }
-        return _swapToAmounts;
+        return (swappedToA, swappedToB);
     }
 
     function swap(
@@ -872,13 +858,12 @@ abstract contract Joint {
         address[] memory swapPath,
         uint256 swapInAmount,
         uint256 minOutAmount
-    ) external onlyGovernance returns (uint256) {}
+    ) external virtual returns (uint256);
 
     /*
      * @notice
      *  Function available to governance sweeping a specified token but tokenA and B
-     * @param expectedBalanceA, expected balance of tokenA to receive
-     * @param expectedBalanceB, expected balance of tokenB to receive
+     * @param _token, address of the token to sweep
      */
     function sweep(address _token) external onlyGovernance {
         require(_token != address(tokenA));

@@ -180,15 +180,6 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function available for vault managers to set the CRV pool to use for swaps
-     * @param newPool, new CRV pool address to use
-     */
-    function setCRVPool(address newPool) external onlyVaultManagers {
-        crvPool = newPool;
-    }
-
-    /*
-     * @notice
      *  Function available for vault managers to set the boolean value deciding wether
      * to use the uni v3 pool for swaps or a CRV pool
      * @param newUseCRVPool, new boolean value to use
@@ -211,11 +202,15 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @notice
      *  Function available for vault managers to set min & max values of the position. If,
      * for any reason the ticks are not the value they should be, we always have the option 
-     * to re-set them back to the necessary value
+     * to re-set them back to the necessary value using the force parameter
      * @param _minTick, lower limit of position
-     * @param _maxTick, upper limit of position
+     * @param _minTick, lower limit of position
+     * @param forceChange, force parameter to ensure this function is not called randomly
      */
-    function setTicksManually(int24 _minTick, int24 _maxTick) external onlyVaultManagers {
+    function setTicksManually(int24 _minTick, int24 _maxTick, bool forceChange) external onlyVaultManagers {
+        if ((investedA > 0 || investedB > 0) && !forceChange) {
+            revert();
+        }
         minTick = _minTick;
         maxTick = _maxTick;
     }
@@ -316,10 +311,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
         uint256 amount1Owed,
         bytes calldata data
     ) external {
-        // Only the pool can use this function
-        require(msg.sender == pool); // dev: callback only called by pool
-        // Send the required funds to the pool
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        // Only the pool can use this function
+        require(msg.sender == address(_pool)); // dev: callback only called by pool
+        // Send the required funds to the pool
         IERC20(_pool.token0()).safeTransfer(address(_pool), amount0Owed);
         IERC20(_pool.token1()).safeTransfer(address(_pool), amount1Owed);
     }
@@ -338,10 +333,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
         int256 amount1Delta,
         bytes calldata data
     ) external {
-        // Only the pool can use this function
-        require(msg.sender == address(pool)); // dev: callback only called by pool
-
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        // Only the pool can use this function
+        require(msg.sender == address(_pool)); // dev: callback only called by pool
+
 
         uint256 amountIn;
         address tokenIn;
@@ -360,17 +355,12 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
     /*
      * @notice
-     *  Function claiming the earned rewards for the joint, sends the tokens to the joint
-     * contract
+     *  Function used internally to collect the accrued fees by burn 0 of the LP position
+     * and collecting the owed tokens (only fees as no LP has been burnt)
+     * @return balance of tokens in the LP (invested amounts)
      */
     function getReward() internal override {
-        IUniswapV3Pool(pool).collect(
-            address(this),
-            minTick,
-            maxTick,
-            type(uint128).max,
-            type(uint128).max
-        );
+        _burnAndCollect(0, minTick, maxTick);
     }
 
     /*
@@ -440,8 +430,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @param amount, amount of liquidity to burn
      */
     function burnLP(uint256 amount) internal override {
-        IUniswapV3Pool(pool).burn(minTick, maxTick, uint128(amount));
-        getReward();
+        _burnAndCollect(amount, minTick, maxTick);
         // If entire position is closed, re-set the min and max ticks
         IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
         if (positionInfo.liquidity == 0){
@@ -455,6 +444,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function available to vault managers to burn the LP manually, if for any reason
      * the ticks have been set to 0 (or any different value from the original LP), we make 
      * sure we can always get out of the position
+     * This function can be used to only collect fees by passing a 0 amount to burn
      * @param _amount, amount of liquidity to burn
      * @param _minTick, lower limit of position
      * @param _maxTick, upper limit of position
@@ -464,22 +454,25 @@ contract UniV3StablesJoint is NoHedgeJoint {
             int24 _minTick,
             int24 _maxTick
             ) external onlyVaultManagers {
-        IUniswapV3Pool(pool).burn(_minTick, _maxTick, uint128(_amount));
+        _burnAndCollect(_amount, _minTick, _maxTick);
     }
 
     /*
      * @notice
-     *  Function available to vault managers to collect the pending rewards manually, 
-     * if for any reason the ticks have been set to 0 (or any different value from the 
-     * original LP), we make sure we can always get the rewards back
+     *  Function available internally to burn the LP amount specified, for position
+     * defined by minTick and maxTick specified and collect the owed tokens
+     * @param _amount, amount of liquidity to burn
      * @param _minTick, lower limit of position
      * @param _maxTick, upper limit of position
      */
-    function collectRewardsManually(
+    function _burnAndCollect(
+        uint256 _amount,
         int24 _minTick,
         int24 _maxTick
-    ) external onlyVaultManagers {
-        IUniswapV3Pool(pool).collect(
+    ) internal {
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        _pool.burn(_minTick, _maxTick, uint128(_amount));
+        _pool.collect(
             address(this),
             _minTick,
             _maxTick,
@@ -570,7 +563,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
 
-            // Use the uniswap helper view to simluate the swapin the uni v3 pool
+            // Use the uniswap helper view to simulate the swap in the uni v3 pool
             (int256 _amount0, int256 _amount1, , ) = UniswapHelperViews.simulateSwap(
                 // pool to use
                 IUniswapV3Pool(pool),
@@ -615,6 +608,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 return int128(1);
             } else if (_pool.coins(2) == _token) {
                 return int128(2);
+            } else {
+                revert();
             }
     }
 
@@ -635,5 +630,32 @@ contract UniV3StablesJoint is NoHedgeJoint {
             abi.encodePacked(address(this), minTick, maxTick)
         );
         return IUniswapV3Pool(pool).positions(key);
+    }
+
+    /*
+     * @notice
+     *  Function used by governance to swap tokens manually if needed, can be used when closing 
+     * the LP position manually and need some re-balancing before sending funds back to the 
+     * providers
+     * @param swapPath, path of addresses to swap, should be 2 and always tokenA <> tokenB
+     * @param swapInAmount, amount of swapPath[0] to swap for swapPath[1]
+     * @param minOutAmount, minimum amount of want out
+     * @return swapped amount
+     */
+    function swapTokenForTokenManually(
+        address[] memory swapPath,
+        uint256 swapInAmount,
+        uint256 minOutAmount
+    ) external onlyGovernance override returns (uint256) {
+        address _tokenA = tokenA;
+        address _tokenB = tokenB;
+        require(swapPath.length == 2);
+        require(swapPath[0] == _tokenA || swapPath[1] == _tokenA);
+        require(swapPath[0] == _tokenB || swapPath[1] == _tokenB);
+        return swap(
+            swapPath[0], 
+            swapPath[1], 
+            swapInAmount
+            );
     }
 }
