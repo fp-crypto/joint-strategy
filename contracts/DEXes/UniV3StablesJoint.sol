@@ -658,4 +658,66 @@ contract UniV3StablesJoint is NoHedgeJoint {
             swapInAmount
             );
     }
+
+    function harvestTrigger() external view override returns (bool) {
+        int24 _tick = IUniswapV3Pool(pool).slot0().tick;
+        if((_tick < minTick || _tick >= maxTick) && (_positionInfo().liquidity > 0)) {
+            return true;
+        }
+    }
+
+    function harvest() external override onlyKeepers {
+        // 1. CLOSE LIQUIDITY POSITION
+        // Closing the position will:
+        // - Remove liquidity from DEX
+        // - Claim pending rewards
+        // - Close Hedge and receive payoff
+        // and returns current balance of tokenA and tokenB
+        (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
+        // TODO: Think about refactoring some code: this part is already done in createLP()
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        // Get the current state of the pool
+        IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
+        // Space between ticks for this pool
+        int24 _tickSpacing = _pool.tickSpacing();
+        // Current tick must be referenced as a multiple of tickSpacing
+        int24 _currentTick = (_slot0.tick / _tickSpacing) * _tickSpacing;
+        // Gas savings for # of ticks to LP
+        int24 _ticksFromCurrent = int24(ticksFromCurrent);
+        // Minimum tick to enter
+        int24 _minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
+        // Maximum tick to enter
+        int24 _maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
+        
+        (uint256 idealAmountA, uint256 idealAmountB) = UniswapHelperViews.getRecenteringAmounts(
+            _slot0.sqrtPriceX96, 
+            UniswapHelperViews.getSqrtRatioAtTick(_minTick), 
+            UniswapHelperViews.getSqrtRatioAtTick(_maxTick)
+            );
+
+        address sellToken = tokenB;
+        uint256 sellAmount = 0;
+        if (currentBalanceA > currentBalanceB) {
+            sellToken = tokenA;
+            sellAmount = currentBalanceA - idealAmountA * providerA.totalDebt() / UniswapHelperViews.PRECISION;
+        } else {
+            sellAmount = currentBalanceB - idealAmountB * providerB.totalDebt() / UniswapHelperViews.PRECISION;
+        }
+        
+        // Perform the swap to balance the tokens
+        if (sellToken != address(0) && sellAmount > minAmountToSell) {
+            uint256 buyAmount = swap(
+                sellToken,
+                sellToken == tokenA ? tokenB : tokenA,
+                sellAmount
+            );
+        }
+
+        // Open the LP position
+        (uint256 amountA, uint256 amountB) = createLP();
+        // Set invested amounts
+        investedA = amountA;
+        investedB = amountB;
+        // _returnLooseToProviders();
+    }
 }

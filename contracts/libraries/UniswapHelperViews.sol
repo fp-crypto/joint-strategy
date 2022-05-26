@@ -23,6 +23,8 @@ library UniswapHelperViews {
     error ZeroAmount();
     error InvalidSqrtPriceLimit(uint160 sqrtPriceLimitX96);
 
+    uint256 public constant PRECISION = 1e18;
+
     struct Cache {
         // price at the beginning of the swap
         uint160 sqrtPriceX96Start;
@@ -359,4 +361,45 @@ library UniswapHelperViews {
         );
     }
 
+    function getRecenteringAmounts(
+        uint160 currentPrice,
+        uint160 lowTickPrice,
+        uint160 highTickPrice
+    ) external pure returns(uint256 _amount0, uint256 _amount1) {
+        uint128 _liquidity = LiquidityAmounts.getLiquidityForAmounts(
+            currentPrice, 
+            lowTickPrice, 
+            highTickPrice,
+            PRECISION,
+            PRECISION
+            );
+        (_amount0, _amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            currentPrice, 
+            lowTickPrice, 
+            highTickPrice,
+            _liquidity
+            );
+
+        if(_amount0 > _amount1) {
+            uint256 _toSwap = PRECISION - _amount1;
+            uint256 _ratio = PRECISION * PRECISION / _amount1;
+            uint256 _swapTo0 = _ratio * PRECISION / (_ratio + PRECISION) * _toSwap / PRECISION;
+            _amount0 = _amount0 + _swapTo0;
+            _amount1 = _amount1 + _toSwap - _swapTo0;
+        } else {
+            uint256 _toSwap = PRECISION - _amount0;
+            uint256 _ratio = PRECISION * PRECISION / _amount0;
+            uint256 _swapTo1 = _ratio * PRECISION / (_ratio + PRECISION) * _toSwap / PRECISION;
+            _amount1 = _amount1 + _swapTo1;
+            _amount0 = _amount0 + _toSwap - _swapTo1;
+        }
+    }
+
+    function getSqrtRatioAtTick(int24 tick)
+        external
+        pure
+        returns (uint160 sqrtPriceX96)
+    {
+        return TickMath.getSqrtRatioAtTick(tick);
+    }
 }
