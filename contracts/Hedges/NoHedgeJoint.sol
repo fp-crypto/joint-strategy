@@ -43,10 +43,6 @@ abstract contract NoHedgeJoint is Joint {
         return;
     }
 
-    function shouldEndEpoch() public view override returns (bool) {
-        return false;
-    }
-
     // this function is called by Joint to see if it needs to stop initiating new epochs due to too high volatility
     function _autoProtect() internal view override returns (bool) {
         return false;
