@@ -659,65 +659,86 @@ contract UniV3StablesJoint is NoHedgeJoint {
             );
     }
 
-    function harvestTrigger() external view override returns (bool) {
+    /*
+     * @notice
+     *  Function used by keepers to assess whether to harvest the joint and compound generated
+     * fees into the existing position, checks whether both pending fee amounts (tokenA and B)
+     * are greater than minRewardToHarvest
+     * @param callCost, call cost parameter
+     * @return bool amount assessing whether to harvest or not
+     */
+    function harvestTrigger(uint256 callCost) external view override returns (bool) {
+
+        uint256 _minRewardToHarvest = minRewardToHarvest;
+        if (_minRewardToHarvest == 0) {
+            return false;
+        }
+
+        uint256[] memory _pendingRewards = pendingRewards();
+
+        if (_pendingRewards[0] >= _minRewardToHarvest * (10**IERC20Extended(rewardTokens[0]).decimals()) / RATIO_PRECISION && 
+            _pendingRewards[1] >= _minRewardToHarvest * (10**IERC20Extended(rewardTokens[1]).decimals()) / RATIO_PRECISION
+        ) {
+            return true;
+        }
+
+    }
+
+    /*
+     * @notice
+     *  Function used by harvest trigger in the providers to assess whether to harvest it as
+     * the joint may have gone out of bounds. If debt ratio is kept in the vaults, the joint
+     * re-centers, if debt ratio is 0, the joint is simpley closed and funds are sent back
+     * to each provider
+     * @return bool amount assessing whether to end the epoch or not
+     */
+    function shouldEndEpoch() external view override returns (bool) {
         int24 _tick = IUniswapV3Pool(pool).slot0().tick;
         if((_tick < minTick || _tick >= maxTick) && (_positionInfo().liquidity > 0)) {
             return true;
         }
     }
 
+    /*
+     * @notice
+     *  Function used by keepers to compound the generated feed into the existing position
+     * in the joint. There may be some funds not used in the position and left idle in the 
+     * joint
+     */
     function harvest() external override onlyKeepers {
-        // 1. CLOSE LIQUIDITY POSITION
-        // Closing the position will:
-        // - Remove liquidity from DEX
-        // - Claim pending rewards
-        // - Close Hedge and receive payoff
-        // and returns current balance of tokenA and tokenB
-        (uint256 currentBalanceA, uint256 currentBalanceB) = _closePosition();
-        // TODO: Think about refactoring some code: this part is already done in createLP()
-        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
-        // Get the current state of the pool
-        IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
-        // Space between ticks for this pool
-        int24 _tickSpacing = _pool.tickSpacing();
-        // Current tick must be referenced as a multiple of tickSpacing
-        int24 _currentTick = (_slot0.tick / _tickSpacing) * _tickSpacing;
-        // Gas savings for # of ticks to LP
-        int24 _ticksFromCurrent = int24(ticksFromCurrent);
-        // Minimum tick to enter
-        int24 _minTick = _currentTick - (_tickSpacing * _ticksFromCurrent);
-        // Maximum tick to enter
-        int24 _maxTick = _currentTick + (_tickSpacing * (_ticksFromCurrent + 1));
-        
-        (uint256 idealAmountA, uint256 idealAmountB) = UniswapHelperViews.getRecenteringAmounts(
-            _slot0.sqrtPriceX96, 
-            UniswapHelperViews.getSqrtRatioAtTick(_minTick), 
-            UniswapHelperViews.getSqrtRatioAtTick(_maxTick)
-            );
+        getReward();
 
-        address sellToken = tokenB;
-        uint256 sellAmount = 0;
-        if (currentBalanceA > currentBalanceB) {
-            sellToken = tokenA;
-            sellAmount = currentBalanceA - idealAmountA * providerA.totalDebt() / UniswapHelperViews.PRECISION;
+        uint256 amount0;
+        uint256 amount1;
+
+        // Make sure tokens are in order
+        if (tokenA < tokenB) {
+            amount0 = balanceOfA();
+            amount1 = balanceOfB();
         } else {
-            sellAmount = currentBalanceB - idealAmountB * providerB.totalDebt() / UniswapHelperViews.PRECISION;
-        }
-        
-        // Perform the swap to balance the tokens
-        if (sellToken != address(0) && sellAmount > minAmountToSell) {
-            uint256 buyAmount = swap(
-                sellToken,
-                sellToken == tokenA ? tokenB : tokenA,
-                sellAmount
-            );
+            amount0 = balanceOfB();
+            amount1 = balanceOfA();
         }
 
-        // Open the LP position
-        (uint256 amountA, uint256 amountB) = createLP();
-        // Set invested amounts
-        investedA = amountA;
-        investedB = amountB;
-        // _returnLooseToProviders();
+        // Minimum tick to enter
+        int24 _minTick = minTick;
+        // Maximum tick to enter
+        int24 _maxTick = maxTick;
+
+        // Calculate the amount of liquidity the joint can provided based on current situation
+        // and amount of tokens available
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        uint128 liquidityAmount = LiquidityAmounts.getLiquidityForAmounts(
+            _pool.slot0().sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(_minTick),
+            TickMath.getSqrtRatioAtTick(_maxTick),
+            amount0,
+            amount1
+        );
+
+        // Mint the LP position - we are not yet in the LP, needs to go through the mint
+        // callback first
+        _pool.mint(address(this), _minTick, _maxTick, liquidityAmount, "");
+
     }
 }
