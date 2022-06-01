@@ -43,6 +43,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
     address public joint;
 
     bool public forceLiquidate;
+    bool public launchHarvest;
 
     constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
@@ -68,6 +69,10 @@ contract ProviderStrategy is BaseStrategyInitializable {
         return vault.strategies(address(this)).totalDebt;
     }
 
+    function setLaunchHarvest(bool _newLaunchHarvest) external onlyVaultManagers {
+        launchHarvest = _newLaunchHarvest;
+    }
+
     function prepareReturn(uint256 _debtOutstanding)
         internal
         override
@@ -77,6 +82,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
             uint256 _debtPayment
         )
     {
+        if (launchHarvest) {
+            launchHarvest = false;
+        }
         // NOTE: this strategy is operated following epochs. These begin during adjustPosition and end during prepareReturn
         // The Provider will always ask the joint to close the position before harvesting
         JointAPI(joint).closePositionReturnFunds();
@@ -127,7 +135,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         // Delegating decision to joint
         return
             (JointAPI(joint).shouldStartEpoch() && balanceOfWant() > 0) ||
-            JointAPI(joint).shouldEndEpoch();
+            JointAPI(joint).shouldEndEpoch() || launchHarvest;
     }
 
     function dontInvestWant() public view returns (bool) {
