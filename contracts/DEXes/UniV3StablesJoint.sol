@@ -501,7 +501,24 @@ contract UniV3StablesJoint is NoHedgeJoint {
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if (!useCRVPool) {
+        if (useCRVPool) {
+            // Do NOT use uni pool use CRV pool
+            ICRVPool _pool = ICRVPool(crvPool);
+        
+            // Allow necessary amount for CRV pool
+            _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
+            uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
+            // Perform swap
+            _pool.exchange(
+                _getCRVPoolIndex(_tokenFrom, _pool), 
+                _getCRVPoolIndex(_tokenTo, _pool),
+                _amountIn, 
+                0
+            );
+            // Revoke allowance
+            IERC20(_tokenFrom).safeApprove(address(_pool), 0);
+            return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
+        } else {
             // Use uni v3 pool to swap
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
@@ -523,23 +540,6 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
             return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
-        } else {
-            // Do NOT use uni pool use CRV pool
-            ICRVPool _pool = ICRVPool(crvPool);
-        
-            // Allow necessary amount for CRV pool
-            _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
-            uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
-            // Perform swap
-            _pool.exchange(
-                _getCRVPoolIndex(_tokenFrom, _pool), 
-                _getCRVPoolIndex(_tokenTo, _pool),
-                _amountIn, 
-                0
-            );
-            // Revoke allowance
-            IERC20(_tokenFrom).safeApprove(address(_pool), 0);
-            return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
         }
         
     }
