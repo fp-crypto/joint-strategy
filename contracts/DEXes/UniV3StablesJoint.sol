@@ -559,7 +559,18 @@ contract UniV3StablesJoint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if(!useCRVPool){
+        if(useCRVPool){
+            // Do NOT use uni pool use CRV pool
+            
+            ICRVPool _pool = ICRVPool(crvPool);
+
+            // Call the quote function in CRV pool
+            return _pool.get_dy(
+                _getCRVPoolIndex(_tokenFrom, _pool), 
+                _getCRVPoolIndex(_tokenTo, _pool), 
+                _amountIn
+            );
+        } else {
             // Use uni v3 pool to swap
             // Order of swap
             bool zeroForOne = _tokenFrom < _tokenTo;
@@ -578,17 +589,6 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
             return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
-        } else {
-            // Do NOT use uni pool use CRV pool
-            
-            ICRVPool _pool = ICRVPool(crvPool);
-
-            // Call the quote function in CRV pool
-            return _pool.get_dy(
-                _getCRVPoolIndex(_tokenFrom, _pool), 
-                _getCRVPoolIndex(_tokenTo, _pool), 
-                _amountIn
-            );
         }
         
     }
