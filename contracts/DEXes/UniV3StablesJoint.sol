@@ -515,8 +515,6 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 _amountIn, 
                 0
             );
-            // Revoke allowance
-            IERC20(_tokenFrom).safeApprove(address(_pool), 0);
             return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
         } else {
             // Use uni v3 pool to swap
