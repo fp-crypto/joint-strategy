@@ -63,7 +63,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
         address _pool,
         uint24 _ticksFromCurrent
     ) NoHedgeJoint(_providerA, _providerB, _referenceToken, _pool) {
-        _initalizeUniV3StablesJoint(_ticksFromCurrent);
+        _initializeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
@@ -83,7 +83,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
         uint24 _ticksFromCurrent
     ) external {
         _initialize(_providerA, _providerB, _referenceToken, _pool);
-        _initalizeUniV3StablesJoint(_ticksFromCurrent);
+        _initializeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
@@ -91,7 +91,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Initialize UniV3StablesJoint specifics
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      */
-    function _initalizeUniV3StablesJoint(uint24 _ticksFromCurrent) internal {
+    function _initializeUniV3StablesJoint(uint24 _ticksFromCurrent) internal {
         ticksFromCurrent = _ticksFromCurrent;
         // The reward tokens are the tokens provided to the pool
         rewardTokens = new address[](2);
