@@ -650,20 +650,26 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @return swapped amount
      */
     function swapTokenForTokenManually(
-        address[] memory swapPath,
+        bool sellA,
         uint256 swapInAmount,
         uint256 minOutAmount
     ) external onlyGovernance override returns (uint256) {
-        address _tokenA = tokenA;
-        address _tokenB = tokenB;
-        require(swapPath.length == 2);
-        require(swapPath[0] == _tokenA || swapPath[1] == _tokenA);
-        require(swapPath[0] == _tokenB || swapPath[1] == _tokenB);
-        return swap(
-            swapPath[0], 
-            swapPath[1], 
-            swapInAmount
-            );
+
+        if(sellA) {
+            return swap(
+                tokenA,
+                tokenB,
+                swapInAmount
+                );
+        } else {
+            return swap(
+                tokenB,
+                tokenA,
+                swapInAmount
+                );
+        }
+
+        
     }
 
     /*

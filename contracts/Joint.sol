@@ -855,7 +855,7 @@ abstract contract Joint {
     }
 
     function swapTokenForTokenManually(
-        address[] memory swapPath,
+        bool sellA,
         uint256 swapInAmount,
         uint256 minOutAmount
     ) external virtual returns (uint256);
