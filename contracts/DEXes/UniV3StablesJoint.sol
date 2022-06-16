@@ -527,7 +527,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
             // receive the corresponding tokens
             (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
                 // recipient
-                address(this), // address(0) might cause issues with some tokens
+                address(this),
                 // Order of swap
                 zeroForOne,
                 // amountSpecified
