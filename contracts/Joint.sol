@@ -379,7 +379,7 @@ abstract contract Joint {
         getReward();
     }
 
-    function harvestTrigger() external view virtual returns (bool) {
+    function harvestTrigger(uint256 callCost) external view virtual returns (bool) {
         return balanceOfRewardToken()[0] > minRewardToHarvest;
     }
 
@@ -855,7 +855,7 @@ abstract contract Joint {
     }
 
     function swapTokenForTokenManually(
-        address[] memory swapPath,
+        bool sellA,
         uint256 swapInAmount,
         uint256 minOutAmount
     ) external virtual returns (uint256);

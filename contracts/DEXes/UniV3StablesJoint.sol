@@ -6,7 +6,7 @@ pragma experimental ABIEncoderV2;
 // NoHedgeJoint to inherit from
 import "../Hedges/NoHedgeJoint.sol";
 // Uni V3 pool functionality
-import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
+import {IUniswapV3Pool} from "@uniswap/contracts/interfaces/IUniswapV3Pool.sol";
 // CRV pool functionalities for swaps and quotes
 import {ICRVPool} from "../../interfaces/CRV/ICRVPool.sol";
 // Helper functions from Uni v3
@@ -23,6 +23,7 @@ import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 contract UniV3StablesJoint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
+    using SafeCast for int256;
     
     // Used for cloning, will automatically be set to false for other clones
     bool public isOriginal = true;
@@ -63,7 +64,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
         address _pool,
         uint24 _ticksFromCurrent
     ) NoHedgeJoint(_providerA, _providerB, _referenceToken, _pool) {
-        _initalizeUniV3StablesJoint(_ticksFromCurrent);
+        _initializeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
@@ -83,7 +84,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
         uint24 _ticksFromCurrent
     ) external {
         _initialize(_providerA, _providerB, _referenceToken, _pool);
-        _initalizeUniV3StablesJoint(_ticksFromCurrent);
+        _initializeUniV3StablesJoint(_ticksFromCurrent);
     }
 
     /*
@@ -91,7 +92,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Initialize UniV3StablesJoint specifics
      * @param _ticksFromCurrent, # of ticks up & down to provide liquidity into
      */
-    function _initalizeUniV3StablesJoint(uint24 _ticksFromCurrent) internal {
+    function _initializeUniV3StablesJoint(uint24 _ticksFromCurrent) internal {
         ticksFromCurrent = _ticksFromCurrent;
         // The reward tokens are the tokens provided to the pool
         rewardTokens = new address[](2);
@@ -173,9 +174,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function returning the liquidity amount of the LP position
      * @return liquidity from positionInfo
      */
-    function balanceOfPool() public view override returns (uint256) {
-        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
-        return positionInfo.liquidity;
+    function balanceOfPool() public view override returns (uint256 liquidity) {
+        (liquidity,,,,) = _positionInfo();
     }
 
     /*
@@ -184,8 +184,18 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * to use the uni v3 pool for swaps or a CRV pool
      * @param newUseCRVPool, new boolean value to use
      */
-    function setUseCRVPool(bool newUseCRVPool) external onlyVaultManagers {
-        useCRVPool = newUseCRVPool;
+    function setUseCRVPool(bool _useCRVPool) external onlyVaultManagers {
+        useCRVPool = _useCRVPool;
+    }
+
+    /*
+     * @notice
+     *  Function available for vault managers to set the Uni v3 pool to invest into
+     * @param pool, new pool value to use
+     */
+    function setUniPool(address _pool) external onlyVaultManagers {
+        require(investedA == 0 && investedB == 0);
+        pool = _pool;
     }
 
     /*
@@ -194,8 +204,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * current tick to provide liquidity to
      * @param newTicksFromCurrent, new value to use
      */
-    function setTicksFromCurrent(uint24 newTicksFromCurrent) external onlyVaultManagers {
-        ticksFromCurrent = newTicksFromCurrent;
+    function setTicksFromCurrent(uint24 _ticksFromCurrent) external onlyVaultManagers {
+        ticksFromCurrent = _ticksFromCurrent;
     }
 
     /*
@@ -229,18 +239,18 @@ contract UniV3StablesJoint is NoHedgeJoint {
         returns (uint256 _balanceA, uint256 _balanceB)
     {
         // Get the current pool status
-        IUniswapV3Pool.Slot0 memory _slot0 = IUniswapV3Pool(pool).slot0();
+        (uint160 sqrtPriceX96,,,,,,) = IUniswapV3Pool(pool).slot0();
         // Get the current position status
-        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
+        (uint128 liquidity,,,,) = _positionInfo();
 
         // Use Uniswap libraries to calculate the token0 and token1 balances for the 
         // provided ticks and liquidity amount
         (uint256 amount0, uint256 amount1) = LiquidityAmounts
             .getAmountsForLiquidity(
-                _slot0.sqrtPriceX96,
+                sqrtPriceX96,
                 TickMath.getSqrtRatioAtTick(minTick),
                 TickMath.getSqrtRatioAtTick(maxTick),
-                positionInfo.liquidity
+                liquidity
             );
         // uniswap orders token0 and token1 based on alphabetical order
         return tokenA < tokenB ? (amount0, amount1) : (amount1, amount0);
@@ -256,12 +266,16 @@ contract UniV3StablesJoint is NoHedgeJoint {
         uint256[] memory _amountPending = new uint256[](rewardTokens.length);
 
         // Get LP position info
-        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
+        (uint128 liquidity,
+        uint256 feeGrowthInside0LastX128,
+        uint256 feeGrowthInside1LastX128,
+        uint128 tokensOwed0,
+        uint128 tokensOwed1) = _positionInfo();
 
         // Initialize to the current status of owed tokens
         (_amountPending[0], _amountPending[1]) = tokenA < tokenB
-            ? (positionInfo.tokensOwed0, positionInfo.tokensOwed1)
-            : (positionInfo.tokensOwed1, positionInfo.tokensOwed0);
+            ? (tokensOwed0, tokensOwed1)
+            : (tokensOwed1, tokensOwed0);
 
         // Gas savings
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
@@ -270,19 +284,19 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
         // Use Uniswap views library to calculate the fees earned in tokenA and tokenB based
         // on current status of the pool and provided position
-        (uint128 tokensOwed0, uint128 tokensOwed1) = UniswapHelperViews.getFeesEarned(
+        (,int24 tick,,,,,) = _pool.slot0();
+        (tokensOwed0, tokensOwed1) = UniswapHelperViews.getFeesEarned(
             UniswapHelperViews.feesEarnedParams(
-                positionInfo.liquidity,
-                _pool.slot0().tick,
+                pool,
+                liquidity,
+                tick,
                 _minTick,
                 _maxTick,
                 _pool.feeGrowthGlobal0X128(),
                 _pool.feeGrowthGlobal1X128(),
-                positionInfo.feeGrowthInside0LastX128,
-                positionInfo.feeGrowthInside1LastX128
-            ),
-            _pool.ticks(_minTick),
-            _pool.ticks(_maxTick)
+                feeGrowthInside0LastX128,
+                feeGrowthInside1LastX128
+            )
         );
 
         // Reorder to make sure amounts are added correctly
@@ -375,11 +389,11 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function createLP() internal override returns (uint256, uint256) {
         IUniswapV3Pool _pool = IUniswapV3Pool(pool);
         // Get the current state of the pool
-        IUniswapV3Pool.Slot0 memory _slot0 = _pool.slot0();
+        (uint160 sqrtPriceX96, int24 tick,,,,,) = _pool.slot0();
         // Space between ticks for this pool
         int24 _tickSpacing = _pool.tickSpacing();
         // Current tick must be referenced as a multiple of tickSpacing
-        int24 _currentTick = (_slot0.tick / _tickSpacing) * _tickSpacing;
+        int24 _currentTick = (tick / _tickSpacing) * _tickSpacing;
         // Gas savings for # of ticks to LP
         int24 _ticksFromCurrent = int24(ticksFromCurrent);
         // Minimum tick to enter
@@ -406,7 +420,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
         // Calculate the amount of liquidity the joint can provided based on current situation
         // and amount of tokens available
         uint128 liquidityAmount = LiquidityAmounts.getLiquidityForAmounts(
-            _slot0.sqrtPriceX96,
+            sqrtPriceX96,
             TickMath.getSqrtRatioAtTick(_minTick),
             TickMath.getSqrtRatioAtTick(_maxTick),
             amount0,
@@ -432,8 +446,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function burnLP(uint256 amount) internal override {
         _burnAndCollect(amount, minTick, maxTick);
         // If entire position is closed, re-set the min and max ticks
-        IUniswapV3Pool.PositionInfo memory positionInfo = _positionInfo();
-        if (positionInfo.liquidity == 0){
+        (uint128 liquidity,,,,) = _positionInfo();
+        if (liquidity == 0){
             minTick = 0;
             maxTick = 0;
         }
@@ -498,29 +512,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if (!useCRVPool) {
-            // Use uni v3 pool to swap
-            // Order of swap
-            bool zeroForOne = _tokenFrom < _tokenTo;
-
-            // Use swap function of uni v3 pool, will use the implemented swap callback to 
-            // receive the corresponding tokens
-            (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
-                // recipient
-                address(this), // address(0) might cause issues with some tokens
-                // Order of swap
-                zeroForOne,
-                // amountSpecified
-                _amountIn.toInt256(),
-                // Price limit
-                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
-                // additonal calldata
-                ""
-            );
-
-            // Ensure amounts are returned in right order and sign (uni returns negative numbers)
-            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
-        } else {
+        if (useCRVPool) {
             // Do NOT use uni pool use CRV pool
             ICRVPool _pool = ICRVPool(crvPool);
         
@@ -534,9 +526,29 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 _amountIn, 
                 0
             );
-            // Revoke allowance
-            IERC20(_tokenFrom).safeApprove(address(_pool), 0);
             return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
+        } else {
+            // Use uni v3 pool to swap
+            // Order of swap
+            bool zeroForOne = _tokenFrom < _tokenTo;
+
+            // Use swap function of uni v3 pool, will use the implemented swap callback to 
+            // receive the corresponding tokens
+            (int256 _amount0, int256 _amount1) = IUniswapV3Pool(pool).swap(
+                // recipient
+                address(this),
+                // Order of swap
+                zeroForOne,
+                // amountSpecified
+                _amountIn.toInt256(),
+                // Price limit
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+                // additonal calldata
+                ""
+            );
+
+            // Ensure amounts are returned in right order and sign (uni returns negative numbers)
+            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
         }
         
     }
@@ -558,26 +570,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
     ) internal view override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
-        if(!useCRVPool){
-            // Use uni v3 pool to swap
-            // Order of swap
-            bool zeroForOne = _tokenFrom < _tokenTo;
-
-            // Use the uniswap helper view to simulate the swap in the uni v3 pool
-            (int256 _amount0, int256 _amount1, , ) = UniswapHelperViews.simulateSwap(
-                // pool to use
-                IUniswapV3Pool(pool),
-                // order of swap
-                zeroForOne,
-                // amountSpecified
-                _amountIn.toInt256(),
-                // price limit
-                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
-            );
-
-            // Ensure amounts are returned in right order and sign (uni returns negative numbers)
-            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
-        } else {
+        if(useCRVPool){
             // Do NOT use uni pool use CRV pool
             
             ICRVPool _pool = ICRVPool(crvPool);
@@ -588,6 +581,25 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 _getCRVPoolIndex(_tokenTo, _pool), 
                 _amountIn
             );
+        } else {
+            // Use uni v3 pool to swap
+            // Order of swap
+            bool zeroForOne = _tokenFrom < _tokenTo;
+
+            // Use the uniswap helper view to simulate the swap in the uni v3 pool
+            (int256 _amount0, int256 _amount1) = UniswapHelperViews.simulateSwap(
+                // pool to use
+                pool,
+                // order of swap
+                zeroForOne,
+                // amountSpecified
+                _amountIn.toInt256(),
+                // price limit
+                zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1
+            );
+
+            // Ensure amounts are returned in right order and sign (uni returns negative numbers)
+            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
         }
         
     }
@@ -602,15 +614,15 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @return in128 containing the token's pool index
      */
     function _getCRVPoolIndex(address _token, ICRVPool _pool) internal view returns(int128) {
-        if(_pool.coins(0) == _token) {
-                return int128(0);
-            } else if (_pool.coins(1) == _token) {
-                return int128(1);
-            } else if (_pool.coins(2) == _token) {
-                return int128(2);
-            } else {
-                revert();
+        uint8 i = 0; 
+        int128 poolIndex = 0;
+        while (i < 5) {
+            if (_pool.coins(i) == _token) {
+                return poolIndex;
             }
+            i++;
+            poolIndex++;
+        }
     }
 
     /*
@@ -624,7 +636,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function _positionInfo()
         private
         view
-        returns (IUniswapV3Pool.PositionInfo memory)
+        returns (
+            uint128 liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        )
     {
         bytes32 key = keccak256(
             abi.encodePacked(address(this), minTick, maxTick)
@@ -643,19 +661,110 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @return swapped amount
      */
     function swapTokenForTokenManually(
-        address[] memory swapPath,
+        bool sellA,
         uint256 swapInAmount,
-        uint256 minOutAmount
+        uint256 
     ) external onlyGovernance override returns (uint256) {
-        address _tokenA = tokenA;
-        address _tokenB = tokenB;
-        require(swapPath.length == 2);
-        require(swapPath[0] == _tokenA || swapPath[1] == _tokenA);
-        require(swapPath[0] == _tokenB || swapPath[1] == _tokenB);
-        return swap(
-            swapPath[0], 
-            swapPath[1], 
-            swapInAmount
-            );
+
+        if(sellA) {
+            return swap(
+                tokenA,
+                tokenB,
+                swapInAmount
+                );
+        } else {
+            return swap(
+                tokenB,
+                tokenA,
+                swapInAmount
+                );
+        }
+
+        
+    }
+
+    /*
+     * @notice
+     *  Function used by keepers to assess whether to harvest the joint and compound generated
+     * fees into the existing position, checks whether both pending fee amounts (tokenA and B)
+     * are greater than minRewardToHarvest
+     * @param callCost, call cost parameter
+     * @return bool amount assessing whether to harvest or not
+     */
+    function harvestTrigger(uint256 callCost) external view override returns (bool) {
+
+        uint256 _minRewardToHarvest = minRewardToHarvest;
+        if (_minRewardToHarvest == 0) {
+            return false;
+        }
+
+        uint256[] memory _pendingRewards = pendingRewards();
+
+        if (_pendingRewards[0] >= _minRewardToHarvest * (10**IERC20Extended(rewardTokens[0]).decimals()) / RATIO_PRECISION && 
+            _pendingRewards[1] >= _minRewardToHarvest * (10**IERC20Extended(rewardTokens[1]).decimals()) / RATIO_PRECISION
+        ) {
+            return true;
+        }
+
+    }
+
+    /*
+     * @notice
+     *  Function used by harvest trigger in the providers to assess whether to harvest it as
+     * the joint may have gone out of bounds. If debt ratio is kept in the vaults, the joint
+     * re-centers, if debt ratio is 0, the joint is simpley closed and funds are sent back
+     * to each provider
+     * @return bool amount assessing whether to end the epoch or not
+     */
+    function shouldEndEpoch() external view override returns (bool) {
+        (,int24 _tick,,,,,) = IUniswapV3Pool(pool).slot0();
+        (uint128 liquidity,,,,) = _positionInfo();
+        if((_tick < minTick || _tick >= maxTick) && (liquidity > 0)) {
+            return true;
+        }
+    }
+
+    /*
+     * @notice
+     *  Function used by keepers to compound the generated feed into the existing position
+     * in the joint. There may be some funds not used in the position and left idle in the 
+     * joint
+     */
+    function harvest() external override onlyKeepers {
+        getReward();
+
+        uint256 amount0;
+        uint256 amount1;
+
+        // Make sure tokens are in order
+        if (tokenA < tokenB) {
+            amount0 = balanceOfA();
+            amount1 = balanceOfB();
+        } else {
+            amount0 = balanceOfB();
+            amount1 = balanceOfA();
+        }
+
+        // Minimum tick to enter
+        int24 _minTick = minTick;
+        // Maximum tick to enter
+        int24 _maxTick = maxTick;
+
+        // Calculate the amount of liquidity the joint can provided based on current situation
+        // and amount of tokens available
+        IUniswapV3Pool _pool = IUniswapV3Pool(pool);
+        (uint160 sqrtPriceX96,,,,,,) = _pool.slot0();
+        uint128 liquidityAmount = LiquidityAmounts.getLiquidityForAmounts(
+            sqrtPriceX96,
+            TickMath.getSqrtRatioAtTick(_minTick),
+            TickMath.getSqrtRatioAtTick(_maxTick),
+            amount0,
+            amount1
+        );
+
+        // Mint the LP position - we are not yet in the LP, needs to go through the mint
+        // callback first
+        _pool.mint(address(this), _minTick, _maxTick, liquidityAmount, "");
+
     }
 }

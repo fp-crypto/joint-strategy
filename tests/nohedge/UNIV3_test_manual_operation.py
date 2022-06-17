@@ -193,14 +193,14 @@ def test_manual_swaps(
     tx = joint.removeLiquidityManually(joint.balanceOfPool(), 0, 0, {"from": gov})
 
     if swap_from == "a":
-        path = [tokenA, tokenB]
+        sell_A = True
         amount = joint.balanceOfA() - joint.investedA()
     else:
-        path = [tokenB, tokenA]
+        sell_A = False
         amount = joint.balanceOfB() - joint.investedB()
     
     joint.swapTokenForTokenManually(
-        path,
+        sell_A,
         amount,
         0,
         {"from": gov}
