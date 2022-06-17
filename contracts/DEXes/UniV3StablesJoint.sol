@@ -23,6 +23,7 @@ import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 contract UniV3StablesJoint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
+    using SafeCast for int256;
     
     // Used for cloning, will automatically be set to false for other clones
     bool public isOriginal = true;
@@ -613,15 +614,15 @@ contract UniV3StablesJoint is NoHedgeJoint {
      * @return in128 containing the token's pool index
      */
     function _getCRVPoolIndex(address _token, ICRVPool _pool) internal view returns(int128) {
-        if(_pool.coins(0) == _token) {
-                return int128(0);
-            } else if (_pool.coins(1) == _token) {
-                return int128(1);
-            } else if (_pool.coins(2) == _token) {
-                return int128(2);
-            } else {
-                revert();
+        uint8 i = 0; 
+        int128 poolIndex = 0;
+        while (i < 5) {
+            if (_pool.coins(i) == _token) {
+                return poolIndex;
             }
+            i++;
+            poolIndex++;
+        }
     }
 
     /*
@@ -662,7 +663,7 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function swapTokenForTokenManually(
         bool sellA,
         uint256 swapInAmount,
-        uint256 minOutAmount
+        uint256 
     ) external onlyGovernance override returns (uint256) {
 
         if(sellA) {
