@@ -189,6 +189,16 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
     /*
      * @notice
+     *  Function available for vault managers to set the Uni v3 pool to invest into
+     * @param pool, new pool value to use
+     */
+    function setUniPool(address _pool) external onlyVaultManagers {
+        require(investedA == 0 && investedB == 0);
+        pool = _pool;
+    }
+
+    /*
+     * @notice
      *  Function available for vault managers to set the number of ticks on each side of 
      * current tick to provide liquidity to
      * @param newTicksFromCurrent, new value to use
