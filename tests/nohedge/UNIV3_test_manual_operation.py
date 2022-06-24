@@ -1,7 +1,7 @@
 from functools import _lru_cache_wrapper
 from utils import actions, checks, utils
 import pytest
-from brownie import Contract, chain
+from brownie import Contract, chain, reverts
 
 @pytest.mark.parametrize("swap_from", ["a", "b"])
 def test_return_loose_to_providers_manually(
@@ -37,6 +37,10 @@ def test_return_loose_to_providers_manually(
     actions.user_deposit(user, vaultA, tokenA, amountA)
     actions.user_deposit(user, vaultB, tokenB, amountB)
 
+    # Try to inject a false address as pool
+    with reverts():
+        joint.setUniPool("0x3416cf6c708da44db2624d63ea0aaef7113527c5", 100)
+
     # Harvest 1: Send funds through the strategy
     chain.sleep(1)
     actions.gov_start_epoch_univ3(gov, providerA, providerB, joint, vaultA, vaultB, amountA, amountB)
@@ -63,7 +67,10 @@ def test_return_loose_to_providers_manually(
 
     reward_gains = pending_rewards[0] if pending_rewards[0] > 0 else pending_rewards[1]
     # Claim rewards manually
-    tx = joint.burnLPManually(0, joint.minTick(), joint.maxTick(), {"from": gov})
+    balA, balB = joint.pendingRewards()
+    with reverts():
+        tx = joint.burnLPManually(0, joint.minTick(), joint.maxTick(), balA*1.1, balB*1.1, {"from": gov})
+    tx = joint.burnLPManually(0, joint.minTick(), joint.maxTick(), balA*0.99, balB*0.99, {"from": gov})
     if reward_gains == pending_rewards[0]:
         assert tx.events["Collect"]["amount0"] == reward_gains
     else:
