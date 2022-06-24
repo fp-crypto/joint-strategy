@@ -475,9 +475,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function burnLPManually(
             uint256 _amount,
             int24 _minTick,
-            int24 _maxTick
+            int24 _maxTick,
+            uint256 _minOutTokenA,
+            uint256 _minOutTokenB
             ) external onlyVaultManagers {
         _burnAndCollect(_amount, _minTick, _maxTick);
+        require(IERC20(tokenA).balanceOf(address(this)) >= _minOutTokenA && 
+                IERC20(tokenB).balanceOf(address(this)) >= _minOutTokenB);
     }
 
     /*
