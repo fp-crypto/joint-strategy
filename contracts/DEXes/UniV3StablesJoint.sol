@@ -517,17 +517,18 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function swap(
         address _tokenFrom,
         address _tokenTo,
-        uint256 _amountIn
+        uint256 _amountIn,
+        uint256 _minOutAmount
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
+        uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
         if (useCRVPool) {
             // Do NOT use uni pool use CRV pool
             ICRVPool _pool = ICRVPool(crvPool);
         
             // Allow necessary amount for CRV pool
             _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
-            uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
             // Perform swap
             _pool.exchange(
                 _getCRVPoolIndex(_tokenFrom, _pool), 
@@ -535,7 +536,9 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 _amountIn, 
                 0
             );
-            return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
+            uint256 result = IERC20(_tokenTo).balanceOf(address(this)) - prevBalance;
+            require(result >= _minOutAmount);
+            return (result);
         } else {
             // Use uni v3 pool to swap
             // Order of swap
@@ -555,9 +558,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 // additonal calldata
                 ""
             );
-
+            uint256 result = zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+            require(result >= _minOutAmount);
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
-            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+            return result;
         }
         
     }
@@ -672,20 +676,22 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function swapTokenForTokenManually(
         bool sellA,
         uint256 swapInAmount,
-        uint256 
+        uint256 minOutAmount
     ) external onlyGovernance override returns (uint256) {
 
         if(sellA) {
             return swap(
                 tokenA,
                 tokenB,
-                swapInAmount
+                swapInAmount,
+                minOutAmount
                 );
         } else {
             return swap(
                 tokenB,
                 tokenA,
-                swapInAmount
+                swapInAmount,
+                minOutAmount
                 );
         }
 
