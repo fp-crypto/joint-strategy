@@ -37,6 +37,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
     int24 public maxTick;
     // # of ticks to go up&down from current price to open LP position
     uint24 public ticksFromCurrent;
+    // fee tier of the pool
+    uint24 public feeTier;
     // boolean variable deciding wether to swap in the uni v3 pool or using CRV
     // this can make sense if the pool is unbalanced and price is far from CRV or if the 
     // liquidity remaining in the pool is not enough for the rebalancing swap the strategy needs
@@ -106,6 +108,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
         useCRVPool = false;
         // Initialize CRV pool to 3pool
         crvPool = address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+        // Set up the fee tier
+        feeTier = IUniswapV3Pool(pool).fee();
     }
 
     event Cloned(address indexed clone);
@@ -197,9 +201,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function available for vault managers to set the Uni v3 pool to invest into
      * @param pool, new pool value to use
      */
-    function setUniPool(address _pool) external onlyVaultManagers {
-        require(investedA == 0 && investedB == 0);
+    function setUniPool(address _pool, uint24 _feeTier) external onlyVaultManagers {
+        require(investedA == 0 && investedB == 0 && UniswapHelperViews.checkExistingPool(tokenA, tokenB, _feeTier, _pool));
         pool = _pool;
+        feeTier = _feeTier;
     }
 
     /*
