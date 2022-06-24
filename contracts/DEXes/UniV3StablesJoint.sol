@@ -20,6 +20,10 @@ import {SafeCast} from "../libraries/SafeCast.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
+interface IBaseFee {
+    function isCurrentBaseFeeAcceptable() external view returns (bool);
+}
+
 contract UniV3StablesJoint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
@@ -683,6 +687,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
         
     }
 
+    // check if the current baseFee is below our external target
+    function isBaseFeeAcceptable() internal view returns (bool) {
+        return
+            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
+                .isCurrentBaseFeeAcceptable();
+    }
+
     /*
      * @notice
      *  Function used by keepers to assess whether to harvest the joint and compound generated
@@ -695,6 +706,11 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
         uint256 _minRewardToHarvest = minRewardToHarvest;
         if (_minRewardToHarvest == 0) {
+            return false;
+        }
+
+        // check if the base fee gas price is higher than we allow. if it is, block harvests.
+        if (!isBaseFeeAcceptable()) {
             return false;
         }
 
