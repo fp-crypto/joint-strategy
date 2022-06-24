@@ -310,7 +310,8 @@ abstract contract Joint {
             uint256 buyAmount = swap(
                 sellToken,
                 sellToken == tokenA ? tokenB : tokenA,
-                sellAmount
+                sellAmount,
+                0
             );
         }
 
@@ -691,9 +692,9 @@ abstract contract Joint {
                 continue;
             // If the referenceToken is either A or B, swap rewards against it 
             } else if (_tokenA == referenceToken) {
-                    swappedToA += swap(reward, referenceToken, _rewardBal);
+                    swappedToA += swap(reward, referenceToken, _rewardBal, 0);
             } else if (_tokenB == referenceToken) {
-                    swappedToB += swap(reward, referenceToken, _rewardBal);
+                    swappedToB += swap(reward, referenceToken, _rewardBal, 0);
             } else {
                 // Assume that position has already been liquidated
                 (uint256 ratioA, uint256 ratioB) = getRatios(
@@ -704,9 +705,9 @@ abstract contract Joint {
                 );
                 
                 if (ratioA >= ratioB) {
-                    swappedToB += swap(reward, _tokenB, _rewardBal);
+                    swappedToB += swap(reward, _tokenB, _rewardBal, 0);
                 } else {
-                    swappedToA += swap(reward, _tokenA, _rewardBal);
+                    swappedToA += swap(reward, _tokenA, _rewardBal, 0);
                 }
             }
         }
@@ -716,7 +717,8 @@ abstract contract Joint {
     function swap(
         address _tokenFrom,
         address _tokenTo,
-        uint256 _amountIn
+        uint256 _amountIn,
+        uint256 _minOutAmount
     ) internal virtual returns (uint256 _amountOut);
 
     function quote(

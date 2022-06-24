@@ -20,6 +20,10 @@ import {SafeCast} from "../libraries/SafeCast.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 import {FixedPoint128} from "../libraries/FixedPoint128.sol";
 
+interface IBaseFee {
+    function isCurrentBaseFeeAcceptable() external view returns (bool);
+}
+
 contract UniV3StablesJoint is NoHedgeJoint {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
@@ -33,6 +37,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
     int24 public maxTick;
     // # of ticks to go up&down from current price to open LP position
     uint24 public ticksFromCurrent;
+    // fee tier of the pool
+    uint24 public feeTier;
     // boolean variable deciding wether to swap in the uni v3 pool or using CRV
     // this can make sense if the pool is unbalanced and price is far from CRV or if the 
     // liquidity remaining in the pool is not enough for the rebalancing swap the strategy needs
@@ -102,6 +108,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
         useCRVPool = false;
         // Initialize CRV pool to 3pool
         crvPool = address(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7);
+        // Set up the fee tier
+        feeTier = IUniswapV3Pool(pool).fee();
     }
 
     event Cloned(address indexed clone);
@@ -193,9 +201,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *  Function available for vault managers to set the Uni v3 pool to invest into
      * @param pool, new pool value to use
      */
-    function setUniPool(address _pool) external onlyVaultManagers {
-        require(investedA == 0 && investedB == 0);
+    function setUniPool(address _pool, uint24 _feeTier) external onlyVaultManagers {
+        require(investedA == 0 && investedB == 0 && UniswapHelperViews.checkExistingPool(tokenA, tokenB, _feeTier, _pool));
         pool = _pool;
+        feeTier = _feeTier;
     }
 
     /*
@@ -443,8 +452,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *      - re-sets the active position min and max tick to 0
      * @param amount, amount of liquidity to burn
      */
-    function burnLP(uint256 amount) internal override {
-        _burnAndCollect(amount, minTick, maxTick);
+    function burnLP(uint256 _amount) internal override {
+        _burnAndCollect(_amount, minTick, maxTick);
         // If entire position is closed, re-set the min and max ticks
         (uint128 liquidity,,,,) = _positionInfo();
         if (liquidity == 0){
@@ -466,9 +475,13 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function burnLPManually(
             uint256 _amount,
             int24 _minTick,
-            int24 _maxTick
+            int24 _maxTick,
+            uint256 _minOutTokenA,
+            uint256 _minOutTokenB
             ) external onlyVaultManagers {
         _burnAndCollect(_amount, _minTick, _maxTick);
+        require(IERC20(tokenA).balanceOf(address(this)) >= _minOutTokenA && 
+                IERC20(tokenB).balanceOf(address(this)) >= _minOutTokenB);
     }
 
     /*
@@ -508,17 +521,18 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function swap(
         address _tokenFrom,
         address _tokenTo,
-        uint256 _amountIn
+        uint256 _amountIn,
+        uint256 _minOutAmount
     ) internal override returns (uint256) {
         require(_tokenTo == tokenA || _tokenTo == tokenB); // dev: must be a or b
         require(_tokenFrom == tokenA || _tokenFrom == tokenB); // dev: must be a or b
+        uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
         if (useCRVPool) {
             // Do NOT use uni pool use CRV pool
             ICRVPool _pool = ICRVPool(crvPool);
         
             // Allow necessary amount for CRV pool
             _checkAllowance(address(_pool), IERC20(_tokenFrom), _amountIn);
-            uint256 prevBalance = IERC20(_tokenTo).balanceOf(address(this));
             // Perform swap
             _pool.exchange(
                 _getCRVPoolIndex(_tokenFrom, _pool), 
@@ -526,7 +540,9 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 _amountIn, 
                 0
             );
-            return (IERC20(_tokenTo).balanceOf(address(this)) - prevBalance);
+            uint256 result = IERC20(_tokenTo).balanceOf(address(this)) - prevBalance;
+            require(result >= _minOutAmount);
+            return (result);
         } else {
             // Use uni v3 pool to swap
             // Order of swap
@@ -546,9 +562,10 @@ contract UniV3StablesJoint is NoHedgeJoint {
                 // additonal calldata
                 ""
             );
-
+            uint256 result = zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+            require(result >= _minOutAmount);
             // Ensure amounts are returned in right order and sign (uni returns negative numbers)
-            return zeroForOne ? uint256(-_amount1) : uint256(-_amount0);
+            return result;
         }
         
     }
@@ -663,24 +680,33 @@ contract UniV3StablesJoint is NoHedgeJoint {
     function swapTokenForTokenManually(
         bool sellA,
         uint256 swapInAmount,
-        uint256 
+        uint256 minOutAmount
     ) external onlyGovernance override returns (uint256) {
 
         if(sellA) {
             return swap(
                 tokenA,
                 tokenB,
-                swapInAmount
+                swapInAmount,
+                minOutAmount
                 );
         } else {
             return swap(
                 tokenB,
                 tokenA,
-                swapInAmount
+                swapInAmount,
+                minOutAmount
                 );
         }
 
         
+    }
+
+    // check if the current baseFee is below our external target
+    function isBaseFeeAcceptable() internal view returns (bool) {
+        return
+            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
+                .isCurrentBaseFeeAcceptable();
     }
 
     /*
@@ -695,6 +721,11 @@ contract UniV3StablesJoint is NoHedgeJoint {
 
         uint256 _minRewardToHarvest = minRewardToHarvest;
         if (_minRewardToHarvest == 0) {
+            return false;
+        }
+
+        // check if the base fee gas price is higher than we allow. if it is, block harvests.
+        if (!isBaseFeeAcceptable()) {
             return false;
         }
 

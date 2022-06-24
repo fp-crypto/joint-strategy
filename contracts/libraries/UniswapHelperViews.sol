@@ -9,8 +9,8 @@ import {SafeCast} from "./SafeCast.sol";
 import {TickMath} from "./TickMath.sol";
 import {LiquidityAmounts} from "./LiquidityAmounts.sol";
 import {TickBitmapExtended} from "./TickBitmapExtended.sol";
+import {IUniswapV3Factory} from "../../interfaces/uniswap/V3/IUniswapV3Factory.sol";
 
-// import {IUniswapV3Pool} from "../../interfaces/uniswap/V3/IUniswapV3Pool.sol";
 import {Simulate} from "@uniswap/contracts/libraries/Simulate.sol";
 import {IUniswapV3Pool} from "@uniswap/contracts/interfaces/IUniswapV3Pool.sol";
 
@@ -25,7 +25,21 @@ library UniswapHelperViews {
     error ZeroAmount();
     error InvalidSqrtPriceLimit(uint160 sqrtPriceLimitX96);
 
+    IUniswapV3Factory public constant uniV3factory = IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+
     uint256 public constant PRECISION = 1e18;
+
+    function checkExistingPool(
+        address tokenA,
+        address tokenB,
+        uint24 feeTier,
+        address poolToCheck
+    ) external view returns(bool) {
+        if (uniV3factory.getPool(tokenA, tokenB, feeTier) == poolToCheck) {
+            return true;
+        }
+        return false;
+    }
 
     /// @notice Simulates a swap over an Uniswap V3 Pool, allowing to handle tick crosses.
     /// @param v3Pool uniswap v3 pool address
