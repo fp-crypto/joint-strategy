@@ -452,8 +452,8 @@ contract UniV3StablesJoint is NoHedgeJoint {
      *      - re-sets the active position min and max tick to 0
      * @param amount, amount of liquidity to burn
      */
-    function burnLP(uint256 amount) internal override {
-        _burnAndCollect(amount, minTick, maxTick);
+    function burnLP(uint256 _amount) internal override {
+        _burnAndCollect(_amount, minTick, maxTick);
         // If entire position is closed, re-set the min and max ticks
         (uint128 liquidity,,,,) = _positionInfo();
         if (liquidity == 0){
