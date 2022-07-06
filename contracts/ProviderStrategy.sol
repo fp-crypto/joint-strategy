@@ -1,19 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity ^0.8.12;
 pragma experimental ABIEncoderV2;
 
-import {
-    SafeERC20,
-    SafeMath,
-    IERC20,
-    Address
-} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "../interfaces/uni/IUniswapV2Router02.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "../interfaces/IERC20Extended.sol";
-import "@openzeppelin/contracts/math/Math.sol";
-import {
-    BaseStrategyInitializable
-} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {BaseStrategyInitializable} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface JointAPI {
     function closePositionReturnFunds() external;
@@ -24,7 +18,7 @@ interface JointAPI {
 
     function providerB() external view returns (address);
 
-    function estimatedTotalAssetsInToken(address token)
+    function estimatedTotalProviderAssets(address provider)
         external
         view
         returns (uint256);
@@ -36,7 +30,7 @@ interface JointAPI {
     function migrateProvider(address _newProvider) external;
 
     function shouldEndEpoch() external view returns (bool);
-    
+
     function shouldStartEpoch() external view returns (bool);
 
     function dontInvestWant() external view returns (bool);
@@ -45,11 +39,11 @@ interface JointAPI {
 contract ProviderStrategy is BaseStrategyInitializable {
     using SafeERC20 for IERC20;
     using Address for address;
-    using SafeMath for uint256;
 
     address public joint;
 
     bool public forceLiquidate;
+    bool public launchHarvest;
 
     constructor(address _vault) public BaseStrategyInitializable(_vault) {}
 
@@ -67,13 +61,16 @@ contract ProviderStrategy is BaseStrategyInitializable {
 
     function estimatedTotalAssets() public view override returns (uint256) {
         return
-            want.balanceOf(address(this)).add(
-                JointAPI(joint).estimatedTotalAssetsInToken(address(want))
-            );
+            want.balanceOf(address(this)) +
+            JointAPI(joint).estimatedTotalProviderAssets(address(this));
     }
 
     function totalDebt() public view returns (uint256) {
         return vault.strategies(address(this)).totalDebt;
+    }
+
+    function setLaunchHarvest(bool _newLaunchHarvest) external onlyVaultManagers {
+        launchHarvest = _newLaunchHarvest;
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -85,6 +82,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
             uint256 _debtPayment
         )
     {
+        if (launchHarvest) {
+            launchHarvest = false;
+        }
         // NOTE: this strategy is operated following epochs. These begin during adjustPosition and end during prepareReturn
         // The Provider will always ask the joint to close the position before harvesting
         JointAPI(joint).closePositionReturnFunds();
@@ -95,14 +95,14 @@ contract ProviderStrategy is BaseStrategyInitializable {
 
         if (_totalDebt > totalAssets) {
             // we have losses
-            _loss = _totalDebt.sub(totalAssets);
+            _loss = _totalDebt - totalAssets;
         } else {
             // we have profit
-            _profit = totalAssets.sub(_totalDebt);
+            _profit = totalAssets - _totalDebt;
         }
 
         uint256 amountAvailable = totalAssets;
-        uint256 amountRequired = _debtOutstanding.add(_profit);
+        uint256 amountRequired = _debtOutstanding + _profit;
 
         if (amountRequired > amountAvailable) {
             if (_debtOutstanding > amountAvailable) {
@@ -115,13 +115,13 @@ contract ProviderStrategy is BaseStrategyInitializable {
                 // NOTE: amountRequired is always equal or greater than _debtOutstanding
                 // important to use amountAvailable just in case amountRequired is > amountAvailable
                 _debtPayment = _debtOutstanding;
-                _profit = amountAvailable.sub(_debtPayment);
+                _profit = amountAvailable - _debtPayment;
             }
         } else {
             _debtPayment = _debtOutstanding;
             // profit remains unchanged unless there is not enough to pay it
-            if (amountRequired.sub(_debtPayment) < _profit) {
-                _profit = amountRequired.sub(_debtPayment);
+            if (amountRequired - _debtPayment < _profit) {
+                _profit = amountRequired - _debtPayment;
             }
         }
     }
@@ -133,7 +133,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
         returns (bool)
     {
         // Delegating decision to joint
-        return (JointAPI(joint).shouldStartEpoch() && balanceOfWant() > 0) || JointAPI(joint).shouldEndEpoch();
+        return
+            (JointAPI(joint).shouldStartEpoch() && balanceOfWant() > 0) ||
+            JointAPI(joint).shouldEndEpoch() || launchHarvest;
     }
 
     function dontInvestWant() public view returns (bool) {
@@ -149,7 +151,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         // Using a push approach (instead of pull)
         uint256 wantBalance = balanceOfWant();
         if (wantBalance > 0) {
-            want.transfer(joint, wantBalance);
+            want.safeTransfer(joint, wantBalance);
         }
 
         JointAPI(joint).openPosition();
@@ -163,7 +165,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         uint256 availableAssets = want.balanceOf(address(this));
         if (_amountNeeded > availableAssets) {
             _liquidatedAmount = availableAssets;
-            _loss = _amountNeeded.sub(availableAssets);
+            _loss = _amountNeeded - availableAssets;
         } else {
             _liquidatedAmount = _amountNeeded;
         }
@@ -211,8 +213,7 @@ contract ProviderStrategy is BaseStrategyInitializable {
         _amountFreed = balanceOfWant();
         // NOTE: we accept a 1% difference before reverting
         require(
-            forceLiquidate ||
-                expectedBalance.mul(9_900).div(10_000) < _amountFreed,
+            forceLiquidate || (expectedBalance * 9_900) / 10_000 < _amountFreed,
             "!liquidation"
         );
     }
@@ -233,17 +234,9 @@ contract ProviderStrategy is BaseStrategyInitializable {
         view
         returns (uint256)
     {
-        if (amount == 0 || address(want) == token) {
-            return amount;
-        }
-
-        uint256[] memory amounts =
-            IUniswapV2Router02(JointAPI(joint).router()).getAmountsOut(
-                amount,
-                getTokenOutPath(token, address(want))
-            );
-
-        return amounts[amounts.length - 1];
+        // if (amount == 0 || address(want) == token) {
+        return amount;
+        // }
     }
 
     function getTokenOutPath(address _token_in, address _token_out)
@@ -251,9 +244,8 @@ contract ProviderStrategy is BaseStrategyInitializable {
         view
         returns (address[] memory _path)
     {
-        bool is_weth =
-            _token_in == address(JointAPI(joint).WETH()) ||
-                _token_out == address(JointAPI(joint).WETH());
+        bool is_weth = _token_in == address(JointAPI(joint).WETH()) ||
+            _token_out == address(JointAPI(joint).WETH());
         _path = new address[](is_weth ? 2 : 3);
         _path[0] = _token_in;
 

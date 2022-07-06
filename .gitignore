@@ -12,3 +12,10 @@ node_modules/
 
 # Hardhat
 cache
+
+scripts/live_tc.py
+scripts/find_pid.py
+bin/
+lib/
+flattened*
+pyvenv*

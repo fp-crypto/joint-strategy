@@ -1,13 +1,11 @@
-pragma solidity 0.6.12;
+pragma solidity 0.8.12;
 
-import {
-    SafeERC20,
-    SafeMath,
-    IERC20,
-    Address
-} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "@openzeppelin/contracts/math/Math.sol";
-import "../../interfaces/uni/IUniswapV2Pair.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+import "../../interfaces/uniswap/V2/IUniswapV2Pair.sol";
 import "../../interfaces/hegic/IHegicOptions.sol";
 import "../../interfaces/IERC20Extended.sol";
 
@@ -31,9 +29,9 @@ interface HegicJointAPI {
 }
 
 library LPHedgingLib {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using Address for address;
+    using SafeMath for uint256;
 
     address public constant hegicOptionsManager =
         0x1BA4b447d0dF64DA64024e5Ec47dA94458C1e97f;
@@ -66,8 +64,9 @@ library LPHedgingLib {
     }
 
     function getCurrentPrice() public returns (uint256) {
-        IPriceProvider pp =
-            IPriceProvider(_hegicCallOptionsPool().priceProvider());
+        IPriceProvider pp = IPriceProvider(
+            _hegicCallOptionsPool().priceProvider()
+        );
         (, int256 answer, , , ) = pp.latestRoundData();
         return uint256(answer);
     }
@@ -113,8 +112,11 @@ library LPHedgingLib {
         uint256 amount
     ) public view returns (uint256) {
         // Strike = 0 means ATM option
-        (uint256 premium, uint256 settlementFee) =
-            pool.calculateTotalPremium(period, amount, 0);
+        (uint256 premium, uint256 settlementFee) = pool.calculateTotalPremium(
+            period,
+            amount,
+            0
+        );
         return premium + settlementFee;
     }
 
@@ -246,10 +248,12 @@ library LPHedgingLib {
         if (callID == 0 || putID == 0) {
             return 0;
         }
-        (, , , , uint256 expiredCall, , ) =
-            _hegicCallOptionsPool().options(callID);
-        (, , , , uint256 expiredPut, , ) =
-            _hegicPutOptionsPool().options(putID);
+        (, , , , uint256 expiredCall, , ) = _hegicCallOptionsPool().options(
+            callID
+        );
+        (, , , , uint256 expiredPut, , ) = _hegicPutOptionsPool().options(
+            putID
+        );
         // use lowest time to maturity (should be the same)
         uint256 expired = expiredCall > expiredPut ? expiredPut : expiredCall;
         if (expired < block.timestamp) {
@@ -264,8 +268,9 @@ library LPHedgingLib {
         returns (uint256)
     {
         // NOTE: strike is the same for both options
-        (, uint256 strikeCall, , , , , ) =
-            _hegicCallOptionsPool().options(callID);
+        (, uint256 strikeCall, , , , , ) = _hegicCallOptionsPool().options(
+            callID
+        );
         return strikeCall;
     }
 
